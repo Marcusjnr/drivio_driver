@@ -1,0 +1,41 @@
+name: drivio_driver
+description: Drivio Driver — marketplace driver app.
+publish_to: 'none'
+version: 1.0.0+2
+
+environment:
+  sdk: ^3.11.0
+
+dependencies:
+  flutter:
+    sdk: flutter
+  cupertino_icons: ^1.0.8
+  flutter_riverpod: ^2.5.1
+  get_it: ^7.7.0
+  flutter_screenutil: ^5.9.3
+  google_fonts: ^6.2.1
+  intl: ^0.19.0
+  shared_preferences: ^2.3.2
+  supabase_flutter: ^2.12.4
+  uuid: ^4.5.1
+  flutter_dotenv: ^6.0.1
+  image_picker: ^1.1.2
+  file_picker: ^11.0.2
+  path: ^1.9.0
+  mime: ^1.0.6
+  pay_with_paystack: ^1.0.14
+  geolocator: ^13.0.2
+  maplibre_gl: ^0.26.0
+  url_launcher: ^6.3.1
+  logger: ^2.4.0
+  shimmer: ^3.0.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+flutter:
+  uses-material-design: true
+  assets:
+    - .env
