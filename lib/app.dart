@@ -4,11 +4,11 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import 'package:drivio_driver/modules/commons/auth/session_guard.dart';
-import 'package:drivio_driver/modules/commons/bootstrap/bootstrap_controller.dart';
 import 'package:drivio_driver/modules/commons/di/di.dart';
 import 'package:drivio_driver/modules/commons/lifecycle/lifecycle_controller.dart';
 import 'package:drivio_driver/modules/commons/navigation/app_navigation.dart';
 import 'package:drivio_driver/modules/commons/navigation/app_router.dart';
+import 'package:drivio_driver/modules/commons/navigation/app_routes.dart';
 import 'package:drivio_driver/modules/commons/theme/app_dimensions.dart';
 import 'package:drivio_driver/modules/commons/theme/app_theme.dart';
 import 'package:drivio_driver/modules/commons/theme/logic/theme_mode_controller.dart';
@@ -44,18 +44,11 @@ class _AppState extends ConsumerState<App> {
   @override
   Widget build(BuildContext context) {
     final ThemeMode mode = ref.watch(themeModeProvider);
-    final BootstrapState bootstrap = ref.watch(bootstrapControllerProvider);
 
-    if (bootstrap.isLoading) {
-      return MaterialApp(
-        theme: _withInter(AppTheme.dark),
-        debugShowCheckedModeBanner: false,
-        home: const Scaffold(
-          body: Center(child: CircularProgressIndicator()),
-        ),
-      );
-    }
-
+    // The splash page is ALWAYS the first thing rendered. It owns the
+    // brand reveal, the location-permission ask, AND the wait for
+    // bootstrap to resolve auth/active-trip state. Once everything's
+    // ready it pushReplacements to the bootstrap-resolved destination.
     return ScreenUtilInit(
       designSize: const Size(
         AppDimensions.designWidth,
@@ -64,8 +57,6 @@ class _AppState extends ConsumerState<App> {
       minTextAdapt: true,
       ensureScreenSize: true,
       builder: (BuildContext _, Widget? __) {
-        final BootstrapController bootstrapC =
-            ref.read(bootstrapControllerProvider.notifier);
         return MaterialApp(
           title: locator.get<cfg.Config>().title,
           theme: _withInter(AppTheme.light),
@@ -73,19 +64,7 @@ class _AppState extends ConsumerState<App> {
           themeMode: mode,
           debugShowCheckedModeBanner: false,
           navigatorKey: AppNavigation.navigatorKey,
-          initialRoute: bootstrapC.initialRoute,
-          // Custom initial-route generator so we can pass arguments
-          // (notably an activeTripId for cold-start trip resume).
-          onGenerateInitialRoutes: (String initial) {
-            return <Route<dynamic>>[
-              AppRouter.onGenerateRoute(
-                RouteSettings(
-                  name: initial,
-                  arguments: bootstrapC.initialArguments,
-                ),
-              ),
-            ];
-          },
+          initialRoute: AppRoutes.splash,
           onGenerateRoute: AppRouter.onGenerateRoute,
         );
       },

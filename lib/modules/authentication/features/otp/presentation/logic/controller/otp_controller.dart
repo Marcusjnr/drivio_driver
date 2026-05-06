@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'package:drivio_driver/modules/commons/di/di.dart';
+import 'package:drivio_driver/modules/commons/logging/app_logger.dart';
 import 'package:drivio_driver/modules/commons/supabase/supabase_module.dart';
 
 const String _devOtpCode = '123456';
@@ -116,10 +117,14 @@ class OtpController extends StateNotifier<OtpState> {
     }
 
     state = state.copyWith(isVerifying: true, clearError: true);
+    AppLogger.i('otp.verify start', data: <String, dynamic>{
+      'mode': mode.toString(),
+      'email': email,
+    });
 
     try {
       if (mode == AuthMode.signUp) {
-        await _supabase.auth.signUp(
+        final AuthResponse res = await _supabase.auth.signUp(
           email: email,
           password: password,
           data: <String, dynamic>{
@@ -127,22 +132,40 @@ class OtpController extends StateNotifier<OtpState> {
             'role': 'driver',
           },
         );
+        if (res.session == null) {
+          AppLogger.w('otp.verify signUp returned null session');
+          state = state.copyWith(
+            isVerifying: false,
+            error:
+                'Email confirmation is enabled on this Supabase project. Disable "Confirm email" under Authentication → Sign In / Providers → Email, then try again.',
+            value: '',
+          );
+          return false;
+        }
       } else {
         await _supabase.auth.signInWithPassword(
           email: email,
           password: password,
         );
       }
+      final Session? after = _supabase.auth.currentSession;
+      AppLogger.i('otp.verify success', data: <String, dynamic>{
+        'session': after == null ? 'null' : 'present',
+        'user_id': after?.user.id ?? '—',
+      });
       state = state.copyWith(isVerifying: false);
       return true;
     } on AuthException catch (e) {
+      AppLogger.w('otp.verify AuthException',
+          data: <String, dynamic>{'message': e.message});
       state = state.copyWith(
         isVerifying: false,
         error: e.message,
         value: '',
       );
       return false;
-    } catch (_) {
+    } catch (e, st) {
+      AppLogger.e('otp.verify threw', error: e, stackTrace: st);
       state = state.copyWith(
         isVerifying: false,
         error: 'Verification failed. Check your connection.',

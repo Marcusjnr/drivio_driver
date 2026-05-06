@@ -15,8 +15,11 @@ class SupabaseWalletRepository implements WalletRepository {
   Future<Wallet?> getMyWallet() async {
     final User? user = _supabase.auth.currentUser;
     if (user == null) return null;
+    // Reads go through the `driver_wallets` view (PLAT-015) which aliases
+    // `user_id` AS `driver_id` and filters owner_kind='driver'. Keeps the
+    // JSON shape stable for `Wallet.fromJson`.
     final List<Map<String, dynamic>> rows = await _supabase
-        .db('wallets')
+        .db('driver_wallets')
         .select()
         .eq('driver_id', user.id)
         .limit(1);
@@ -29,7 +32,7 @@ class SupabaseWalletRepository implements WalletRepository {
     final User? user = _supabase.auth.currentUser;
     if (user == null) return const <LedgerEntry>[];
     final List<Map<String, dynamic>> rows = await _supabase
-        .db('wallet_ledger')
+        .db('driver_wallet_ledger')
         .select()
         .eq('driver_id', user.id)
         .order('created_at', ascending: false)
@@ -105,6 +108,9 @@ class SupabaseWalletRepository implements WalletRepository {
     if (user == null) return const Stream<Wallet>.empty();
 
     final StreamController<Wallet> ctrl = StreamController<Wallet>.broadcast();
+    // Realtime postgres-changes always hooks the base table's WAL, not the
+    // back-compat view. Filter by user_id (the renamed column, PLAT-015) and
+    // re-shape the payload to keep `driver_id` in the JSON for Wallet.fromJson.
     final RealtimeChannel channel = _supabase.client
         .channel('wallets:${user.id}')
         .onPostgresChanges(
@@ -113,12 +119,16 @@ class SupabaseWalletRepository implements WalletRepository {
           table: 'wallets',
           filter: PostgresChangeFilter(
             type: PostgresChangeFilterType.eq,
-            column: 'driver_id',
+            column: 'user_id',
             value: user.id,
           ),
           callback: (PostgresChangePayload p) {
-            if (p.newRecord.isNotEmpty) {
-              ctrl.add(Wallet.fromJson(p.newRecord));
+            if (p.newRecord.isNotEmpty &&
+                p.newRecord['owner_kind'] == 'driver') {
+              ctrl.add(Wallet.fromJson(<String, dynamic>{
+                ...p.newRecord,
+                'driver_id': p.newRecord['user_id'],
+              }));
             }
           },
         );
@@ -145,11 +155,16 @@ class SupabaseWalletRepository implements WalletRepository {
           table: 'wallet_ledger',
           filter: PostgresChangeFilter(
             type: PostgresChangeFilterType.eq,
-            column: 'driver_id',
+            column: 'user_id',
             value: user.id,
           ),
-          callback: (PostgresChangePayload p) =>
-              ctrl.add(LedgerEntry.fromJson(p.newRecord)),
+          callback: (PostgresChangePayload p) {
+            if (p.newRecord['owner_kind'] != 'driver') return;
+            ctrl.add(LedgerEntry.fromJson(<String, dynamic>{
+              ...p.newRecord,
+              'driver_id': p.newRecord['user_id'],
+            }));
+          },
         );
     channel.subscribe();
     ctrl.onCancel = () async {

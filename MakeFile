@@ -1,0 +1,24 @@
+MANIFEST_DIR                     = .manifests
+
+$(shell mkdir -p $(MANIFEST_DIR))
+
+$(MANIFEST_DIR)/mobile-dependencies: pubspec.yaml pubspec.lock
+	flutter pub get
+
+get:
+	fvm flutter pub get
+
+generate:
+	fvm dart run build_runner build --delete-conflicting-outputs
+
+build-stage-android:
+	fvm flutter build apk -t lib/main.dart --profile
+
+build-preprod-android:
+	fvm flutter build apk -t lib/main_preprod.dart --flavor preprod --profile
+
+build-prod-android:
+	fvm flutter build apk -t lib/main_prod.dart --flavor prod --profile
+
+test:
+	fvm flutter test

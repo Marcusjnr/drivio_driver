@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:maplibre_gl/maplibre_gl.dart';
 
 import 'package:drivio_driver/modules/commons/all.dart';
+import 'package:drivio_driver/modules/commons/location/location_permission_service.dart';
 import 'package:drivio_driver/modules/commons/types/demand_cell.dart';
 import 'package:drivio_driver/modules/commons/types/ride_request.dart';
 import 'package:drivio_driver/modules/commons/types/trip.dart';
@@ -19,6 +20,7 @@ import 'package:drivio_driver/modules/dash/features/home/presentation/logic/cont
 import 'package:drivio_driver/modules/dash/features/home/presentation/logic/controller/presence_controller.dart';
 import 'package:drivio_driver/modules/dash/features/home/presentation/ui/widgets/driver_tab_bar.dart';
 import 'package:drivio_driver/modules/dash/features/home/presentation/ui/widgets/kyc_gate_sheet.dart';
+import 'package:drivio_driver/modules/dash/features/home/presentation/ui/widgets/location_gate_sheet.dart';
 import 'package:drivio_driver/modules/dash/features/home/presentation/ui/widgets/subscription_gate_sheet.dart';
 import 'package:drivio_driver/modules/dash/features/home/presentation/ui/widgets/vehicle_gate_sheet.dart';
 import 'package:drivio_driver/modules/dash/features/home/presentation/ui/widgets/vehicle_pending_sheet.dart';
@@ -50,6 +52,11 @@ class _DriveShellPageState extends ConsumerState<DriveShellPage> {
   bool _kycGateOpen = false;
   bool _pendingGateOpen = false;
   bool _subGateOpen = false;
+  // True when the driver tried to go online without a usable location
+  // permission. Holds the snapshot of the failure state so the gate
+  // sheet can render the right copy + CTA (re-prompt vs Open Settings).
+  bool _locationGateOpen = false;
+  LocationPermState _locationGateReason = LocationPermState.unknown;
 
   @override
   void initState() {
@@ -275,6 +282,44 @@ class _DriveShellPageState extends ConsumerState<DriveShellPage> {
                 AppNavigation.push<void>(AppRoutes.paywall);
               },
             ),
+          if (_locationGateOpen)
+            LocationGateSheet(
+              permission: _locationGateReason,
+              onDismiss: () => setState(() => _locationGateOpen = false),
+              onAllow: () async {
+                // Re-trigger the system prompt + try to start streaming
+                // again. The presence controller already does both —
+                // we just close the sheet and let it run.
+                setState(() => _locationGateOpen = false);
+                final PresenceController p =
+                    ref.read(presenceControllerProvider.notifier);
+                final HomeController h =
+                    ref.read(homeControllerProvider.notifier);
+                final bool ok = await p.startStreaming();
+                if (!mounted) return;
+                if (ok) {
+                  h.toggleOnline();
+                  unawaited(ref
+                      .read(marketplaceControllerProvider.notifier)
+                      .start());
+                  unawaited(ref
+                      .read(dashboardControllerProvider.notifier)
+                      .refresh());
+                }
+              },
+              onOpenSettings: () async {
+                final LocationPermissionService svc =
+                    locator<LocationPermissionService>();
+                if (_locationGateReason == LocationPermState.serviceDisabled) {
+                  await svc.openLocationSettings();
+                } else {
+                  await svc.openAppSettings();
+                }
+                if (mounted) {
+                  setState(() => _locationGateOpen = false);
+                }
+              },
+            ),
         ],
       ),
     );
@@ -427,6 +472,26 @@ class _DriveShellPageState extends ConsumerState<DriveShellPage> {
     }
   }
 
+  /// Map the presence controller's permission enum onto the
+  /// LocationPermState the gate sheet understands. Both enums carry
+  /// the same conceptual states; we keep them separate so the gate
+  /// sheet can be shared with the splash without dragging in
+  /// presence-controller types.
+  static LocationPermState _toGateReason(PresencePermissionState p) {
+    switch (p) {
+      case PresencePermissionState.granted:
+        return LocationPermState.granted;
+      case PresencePermissionState.denied:
+        return LocationPermState.denied;
+      case PresencePermissionState.permanentlyDenied:
+        return LocationPermState.permanentlyDenied;
+      case PresencePermissionState.serviceDisabled:
+        return LocationPermState.serviceDisabled;
+      case PresencePermissionState.unknown:
+        return LocationPermState.denied;
+    }
+  }
+
   /// Where the route-ahead line should terminate based on the current
   /// trip state: pickup until the driver hits "I've arrived", then
   /// dropoff once they "Start trip".
@@ -507,11 +572,30 @@ class _DriveShellPageState extends ConsumerState<DriveShellPage> {
                         .read(dashboardControllerProvider.notifier)
                         .refresh());
                   } else {
-                    final String? err =
-                        ref.read(presenceControllerProvider).error;
-                    messenger.showSnackBar(SnackBar(
-                      content: Text(err ?? 'Could not start location.'),
-                    ));
+                    // startStreaming sets a `permission` field on the
+                    // presence state when it bailed for permission/
+                    // service reasons. Open the dedicated location
+                    // gate sheet so the driver gets a clear path
+                    // forward (re-prompt or Open Settings) instead
+                    // of just a snackbar.
+                    final PresenceState ps =
+                        ref.read(presenceControllerProvider);
+                    final LocationPermState reason =
+                        _toGateReason(ps.permission);
+                    if (reason == LocationPermState.granted) {
+                      // Permission was OK but something else failed
+                      // (no fix yet, network, etc.). Surface as a
+                      // snackbar — the gate sheet wouldn't help.
+                      messenger.showSnackBar(SnackBar(
+                        content: Text(
+                            ps.error ?? 'Could not start location.'),
+                      ));
+                    } else {
+                      setState(() {
+                        _locationGateReason = reason;
+                        _locationGateOpen = true;
+                      });
+                    }
                   }
                 },
                 label: home.isOnline

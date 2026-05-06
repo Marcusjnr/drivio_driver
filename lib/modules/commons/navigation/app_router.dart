@@ -27,6 +27,7 @@ import 'package:drivio_driver/modules/profile/features/referral/presentation/ui/
 import 'package:drivio_driver/modules/profile/features/reviews/presentation/ui/reviews_page.dart';
 import 'package:drivio_driver/modules/profile/features/sign_out/presentation/ui/sign_out_page.dart';
 import 'package:drivio_driver/modules/profile/features/vehicle_details/presentation/ui/vehicle_details_page.dart';
+import 'package:drivio_driver/modules/splash/presentation/ui/splash_page.dart';
 import 'package:drivio_driver/modules/subscription/features/manage/presentation/ui/subscription_manage_page.dart';
 import 'package:drivio_driver/modules/subscription/features/paywall/presentation/ui/paywall_page.dart';
 import 'package:drivio_driver/modules/support/features/help_article/presentation/ui/help_article_page.dart';
@@ -51,6 +52,8 @@ class AppRouter {
 
   static WidgetBuilder _builderFor(String name) {
     switch (name) {
+      case AppRoutes.splash:
+        return (BuildContext _) => const SplashPage();
       case AppRoutes.welcome:
         return (BuildContext _) => const WelcomePage();
       case AppRoutes.signIn:

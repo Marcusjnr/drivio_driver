@@ -1,7 +1,7 @@
 name: drivio_driver
 description: Drivio Driver — marketplace driver app.
 publish_to: 'none'
-version: 1.0.0+2
+version: 1.0.0+3
 
 environment:
   sdk: ^3.11.0
@@ -29,6 +29,7 @@ dependencies:
   url_launcher: ^6.3.1
   logger: ^2.4.0
   shimmer: ^3.0.0
+  firebase_core: ^4.7.0
 
 dev_dependencies:
   flutter_test:

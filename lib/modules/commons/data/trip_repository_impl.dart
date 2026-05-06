@@ -26,7 +26,26 @@ class SupabaseTripRepository implements TripRepository {
     final dynamic res = await _supabase.client.rpc<dynamic>(
       'get_my_active_trip',
     );
-    return res as String?;
+    // The shared Supabase project's `get_my_active_trip` returns a setof
+    // rows (one row per joined trip). Older driver-only versions returned
+    // a scalar UUID string — we tolerate both so the function can evolve
+    // without breaking sign-in.
+    if (res == null) return null;
+    if (res is String) return res;
+    if (res is List) {
+      if (res.isEmpty) return null;
+      final dynamic first = res.first;
+      if (first is Map) {
+        final Map<String, dynamic> row =
+            first.cast<String, dynamic>();
+        return (row['trip_id'] ?? row['id']) as String?;
+      }
+    }
+    if (res is Map) {
+      final Map<String, dynamic> row = res.cast<String, dynamic>();
+      return (row['trip_id'] ?? row['id']) as String?;
+    }
+    return null;
   }
 
   @override
