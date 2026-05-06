@@ -52,8 +52,4 @@ abstract class RideRequestRepository {
 
   /// Look up the trip created from an accepted bid (one-shot).
   Future<String?> findTripIdForBid(String bidId);
-
-  /// Dev shortcut: accepts the driver's most recent pending bid as if the
-  /// passenger had picked it. Returns the new trip id.
-  Future<String> acceptMyLatestPendingBid();
 }

@@ -179,34 +179,10 @@ class _ActionRow extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 4),
-            Row(
-              children: <Widget>[
-                Expanded(
-                  child: DrivioButton(
-                    label: 'Withdraw',
-                    variant: DrivioButtonVariant.ghost,
-                    onPressed: controller.withdraw,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  flex: 2,
-                  child: DrivioButton(
-                    label: '▶  Simulate passenger accept',
-                    onPressed: controller.simulatePassengerAccept,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 6),
-            Text(
-              'DEV ONLY · removes when passenger app exists',
-              style: TextStyle(
-                fontSize: 10,
-                color: context.textMuted,
-                letterSpacing: 1.2,
-              ),
-              textAlign: TextAlign.center,
+            DrivioButton(
+              label: 'Withdraw',
+              variant: DrivioButtonVariant.ghost,
+              onPressed: controller.withdraw,
             ),
           ],
         );

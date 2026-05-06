@@ -160,12 +160,4 @@ class SupabaseRideRequestRepository implements RideRequestRepository {
     if (rows.isEmpty) return null;
     return rows.first['id'] as String;
   }
-
-  @override
-  Future<String> acceptMyLatestPendingBid() async {
-    final dynamic res = await _supabase.client.rpc<dynamic>(
-      'accept_my_latest_pending_bid',
-    );
-    return res as String;
-  }
 }

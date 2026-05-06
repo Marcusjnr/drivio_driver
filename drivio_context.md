@@ -2,7 +2,7 @@
 
 This file is the running state of the **Drivio Driver** app for handing off to a fresh Claude session. Read it top to bottom before touching code; it captures the things that aren't obvious from the source tree alone — the why behind decisions, the schema gotchas, the current backlog position, and the conventions that hold the codebase together.
 
-Last updated: 2026-05-04.
+Last updated: 2026-05-06.
 
 ---
 
@@ -183,6 +183,25 @@ Last updated: 2026-05-04.
 - **`drive_shell_page.dart`** online-toggle path: replaces the old SnackBar with the gate sheet on permission failures. `_toGateReason()` static helper translates `PresencePermissionState` → `LocationPermState` so both surfaces share vocabulary.
 - **`app.dart` simplified**: removed the `bootstrap.isLoading` branch + `onGenerateInitialRoutes` callback. MaterialApp always boots into `/`. The splash hands off via `pushReplacementNamed(bootstrap.initialRoute, arguments: bootstrap.initialArguments)` — `arguments` still flow through `onGenerateRoute` for the cold-start trip-resume case.
 
+### Cross-app shared-RPC fixes + cleanup (2026-05-06)
+
+- **Sign-in regression fixed.** After a successful OTP verify, drivers were being kicked back to `/welcome`. Root cause: the passenger app redefined the shared `get_my_active_trip` RPC to return a setof joined rows (instead of a scalar UUID). The driver's `getMyActiveTripId` blindly cast the result to `String?`, threw a `TypeError`, and `BootstrapController.resolve()`'s blanket catch sent the user to `/welcome`. Two fixes:
+  - `trip_repository_impl.dart::getMyActiveTripId` now tolerates string, list-of-rows, and map shapes — pulls `trip_id` (or `id`) from the row.
+  - `BootstrapController.resolve()` wraps the active-trip lookup in its own try/catch so a signed-in driver with a profile still lands on `/home` even if the RPC misbehaves later. Outer catch (no session / no profile lookup) still falls back to welcome.
+- **Diagnostic logs added** to bootstrap, OTP controller, and SessionGuard. Bootstrap logs the chosen destination (welcome / completeProfile / home) and the cause (no session, no profile row, threw, etc.). OTP logs verify-mode + user_id post-success. SessionGuard logs every auth event and flags the welcome-redirect cases. Reaches console via the existing `AppLogger`. Left in deliberately on the user's request.
+- **Removed the dev "Simulate passenger accept" button** from both surfaces (`bidding_body.dart`, `ride_request_page.dart`) now that the real passenger app exists. Stripped the now-dead code paths:
+  - `RideRequestController.simulatePassengerAccept` — gone.
+  - `RideRequestRepository.acceptMyLatestPendingBid` interface method + `SupabaseRideRequestRepository`'s `accept_my_latest_pending_bid` RPC call — gone.
+  - The SQL function `accept_my_latest_pending_bid` is still on the DB (no client refs anymore); drop later if it's not used by any other tooling.
+
+### Cross-app schema discrimination
+
+- The shared Supabase project distinguishes drivers from passengers in three layers:
+  1. **`auth.users.raw_user_meta_data.role`** — set at signup (`'driver'` from this app, `'passenger'` from the user app). JWT-readable, RLS-readable.
+  2. **Role-specific extension tables** — `public.drivers` vs `public.passengers`, both keyed by `user_id`. `profiles` is shared common identity.
+  3. **`wallets.owner_kind` enum** — `driver | passenger`. Driver-app code reads via the `driver_wallets` view (`owner_kind='driver'` filter baked in).
+- **Known gap:** `BootstrapController.resolve()` only checks for a `profiles` row to decide whether to land on `/home`. It does NOT verify a `drivers` row exists. So a passenger who signed up first (creating `profiles + passengers`) and then signs into the driver app with the same email/password would currently land on `/home` with no `drivers` row. Tighten this when it becomes a real problem.
+
 ---
 
 ## 5. Logger (just shipped)
@@ -195,6 +214,7 @@ Last updated: 2026-05-04.
   - Inbound error: `rpc ✗ fn  ›  ms=<duration> · code=<code> · details=<details> · hint=<hint> · message=<message>` plus full stack
   - PostgrestException unpacked specifically — `code/details/hint/message` separately, not just toString
 - Exported via `commons/all.dart`. **Use `loggedRpc` for any new RPC call** — it's how we caught the two `42702` ambiguity bugs. Existing repos haven't all been retrofitted.
+- **Standing diagnostic logs (left in deliberately, do not strip without asking):** `BootstrapController.resolve` (logs destination + cause), `OtpController.verify` (mode + user_id post-success), `SessionGuard` (every auth event + welcome-redirect reason). Useful any time sign-in feels off.
 
 ---
 

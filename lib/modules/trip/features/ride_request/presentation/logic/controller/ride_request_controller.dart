@@ -320,26 +320,6 @@ class RideRequestController extends StateNotifier<RideRequestState> {
     }
   }
 
-  /// Dev shortcut: accept the driver's most recent pending bid as if the
-  /// passenger had picked it. Realtime listener does the rest of the
-  /// transition (phase=won, shell switches to trip mode). Once that
-  /// happens this controller autoDisposes, so any state mutation here
-  /// must be guarded by `mounted`.
-  Future<void> simulatePassengerAccept() async {
-    if (state.bidId == null) return;
-    try {
-      await _requests.acceptMyLatestPendingBid();
-      // No state change here — _watchBid will fire on the bid update.
-    } catch (e) {
-      if (!mounted) return;
-      state = state.copyWith(
-        error: e.toString().contains('no_pending_bid')
-            ? 'No pending bid to accept.'
-            : 'Could not simulate accept.',
-      );
-    }
-  }
-
   /// Driver's saved pricing profile drives this — base + per-km, plus
   /// peak/night multiplier if the toggle is enabled and the request's
   /// local hour falls in the corresponding window. Rounds to the nearest
