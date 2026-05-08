@@ -36,7 +36,6 @@ class _PaywallPageState extends ConsumerState<PaywallPage> {
     }
     if (plan == null) return;
 
-    final ScaffoldMessengerState messenger = ScaffoldMessenger.of(context);
     final PaystackActivationController activator =
         ref.read(paystackActivationControllerProvider.notifier);
 
@@ -49,9 +48,7 @@ class _PaywallPageState extends ConsumerState<PaywallPage> {
     } else {
       final String? err =
           ref.read(paystackActivationControllerProvider).error;
-      messenger.showSnackBar(
-        SnackBar(content: Text(err ?? 'Could not activate plan.')),
-      );
+      AppNotifier.error(message: err ?? 'Could not activate plan.');
     }
   }
 

@@ -25,13 +25,6 @@ abstract class RideRequestRepository {
   /// event arrives.
   Stream<RideRequestEvent> changes();
 
-  /// Dev-mode: spawn a fake ride request near the calling driver.
-  /// Returns the new request id.
-  Future<String> injectTestRequestNearMe({
-    double offsetMeters = 800,
-    int expiresInSeconds = 60,
-  });
-
   /// Single ride request by id.
   Future<RideRequest?> getById(String id);
 

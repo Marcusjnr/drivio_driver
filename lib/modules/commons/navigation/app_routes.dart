@@ -39,6 +39,7 @@ class AppRoutes {
   static const String notificationsInbox = '/notifications';
   static const String profileEdit = '/profile/edit';
   static const String help = '/profile/help';
+  static const String appearance = '/profile/appearance';
   static const String signOut = '/profile/sign-out';
 
   // addCard route removed (Q2) — we no longer let drivers store

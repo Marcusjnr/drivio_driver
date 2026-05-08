@@ -151,14 +151,10 @@ class _ProfileEditPageState extends ConsumerState<ProfileEditPage> {
               label: state.isSaving ? 'Saving…' : 'Save changes',
               disabled: !state.canSave,
               onPressed: () async {
-                final ScaffoldMessengerState m =
-                    ScaffoldMessenger.of(context);
                 final bool ok = await c.save();
                 if (!mounted) return;
                 if (ok) {
-                  m.showSnackBar(
-                    const SnackBar(content: Text('Profile updated.')),
-                  );
+                  AppNotifier.success(message: 'Profile updated.');
                 }
               },
             ),

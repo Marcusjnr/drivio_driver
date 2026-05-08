@@ -49,8 +49,8 @@ class _RideRequestPageState extends ConsumerState<RideRequestPage> {
         AppNavigation.replaceAll<void>(AppRoutes.activeTrip,
             arguments: next.tripId);
       } else if (next.phase == BidPhase.lost) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(next.error ?? 'Bid was not accepted.')),
+        AppNotifier.warning(
+          message: next.error ?? 'Another driver was picked for this trip.',
         );
         Future<void>.delayed(const Duration(milliseconds: 700), () {
           if (mounted) AppNavigation.pop();

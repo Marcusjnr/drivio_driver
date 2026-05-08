@@ -19,6 +19,7 @@ import 'package:drivio_driver/modules/kyc/features/bvn_nin/presentation/ui/bvn_n
 import 'package:drivio_driver/modules/kyc/features/document_capture/presentation/ui/document_capture_page.dart';
 import 'package:drivio_driver/modules/kyc/features/kyc_home/presentation/ui/kyc_home_page.dart';
 import 'package:drivio_driver/modules/kyc/features/selfie/presentation/ui/selfie_page.dart';
+import 'package:drivio_driver/modules/profile/features/appearance/presentation/ui/appearance_page.dart';
 import 'package:drivio_driver/modules/profile/features/help/presentation/ui/help_page.dart';
 import 'package:drivio_driver/modules/profile/features/notifications_inbox/presentation/ui/notifications_inbox_page.dart';
 import 'package:drivio_driver/modules/profile/features/profile_edit/presentation/ui/profile_edit_page.dart';
@@ -110,6 +111,8 @@ class AppRouter {
         return (BuildContext _) => const ProfileEditPage();
       case AppRoutes.help:
         return (BuildContext _) => const HelpPage();
+      case AppRoutes.appearance:
+        return (BuildContext _) => const AppearancePage();
       case AppRoutes.signOut:
         return (BuildContext _) => const SignOutPage();
       case AppRoutes.reuploadDoc:

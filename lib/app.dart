@@ -9,6 +9,8 @@ import 'package:drivio_driver/modules/commons/lifecycle/lifecycle_controller.dar
 import 'package:drivio_driver/modules/commons/navigation/app_navigation.dart';
 import 'package:drivio_driver/modules/commons/navigation/app_router.dart';
 import 'package:drivio_driver/modules/commons/navigation/app_routes.dart';
+import 'package:drivio_driver/modules/commons/notifications/app_notification_host.dart';
+import 'package:drivio_driver/modules/commons/notifications/app_notifier.dart';
 import 'package:drivio_driver/modules/commons/theme/app_dimensions.dart';
 import 'package:drivio_driver/modules/commons/theme/app_theme.dart';
 import 'package:drivio_driver/modules/commons/theme/logic/theme_mode_controller.dart';
@@ -66,6 +68,12 @@ class _AppState extends ConsumerState<App> {
           navigatorKey: AppNavigation.navigatorKey,
           initialRoute: AppRoutes.splash,
           onGenerateRoute: AppRouter.onGenerateRoute,
+          builder: (BuildContext context, Widget? child) {
+            return AppNotificationHost(
+              controller: AppNotifier.controller,
+              child: child ?? const SizedBox.shrink(),
+            );
+          },
         );
       },
     );

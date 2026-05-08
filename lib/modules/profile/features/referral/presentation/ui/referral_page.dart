@@ -92,15 +92,10 @@ class ReferralPage extends ConsumerWidget {
                 onPressed: code == null
                     ? null
                     : () async {
-                        final ScaffoldMessengerState m =
-                            ScaffoldMessenger.of(context);
                         await Clipboard.setData(ClipboardData(text: code));
-                        if (!context.mounted) return;
-                        m.showSnackBar(
-                          const SnackBar(
-                            content: Text('Copied to clipboard'),
-                            duration: Duration(seconds: 2),
-                          ),
+                        AppNotifier.success(
+                          message: 'Copied to clipboard',
+                          duration: const Duration(seconds: 2),
                         );
                       },
                 style: ElevatedButton.styleFrom(

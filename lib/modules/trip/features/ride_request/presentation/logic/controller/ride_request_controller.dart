@@ -5,6 +5,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:drivio_driver/modules/commons/data/pricing_repository.dart';
 import 'package:drivio_driver/modules/commons/data/ride_request_repository.dart';
 import 'package:drivio_driver/modules/commons/di/di.dart';
+import 'package:drivio_driver/modules/commons/errors/error_messages.dart';
+import 'package:drivio_driver/modules/commons/logging/app_logger.dart';
 import 'package:drivio_driver/modules/commons/types/pricing_profile.dart'
     show PricingProfile, PricingWindow;
 import 'package:drivio_driver/modules/commons/types/ride_bid.dart';
@@ -201,11 +203,12 @@ class RideRequestController extends StateNotifier<RideRequestState> {
         isLoading: false,
       );
       _startTicker();
-    } catch (e) {
+    } catch (e, s) {
       if (!mounted) return;
+      AppLogger.e('Ride request hydrate failed', error: e, stackTrace: s);
       state = state.copyWith(
         isLoading: false,
-        error: 'Could not load request: $e',
+        error: humaniseError(e, fallback: "Couldn't load this request."),
       );
     }
   }
@@ -256,24 +259,12 @@ class RideRequestController extends StateNotifier<RideRequestState> {
       if (!mounted) return;
       state = state.copyWith(bidId: bidId, phase: BidPhase.waiting);
       _watchBid(bidId);
-    } catch (e) {
+    } catch (e, s) {
       if (!mounted) return;
-      final String msg = e.toString();
-      String friendly = 'Could not submit bid.';
-      if (msg.contains('request_no_longer_open')) {
-        friendly = 'This request was already taken.';
-      } else if (msg.contains('request_expired')) {
-        friendly = 'This request expired.';
-      } else if (msg.contains('active_trip_in_progress')) {
-        friendly = 'Finish your current trip before bidding on another one.';
-      } else if (msg.contains('subscription_required')) {
-        friendly = 'Reactivate Drivio Pro to bid.';
-      } else if (msg.contains('price_above_cap')) {
-        friendly = 'Price is above the platform cap (₦100,000).';
-      }
+      AppLogger.e('Bid submit failed', error: e, stackTrace: s);
       state = state.copyWith(
         phase: BidPhase.composing,
-        error: friendly,
+        error: humaniseError(e, fallback: "Couldn't submit bid."),
       );
     }
   }
@@ -314,9 +305,12 @@ class RideRequestController extends StateNotifier<RideRequestState> {
       await _requests.withdrawBid(bidId);
       if (!mounted) return;
       state = state.copyWith(phase: BidPhase.composing, bidId: null);
-    } catch (e) {
+    } catch (e, s) {
       if (!mounted) return;
-      state = state.copyWith(error: 'Could not withdraw bid.');
+      AppLogger.e('Bid withdraw failed', error: e, stackTrace: s);
+      state = state.copyWith(
+        error: humaniseError(e, fallback: "Couldn't withdraw your bid."),
+      );
     }
   }
 

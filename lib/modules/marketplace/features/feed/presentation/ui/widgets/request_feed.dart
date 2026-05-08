@@ -21,11 +21,7 @@ class RequestFeed extends ConsumerWidget {
     final List<RideRequest> requests = ref.watch(visibleRequestsProvider);
 
     if (requests.isEmpty) {
-      return _EmptyState(
-        isInjecting: state.isInjecting,
-        onInject: () =>
-            ref.read(marketplaceControllerProvider.notifier).injectTestRequest(),
-      );
+      return const _EmptyState();
     }
 
     return Column(
@@ -53,22 +49,6 @@ class RequestFeed extends ConsumerWidget {
                 ),
               ),
             ),
-            const Spacer(),
-            GestureDetector(
-              onTap: state.isInjecting
-                  ? null
-                  : () => ref
-                      .read(marketplaceControllerProvider.notifier)
-                      .injectTestRequest(),
-              child: Text(
-                state.isInjecting ? 'Adding…' : '+ Test',
-                style: TextStyle(
-                  fontSize: 11,
-                  color: context.accent,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
           ],
         ),
         const SizedBox(height: 8),
@@ -90,9 +70,8 @@ class RequestFeed extends ConsumerWidget {
   }
 }
 
-/// DRV-095: when the feed has been empty for a while, swap the
-/// "Tap to simulate" placeholder for a rotating tip set so the screen
-/// doesn't feel stale.
+/// DRV-095: when the feed has been empty for a while, show a rotating
+/// tip set so the screen doesn't feel stale.
 const Duration _kQuietPeriodBeforeTips = Duration(seconds: 60);
 const Duration _kTipRotateInterval = Duration(seconds: 6);
 const List<_NoRequestsTip> _kNoRequestsTips = <_NoRequestsTip>[
@@ -104,10 +83,7 @@ const List<_NoRequestsTip> _kNoRequestsTips = <_NoRequestsTip>[
 ];
 
 class _EmptyState extends StatefulWidget {
-  const _EmptyState({required this.isInjecting, required this.onInject});
-
-  final bool isInjecting;
-  final VoidCallback onInject;
+  const _EmptyState();
 
   @override
   State<_EmptyState> createState() => _EmptyStateState();
@@ -146,67 +122,57 @@ class _EmptyStateState extends State<_EmptyState> {
   @override
   Widget build(BuildContext context) {
     if (!_showTips) {
-      return _SimulateButton(
-        isInjecting: widget.isInjecting,
-        onInject: widget.onInject,
+      return _WaitingCard(
+        title: 'NO REQUESTS YET',
+        message: "You're online. Hang tight…",
       );
     }
 
     final _NoRequestsTip tip = _kNoRequestsTips[_tipIdx];
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: <Widget>[
-        Container(
-          padding: const EdgeInsets.all(14),
-          decoration: BoxDecoration(
-            color: context.surface,
-            borderRadius: AppRadius.md,
-            border: Border.all(color: context.border),
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: context.surface,
+        borderRadius: AppRadius.md,
+        border: Border.all(color: context.border),
+      ),
+      child: Column(
+        children: <Widget>[
+          Text(
+            'NO REQUESTS YET',
+            style: AppTextStyles.eyebrow.copyWith(color: context.textDim),
           ),
-          child: Column(
-            children: <Widget>[
-              Text(
-                'NO REQUESTS YET',
-                style: AppTextStyles.eyebrow.copyWith(color: context.textDim),
-              ),
-              const SizedBox(height: 6),
-              Text(
-                _waitingFor(_emptySince),
-                style: TextStyle(
-                  fontSize: 13,
-                  color: context.text,
-                  fontWeight: FontWeight.w600,
-                ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 10),
-              AnimatedSwitcher(
-                duration: const Duration(milliseconds: 250),
-                child: Row(
-                  key: ValueKey<int>(_tipIdx),
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: <Widget>[
-                    Text(tip.emoji, style: const TextStyle(fontSize: 16)),
-                    const SizedBox(width: 8),
-                    Flexible(
-                      child: Text(
-                        tip.text,
-                        style: TextStyle(fontSize: 12, color: context.textDim),
-                        textAlign: TextAlign.center,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
+          const SizedBox(height: 6),
+          Text(
+            _waitingFor(_emptySince),
+            style: TextStyle(
+              fontSize: 13,
+              color: context.text,
+              fontWeight: FontWeight.w600,
+            ),
+            textAlign: TextAlign.center,
           ),
-        ),
-        const SizedBox(height: 8),
-        _SimulateButton(
-          isInjecting: widget.isInjecting,
-          onInject: widget.onInject,
-        ),
-      ],
+          const SizedBox(height: 10),
+          AnimatedSwitcher(
+            duration: const Duration(milliseconds: 250),
+            child: Row(
+              key: ValueKey<int>(_tipIdx),
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: <Widget>[
+                Text(tip.emoji, style: const TextStyle(fontSize: 16)),
+                const SizedBox(width: 8),
+                Flexible(
+                  child: Text(
+                    tip.text,
+                    style: TextStyle(fontSize: 12, color: context.textDim),
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -223,35 +189,38 @@ class _NoRequestsTip {
   final String text;
 }
 
-class _SimulateButton extends StatelessWidget {
-  const _SimulateButton({required this.isInjecting, required this.onInject});
+class _WaitingCard extends StatelessWidget {
+  const _WaitingCard({required this.title, required this.message});
 
-  final bool isInjecting;
-  final VoidCallback onInject;
+  final String title;
+  final String message;
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
-      onTap: isInjecting ? null : onInject,
-      borderRadius: BorderRadius.circular(12),
-      child: Container(
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: context.surface,
-          borderRadius: AppRadius.md,
-          border: Border.all(
-            color: context.accent.withValues(alpha: 0.3),
-            style: BorderStyle.solid,
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: context.surface,
+        borderRadius: AppRadius.md,
+        border: Border.all(color: context.border),
+      ),
+      child: Column(
+        children: <Widget>[
+          Text(
+            title,
+            style: AppTextStyles.eyebrow.copyWith(color: context.textDim),
           ),
-        ),
-        alignment: Alignment.center,
-        child: Text(
-          isInjecting
-              ? 'Spawning test request…'
-              : '🔔  Tap to simulate an incoming ride request',
-          style: AppTextStyles.caption.copyWith(color: context.textDim),
-          textAlign: TextAlign.center,
-        ),
+          const SizedBox(height: 6),
+          Text(
+            message,
+            style: TextStyle(
+              fontSize: 13,
+              color: context.text,
+              fontWeight: FontWeight.w600,
+            ),
+            textAlign: TextAlign.center,
+          ),
+        ],
       ),
     );
   }

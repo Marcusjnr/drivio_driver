@@ -118,8 +118,6 @@ class _HomePageState extends ConsumerState<HomePage> {
                   child: OnlineToggle(
                     online: state.isOnline,
                     onTap: () async {
-                      final ScaffoldMessengerState messenger =
-                          ScaffoldMessenger.of(context);
                       final PresenceController presence =
                           ref.read(presenceControllerProvider.notifier);
 
@@ -167,9 +165,9 @@ class _HomePageState extends ConsumerState<HomePage> {
                       } else {
                         final String? err =
                             ref.read(presenceControllerProvider).error;
-                        messenger.showSnackBar(SnackBar(
-                          content: Text(err ?? 'Could not start location.'),
-                        ));
+                        AppNotifier.error(
+                          message: err ?? 'Could not start location.',
+                        );
                       }
                     },
                     label: state.isOnline

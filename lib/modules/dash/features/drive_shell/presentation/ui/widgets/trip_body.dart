@@ -183,16 +183,15 @@ class _InTripBody extends StatelessWidget {
             label: navTarget.label,
             variant: DrivioButtonVariant.ghost,
             onPressed: () async {
-              final ScaffoldMessengerState m = ScaffoldMessenger.of(context);
               final bool ok = await NavigationLauncher.openDriving(
                 destLat: navTarget.lat,
                 destLng: navTarget.lng,
                 destLabel: navTarget.label,
               );
               if (!ok) {
-                m.showSnackBar(const SnackBar(
-                  content: Text('No maps app could open this destination.'),
-                ));
+                AppNotifier.error(
+                  message: 'No maps app could open this destination.',
+                );
               }
             },
           ),

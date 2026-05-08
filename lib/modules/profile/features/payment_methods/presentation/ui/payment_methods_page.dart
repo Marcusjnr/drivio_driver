@@ -71,10 +71,6 @@ class PaymentMethodsPage extends ConsumerWidget {
     WidgetRef ref, {
     required PayoutAccount? existing,
   }) async {
-    // Capture the messenger BEFORE the await to avoid the "use of
-    // BuildContext across async gaps" lint — the sheet may
-    // unmount us before it returns.
-    final ScaffoldMessengerState m = ScaffoldMessenger.of(context);
     final _PayoutDraft? draft = await showModalBottomSheet<_PayoutDraft>(
       context: context,
       isScrollControlled: true,
@@ -92,8 +88,9 @@ class PaymentMethodsPage extends ConsumerWidget {
     if (!ok) {
       final String? err =
           ref.read(payoutAccountControllerProvider).error;
-      m.showSnackBar(
-          SnackBar(content: Text(err ?? 'Could not save bank details.')));
+      AppNotifier.error(message: err ?? 'Could not save bank details.');
+    } else {
+      AppNotifier.success(message: 'Bank details saved.');
     }
   }
 

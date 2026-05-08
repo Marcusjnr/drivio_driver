@@ -68,21 +68,6 @@ class SupabaseRideRequestRepository implements RideRequestRepository {
   }
 
   @override
-  Future<String> injectTestRequestNearMe({
-    double offsetMeters = 800,
-    int expiresInSeconds = 60,
-  }) async {
-    final dynamic res = await _supabase.client.rpc<dynamic>(
-      'inject_test_ride_request_near_me',
-      params: <String, dynamic>{
-        'p_offset_m': offsetMeters,
-        'p_expires_in_seconds': expiresInSeconds,
-      },
-    );
-    return res as String;
-  }
-
-  @override
   Future<RideRequest?> getById(String id) async {
     final List<dynamic> rows = await _supabase.client.rpc<dynamic>(
       'get_ride_request',

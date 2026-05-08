@@ -110,10 +110,10 @@ class _DriveShellPageState extends ConsumerState<DriveShellPage> {
                 .read(driveShellControllerProvider.notifier)
                 .enterTrip(next.tripId!);
           } else if (next.phase == BidPhase.lost) {
-            final ScaffoldMessengerState m = ScaffoldMessenger.of(context);
-            m.showSnackBar(SnackBar(
-              content: Text(next.error ?? 'Bid was not accepted.'),
-            ));
+            AppNotifier.warning(
+              message:
+                  next.error ?? 'Another driver was picked for this trip.',
+            );
             Future<void>.delayed(const Duration(milliseconds: 700), () {
               if (mounted) {
                 ref
@@ -526,8 +526,6 @@ class _DriveShellPageState extends ConsumerState<DriveShellPage> {
               child: OnlineToggle(
                 online: home.isOnline,
                 onTap: () async {
-                  final ScaffoldMessengerState messenger =
-                      ScaffoldMessenger.of(context);
                   final PresenceController presence =
                       ref.read(presenceControllerProvider.notifier);
 
@@ -583,13 +581,12 @@ class _DriveShellPageState extends ConsumerState<DriveShellPage> {
                     final LocationPermState reason =
                         _toGateReason(ps.permission);
                     if (reason == LocationPermState.granted) {
-                      // Permission was OK but something else failed
-                      // (no fix yet, network, etc.). Surface as a
-                      // snackbar — the gate sheet wouldn't help.
-                      messenger.showSnackBar(SnackBar(
-                        content: Text(
-                            ps.error ?? 'Could not start location.'),
-                      ));
+                      // Permission was OK but something else failed (no
+                      // fix yet, network, etc.). Surface as a banner —
+                      // the gate sheet wouldn't help.
+                      AppNotifier.error(
+                        message: ps.error ?? 'Could not start location.',
+                      );
                     } else {
                       setState(() {
                         _locationGateReason = reason;

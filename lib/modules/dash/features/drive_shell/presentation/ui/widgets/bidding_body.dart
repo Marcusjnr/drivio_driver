@@ -347,34 +347,48 @@ class _FareCardState extends State<_FareCard> {
         children: <Widget>[
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: <Widget>[
-              Text(
-                'YOUR FARE · YOU DECIDE',
-                style: AppTextStyles.eyebrow.copyWith(color: context.accent),
+              Flexible(
+                child: Text(
+                  'YOUR FARE · YOU DECIDE',
+                  style:
+                      AppTextStyles.eyebrow.copyWith(color: context.accent),
+                  overflow: TextOverflow.ellipsis,
+                ),
               ),
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: <Widget>[
-                  if (state.suggestedWindow != null) ...<Widget>[
-                    // Driver's pricing profile boosted the suggestion
-                    // because this request landed in their peak/night
-                    // window. Surface it so the higher number doesn't
-                    // surprise them.
-                    Pill(
-                      text: state.suggestedWindow == PricingWindow.peak
-                          ? 'PEAK · ${state.suggestedMultiplier.toStringAsFixed(1)}×'
-                          : 'NIGHT · ${state.suggestedMultiplier.toStringAsFixed(1)}×',
-                      tone: state.suggestedWindow == PricingWindow.peak
-                          ? PillTone.amber
-                          : PillTone.blue,
+              const SizedBox(width: 8),
+              Flexible(
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: <Widget>[
+                    if (state.suggestedWindow != null) ...<Widget>[
+                      // Driver's pricing profile boosted the suggestion
+                      // because this request landed in their peak/night
+                      // window. Surface it so the higher number doesn't
+                      // surprise them.
+                      Pill(
+                        text: state.suggestedWindow == PricingWindow.peak
+                            ? 'PEAK · ${state.suggestedMultiplier.toStringAsFixed(1)}×'
+                            : 'NIGHT · ${state.suggestedMultiplier.toStringAsFixed(1)}×',
+                        tone: state.suggestedWindow == PricingWindow.peak
+                            ? PillTone.amber
+                            : PillTone.blue,
+                      ),
+                      const SizedBox(width: 6),
+                    ],
+                    Flexible(
+                      child: Text(
+                        'Suggested ${NairaFormatter.format(state.suggestedNaira)}',
+                        style:
+                            TextStyle(fontSize: 11, color: context.textDim),
+                        overflow: TextOverflow.ellipsis,
+                        softWrap: false,
+                      ),
                     ),
-                    const SizedBox(width: 6),
                   ],
-                  Text(
-                    'Suggested ${NairaFormatter.format(state.suggestedNaira)}',
-                    style: TextStyle(fontSize: 11, color: context.textDim),
-                  ),
-                ],
+                ),
               ),
             ],
           ),

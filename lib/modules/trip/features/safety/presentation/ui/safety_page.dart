@@ -59,15 +59,12 @@ class _SafetyPageState extends ConsumerState<SafetyPage> {
                 _HoldToActivate(
                   isTriggering: state.isTriggering,
                   onActivated: () async {
-                    final ScaffoldMessengerState m =
-                        ScaffoldMessenger.of(context);
                     final bool ok = await c.triggerSos(tripId: _tripId);
                     if (!ok && mounted) {
-                      m.showSnackBar(SnackBar(
-                        content: Text(
-                            ref.read(safetyControllerProvider).error ??
-                                'SOS failed.'),
-                      ));
+                      AppNotifier.error(
+                        message: ref.read(safetyControllerProvider).error ??
+                            "SOS didn't go through. Try again.",
+                      );
                     }
                   },
                 ),

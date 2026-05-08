@@ -321,12 +321,9 @@ class _BalanceCard extends StatelessWidget {
                   variant: DrivioButtonVariant.accent,
                   disabled: state.balanceNaira < 5000,
                   onPressed: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text(
-                          'Withdrawals will run via Paystack — wiring this up later.',
-                        ),
-                      ),
+                    AppNotifier.info(
+                      message:
+                          "Withdrawals run via Paystack — coming soon.",
                     );
                   },
                 ),

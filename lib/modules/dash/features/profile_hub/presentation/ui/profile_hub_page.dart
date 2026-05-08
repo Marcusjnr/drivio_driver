@@ -572,6 +572,10 @@ class _SettingsGroup extends StatelessWidget {
           onTap: () => AppNavigation.push(AppRoutes.profileEdit),
         ),
         FieldRow(
+          label: 'Appearance',
+          onTap: () => AppNavigation.push(AppRoutes.appearance),
+        ),
+        FieldRow(
           label: 'Help & support',
           onTap: () => AppNavigation.push(AppRoutes.help),
         ),

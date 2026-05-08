@@ -14,7 +14,6 @@ class MarketplaceState {
     this.driverLat,
     this.driverLng,
     this.isLoading = false,
-    this.isInjecting = false,
     this.error,
   });
 
@@ -22,7 +21,6 @@ class MarketplaceState {
   final double? driverLat;
   final double? driverLng;
   final bool isLoading;
-  final bool isInjecting;
   final String? error;
 
   /// Requests sorted by distance from the driver (closest first). Falls
@@ -68,7 +66,6 @@ class MarketplaceState {
     double? driverLat,
     double? driverLng,
     bool? isLoading,
-    bool? isInjecting,
     String? error,
     bool clearError = false,
   }) {
@@ -77,7 +74,6 @@ class MarketplaceState {
       driverLat: driverLat ?? this.driverLat,
       driverLng: driverLng ?? this.driverLng,
       isLoading: isLoading ?? this.isLoading,
-      isInjecting: isInjecting ?? this.isInjecting,
       error: clearError ? null : (error ?? this.error),
     );
   }
@@ -131,23 +127,6 @@ class MarketplaceController extends StateNotifier<MarketplaceState> {
 
   void updateDriverPosition(double lat, double lng) {
     state = state.copyWith(driverLat: lat, driverLng: lng);
-  }
-
-  Future<bool> injectTestRequest() async {
-    state = state.copyWith(isInjecting: true, clearError: true);
-    try {
-      await _repo.injectTestRequestNearMe();
-      state = state.copyWith(isInjecting: false);
-      // Realtime should pick this up; refresh as a safety net.
-      await refresh();
-      return true;
-    } catch (e) {
-      state = state.copyWith(
-        isInjecting: false,
-        error: 'Could not seed request: $e',
-      );
-      return false;
-    }
   }
 
   void _pruneExpired() {

@@ -242,7 +242,7 @@ class _Tagline extends StatelessWidget {
         _TagDot(color: AppColors.accentDark),
         const SizedBox(width: 10),
         Text(
-          'BUILT TO MOVE LAGOS',
+          'YOU SET THE FARE',
           style: AppTextStyles.eyebrow.copyWith(
             color: AppColors.textDimDark,
             letterSpacing: 2.2,

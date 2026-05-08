@@ -5,6 +5,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'package:drivio_driver/modules/commons/data/dashboard_repository.dart';
 import 'package:drivio_driver/modules/commons/di/di.dart';
+import 'package:drivio_driver/modules/commons/errors/error_messages.dart';
 import 'package:drivio_driver/modules/commons/logging/app_logger.dart';
 import 'package:drivio_driver/modules/commons/supabase/supabase_module.dart';
 import 'package:drivio_driver/modules/commons/types/dashboard_summary.dart';
@@ -137,28 +138,15 @@ class DashboardController extends StateNotifier<DashboardState> {
       );
       state = state.copyWith(
         isLoading: false,
-        error: state.hasEverLoaded ? null : _humanise(e),
+        error: state.hasEverLoaded
+            ? null
+            : humaniseError(
+                e,
+                fallback: "Couldn't load today's earnings.",
+              ),
       );
       _scheduleRetry();
     }
-  }
-
-  /// Best-effort mapping from raw exception → short message the driver
-  /// can act on (or at least relay to support).
-  String _humanise(Object e) {
-    final String s = e.toString();
-    if (s.contains('DashboardAuthException')) {
-      return 'Waiting for sign-in to restore…';
-    }
-    if (s.contains('not_authenticated')) {
-      return 'Session expired — sign out and back in.';
-    }
-    if (s.contains('SocketException') || s.contains('Failed host lookup')) {
-      return 'Offline — check your connection.';
-    }
-    // Show the raw error so a failing first-load is diagnosable
-    // without grepping logs. Truncate to keep it readable.
-    return s.length > 120 ? '${s.substring(0, 120)}…' : s;
   }
 
   void _scheduleRetry() {

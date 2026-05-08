@@ -107,15 +107,14 @@ class _SignOutPageState extends ConsumerState<SignOutPage> {
       // user back to the welcome page.
       await ref.read(mutationQueueProvider.notifier).clearAll();
       await locator<SupabaseModule>().auth.signOut();
-    } catch (e) {
+    } catch (e, s) {
       if (!mounted) return;
       setState(() => _isDeleting = false);
-      final String msg = e.toString();
-      final String friendly = msg.contains('active_trip_in_progress')
-          ? "Finish your current trip before deleting your account."
-          : "Could not delete your account. Please try again.";
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(friendly)),
+      AppNotifier.fromError(
+        e,
+        fallback: 'Could not delete your account. Please try again.',
+        stackTrace: s,
+        logContext: 'Account deletion',
       );
     }
   }

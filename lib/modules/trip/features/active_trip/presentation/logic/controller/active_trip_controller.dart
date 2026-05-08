@@ -4,6 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:drivio_driver/modules/commons/data/trip_repository.dart';
 import 'package:drivio_driver/modules/commons/di/di.dart';
+import 'package:drivio_driver/modules/commons/errors/error_messages.dart';
+import 'package:drivio_driver/modules/commons/logging/app_logger.dart';
 import 'package:drivio_driver/modules/commons/types/trip.dart';
 
 class ActiveTripState {
@@ -144,27 +146,18 @@ class ActiveTripController extends StateNotifier<ActiveTripState> {
       if (!mounted) return;
       // Realtime listener delivers the fresh row; just clear the busy flag.
       state = state.copyWith(isAdvancing: false);
-    } catch (e) {
+    } catch (e, s) {
       if (!mounted) return;
-      final String msg = e.toString();
-      String friendly = 'Could not update trip.';
-      if (msg.contains('invalid_transition')) {
-        friendly = 'Trip is not in the right state for that action.';
-      } else if (msg.contains('not_your_trip')) {
-        friendly = "You can't update someone else's trip.";
-      } else if (msg.contains('trip_not_found')) {
-        friendly = 'Trip no longer exists.';
-      } else if (msg.contains('too_far_from_pickup')) {
-        // Server returns "too_far_from_pickup_<n>m" — pull the distance
-        // out so the message tells the driver how far they actually are.
-        final RegExpMatch? m =
-            RegExp(r'too_far_from_pickup_(\d+)m').firstMatch(msg);
-        final String dist = m?.group(1) ?? '?';
-        friendly =
-            "You're $dist m from the pickup. Get within 200 m to mark arrived.";
-      } else if (msg.contains('no_location_fix')) {
-        friendly = 'Need a GPS fix first — wait a few seconds and retry.';
-      }
+      AppLogger.e('Trip transition failed', error: e, stackTrace: s);
+      // Server returns "too_far_from_pickup_<n>m" — pull the distance
+      // out so the driver sees exactly how far they are. For every
+      // other shape, hand off to the central translator.
+      final String raw = e.toString();
+      final RegExpMatch? farMatch =
+          RegExp(r'too_far_from_pickup_(\d+)m').firstMatch(raw);
+      final String friendly = farMatch != null
+          ? "You're ${farMatch.group(1)} m from the pickup. Get within 200 m to mark arrived."
+          : humaniseError(e, fallback: "Couldn't update the trip.");
       state = state.copyWith(isAdvancing: false, error: friendly);
     }
   }

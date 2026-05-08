@@ -2,6 +2,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:drivio_driver/modules/commons/data/trusted_contacts_repository.dart';
 import 'package:drivio_driver/modules/commons/di/di.dart';
+import 'package:drivio_driver/modules/commons/errors/error_messages.dart';
+import 'package:drivio_driver/modules/commons/logging/app_logger.dart';
 import 'package:drivio_driver/modules/commons/types/trusted_contact.dart';
 
 /// Hard cap mirrored from the server-side `_enforce_trusted_contacts_cap`
@@ -174,6 +176,7 @@ class TrustedContactsController
 
   String _friendly(Object e, {required String fallback}) {
     final String msg = e.toString();
+    AppLogger.w('Trusted contact mutation failed', error: e);
     if (msg.contains('trusted_contacts_one_primary_per_user')) {
       return 'You already have a primary contact.';
     }
@@ -181,10 +184,10 @@ class TrustedContactsController
         msg.contains('duplicate key')) {
       return 'That phone number is already saved.';
     }
-    if (msg.contains('cap')) {
+    if (msg.contains('trusted_contacts_cap')) {
       return 'You can only have $kTrustedContactsCap contacts.';
     }
-    return fallback;
+    return humaniseError(e, fallback: fallback);
   }
 }
 

@@ -86,15 +86,10 @@ class _KycHomePageState extends ConsumerState<KycHomePage> {
                       : 'Submit for review',
                   disabled: !state.canSubmitForReview || state.isSubmitting,
                   onPressed: () async {
-                    final ScaffoldMessengerState messenger =
-                        ScaffoldMessenger.of(context);
                     final bool ok = await c.submitForReview();
                     if (!ok) return;
-                    messenger.showSnackBar(
-                      const SnackBar(
-                        content: Text(
-                            'Submitted. We\'ll notify you when reviewed.'),
-                      ),
+                    AppNotifier.success(
+                      message: "Submitted. We'll notify you when reviewed.",
                     );
                   },
                 ),
