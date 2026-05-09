@@ -200,8 +200,7 @@ class _AccountCard extends StatelessWidget {
                   children: <Widget>[
                     Text(
                       account.displayLabel,
-                      style: TextStyle(
-                        fontSize: 14,
+                      style: AppTextStyles.bodySm.copyWith(
                         color: context.text,
                         fontWeight: FontWeight.w700,
                       ),
@@ -209,7 +208,8 @@ class _AccountCard extends StatelessWidget {
                     const SizedBox(height: 2),
                     Text(
                       account.accountName,
-                      style: TextStyle(fontSize: 11, color: context.textDim),
+                      style: AppTextStyles.captionSm
+                          .copyWith(fontSize: 11, color: context.textDim),
                     ),
                   ],
                 ),
@@ -260,10 +260,9 @@ class _NoAccountCard extends StatelessWidget {
         children: <Widget>[
           Text(
             'No payout account on file',
-            style: TextStyle(
-              fontSize: 13,
+            style: AppTextStyles.caption.copyWith(
               color: context.text,
-              fontWeight: FontWeight.w600,
+              fontWeight: FontWeight.w700,
             ),
           ),
           const SizedBox(height: 4),
@@ -356,24 +355,23 @@ class _BillingRow extends StatelessWidget {
               children: <Widget>[
                 Text(
                   entry.description ?? 'Subscription charge',
-                  style: TextStyle(
-                    fontSize: 13,
+                  style: AppTextStyles.caption.copyWith(
                     color: context.text,
-                    fontWeight: FontWeight.w600,
+                    fontWeight: FontWeight.w700,
                   ),
                 ),
                 const SizedBox(height: 2),
                 Text(
                   _fmtDate(entry.createdAt),
-                  style: TextStyle(fontSize: 11, color: context.textDim),
+                  style: AppTextStyles.captionSm
+                      .copyWith(fontSize: 11, color: context.textDim),
                 ),
               ],
             ),
           ),
           Text(
             '−${NairaFormatter.format(entry.amountMinor ~/ 100)}',
-            style: TextStyle(
-              fontSize: 14,
+            style: AppTextStyles.bodySm.copyWith(
               fontWeight: FontWeight.w700,
               color: context.red,
             ),

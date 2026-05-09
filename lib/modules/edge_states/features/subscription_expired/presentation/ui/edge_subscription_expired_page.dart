@@ -38,26 +38,34 @@ class EdgeSubscriptionExpiredPage extends ConsumerWidget {
                   width: 72,
                   height: 72,
                   decoration: BoxDecoration(
-                    color: context.red.withValues(alpha: 0.16),
-                    border: Border.all(color: context.red.withValues(alpha: 0.35)),
+                    color: context.red.withValues(alpha: 0.14),
+                    border: Border.all(
+                      color: context.red.withValues(alpha: 0.32),
+                    ),
                     borderRadius: BorderRadius.circular(20),
                   ),
                   alignment: Alignment.center,
-                  child: const Text('🔒', style: TextStyle(fontSize: 34)),
+                  child: Icon(
+                    Icons.lock_rounded,
+                    size: 32,
+                    color: context.red,
+                  ),
                 ),
-                const SizedBox(height: 24),
+                const SizedBox(height: 22),
                 const Pill(text: 'SUBSCRIPTION EXPIRED', tone: PillTone.red),
                 const SizedBox(height: 14),
                 Text(
                   'Reactivate to get\nback on the road.',
                   textAlign: TextAlign.center,
-                  style: AppTextStyles.screenTitleSm.copyWith(color: context.text),
+                  style: AppTextStyles.screenTitleSm
+                      .copyWith(color: context.text),
                 ),
                 const SizedBox(height: 10),
                 SizedBox(
                   width: 300,
                   child: Text(
-                    "Your Drivio Pro plan ended 2 days ago. You won't receive ride requests until you renew.",
+                    "Your Drivio Pro plan ended 2 days ago. You won't "
+                    "receive ride requests until you renew.",
                     textAlign: TextAlign.center,
                     style: AppTextStyles.bodySm.copyWith(
                       color: context.textDim,
@@ -69,50 +77,7 @@ class EdgeSubscriptionExpiredPage extends ConsumerWidget {
                 ...rows.map(
                   (_LockedRow r) => Padding(
                     padding: const EdgeInsets.only(bottom: 8),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                      decoration: BoxDecoration(
-                        color: context.surface,
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: context.border),
-                      ),
-                      child: Opacity(
-                        opacity: r.locked ? 1 : 0.6,
-                        child: Row(
-                          children: <Widget>[
-                            Container(
-                              width: 24,
-                              height: 24,
-                              decoration: BoxDecoration(
-                                color: (r.locked ? context.red : context.accent)
-                                    .withValues(alpha: 0.18),
-                                borderRadius: BorderRadius.circular(6),
-                              ),
-                              alignment: Alignment.center,
-                              child: Text(
-                                r.locked ? '🔒' : '✓',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: r.locked ? context.red : context.accent,
-                                  fontWeight: FontWeight.w700,
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              child: Text(
-                                r.label,
-                                style: TextStyle(
-                                  fontSize: 13,
-                                  color: context.text,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
+                    child: _LockedItem(row: r),
                   ),
                 ),
                 const Spacer(),
@@ -126,8 +91,11 @@ class EdgeSubscriptionExpiredPage extends ConsumerWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: <Widget>[
-                      Text('DRIVIO PRO',
-                          style: AppTextStyles.eyebrow.copyWith(color: context.textDim)),
+                      Text(
+                        'DRIVIO PRO',
+                        style: AppTextStyles.eyebrow
+                            .copyWith(color: context.textDim),
+                      ),
                       const SizedBox(height: 4),
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -136,15 +104,13 @@ class EdgeSubscriptionExpiredPage extends ConsumerWidget {
                         children: <Widget>[
                           Text(
                             '${NairaFormatter.format(15000)}/mo',
-                            style: TextStyle(
-                              fontSize: 22,
-                              fontWeight: FontWeight.w700,
-                              color: context.text,
-                            ),
+                            style: AppTextStyles.metricVal
+                                .copyWith(color: context.text),
                           ),
                           Text(
                             'Same as before',
-                            style: TextStyle(fontSize: 12, color: context.accent),
+                            style: AppTextStyles.captionSm
+                                .copyWith(color: context.accent),
                           ),
                         ],
                       ),
@@ -154,13 +120,64 @@ class EdgeSubscriptionExpiredPage extends ConsumerWidget {
                 const SizedBox(height: 14),
                 DrivioButton(
                   label: 'Reactivate now',
-                  onPressed: () =>
-                      AppNavigation.replaceAll<void>(AppRoutes.subscriptionManage),
+                  onPressed: () => AppNavigation.replaceAll<void>(
+                    AppRoutes.subscriptionManage,
+                  ),
                 ),
               ],
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _LockedItem extends StatelessWidget {
+  const _LockedItem({required this.row});
+
+  final _LockedRow row;
+
+  @override
+  Widget build(BuildContext context) {
+    final Color tint = row.locked ? context.red : context.accent;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: context.surface,
+        borderRadius: AppRadius.md,
+        border: Border.all(color: context.border),
+      ),
+      child: Opacity(
+        opacity: row.locked ? 1 : 0.62,
+        child: Row(
+          children: <Widget>[
+            Container(
+              width: 26,
+              height: 26,
+              decoration: BoxDecoration(
+                color: tint.withValues(alpha: 0.18),
+                borderRadius: AppRadius.sm,
+              ),
+              alignment: Alignment.center,
+              child: Icon(
+                row.locked ? Icons.lock_rounded : Icons.check_rounded,
+                size: 14,
+                color: tint,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                row.label,
+                style: AppTextStyles.caption.copyWith(
+                  color: context.text,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

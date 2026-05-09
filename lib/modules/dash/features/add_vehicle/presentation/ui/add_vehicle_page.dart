@@ -59,11 +59,9 @@ class _AddVehiclePageState extends ConsumerState<AddVehiclePage> {
                 const SizedBox(width: 10),
                 Text(
                   'STEP 1 OF 2',
-                  style: TextStyle(
-                    fontSize: 11,
+                  style: AppTextStyles.mono.copyWith(
                     color: context.textMuted,
-                    fontFamily: 'monospace',
-                    letterSpacing: 1.6,
+                    letterSpacing: 1.8,
                   ),
                 ),
               ],
@@ -172,7 +170,8 @@ class _AddVehiclePageState extends ConsumerState<AddVehiclePage> {
             Center(
               child: Text(
                 'Review takes under 15 minutes on average.',
-                style: TextStyle(fontSize: 11, color: context.textMuted),
+                style: AppTextStyles.captionSm
+                    .copyWith(fontSize: 11, color: context.textMuted),
               ),
             ),
           ],
@@ -221,7 +220,23 @@ class _UploadCard extends ConsumerWidget {
         ),
         child: Row(
           children: <Widget>[
-            const Text('📄', style: TextStyle(fontSize: 18)),
+            Container(
+              width: 32,
+              height: 32,
+              decoration: BoxDecoration(
+                color: (uploaded ? context.accent : context.textDim)
+                    .withValues(alpha: 0.14),
+                borderRadius: AppRadius.sm,
+              ),
+              alignment: Alignment.center,
+              child: Icon(
+                uploaded
+                    ? Icons.check_circle_rounded
+                    : Icons.upload_file_rounded,
+                size: 16,
+                color: uploaded ? context.accent : context.textDim,
+              ),
+            ),
             const SizedBox(width: 10),
             Expanded(
               child: Column(
@@ -229,10 +244,9 @@ class _UploadCard extends ConsumerWidget {
                 children: <Widget>[
                   Text(
                     label,
-                    style: TextStyle(
-                      fontSize: 13,
+                    style: AppTextStyles.caption.copyWith(
                       color: context.text,
-                      fontWeight: FontWeight.w600,
+                      fontWeight: FontWeight.w700,
                     ),
                   ),
                   const SizedBox(height: 2),
@@ -242,7 +256,7 @@ class _UploadCard extends ConsumerWidget {
                         : uploaded
                             ? (slot.fileName ?? 'Uploaded')
                             : 'Tap to upload · PDF or photo',
-                    style: TextStyle(
+                    style: AppTextStyles.captionSm.copyWith(
                       fontSize: 11,
                       color: uploaded
                           ? context.accent
@@ -257,7 +271,8 @@ class _UploadCard extends ConsumerWidget {
                     const SizedBox(height: 2),
                     Text(
                       slot.error!,
-                      style: TextStyle(fontSize: 11, color: context.red),
+                      style: AppTextStyles.captionSm
+                          .copyWith(fontSize: 11, color: context.red),
                     ),
                   ],
                 ],

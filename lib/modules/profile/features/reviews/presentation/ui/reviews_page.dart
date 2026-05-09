@@ -95,9 +95,8 @@ class _SummaryHeader extends StatelessWidget {
           children: <Widget>[
             Text(
               isPlaceholder ? '—' : headlineRating.toStringAsFixed(1),
-              style: TextStyle(
+              style: AppTextStyles.priceHero.copyWith(
                 fontSize: 44,
-                fontWeight: FontWeight.w700,
                 letterSpacing: -1.4,
                 color: isPlaceholder ? context.textDim : context.amber,
               ),
@@ -107,7 +106,8 @@ class _SummaryHeader extends StatelessWidget {
             const SizedBox(height: 2),
             Text(
               isPlaceholder ? 'No ratings yet' : 'Last 30 days',
-              style: TextStyle(fontSize: 11, color: context.textDim),
+              style: AppTextStyles.captionSm
+                  .copyWith(fontSize: 11, color: context.textDim),
             ),
           ],
         ),
@@ -145,7 +145,8 @@ class _DistributionRow extends StatelessWidget {
           width: 12,
           child: Text(
             '$stars',
-            style: TextStyle(fontSize: 11, color: context.textDim),
+            style: AppTextStyles.captionSm
+                .copyWith(fontSize: 11, color: context.textDim),
           ),
         ),
         const SizedBox(width: 6),
@@ -171,7 +172,8 @@ class _DistributionRow extends StatelessWidget {
           child: Text(
             '$percent%',
             textAlign: TextAlign.right,
-            style: TextStyle(fontSize: 11, color: context.textDim),
+            style: AppTextStyles.captionSm
+                .copyWith(fontSize: 11, color: context.textDim),
           ),
         ),
       ],
@@ -246,10 +248,9 @@ class _ReviewCard extends StatelessWidget {
                   children: <Widget>[
                     Text(
                       review.passengerName,
-                      style: TextStyle(
-                        fontSize: 13,
+                      style: AppTextStyles.caption.copyWith(
                         color: context.text,
-                        fontWeight: FontWeight.w600,
+                        fontWeight: FontWeight.w700,
                       ),
                     ),
                     Row(
@@ -258,8 +259,8 @@ class _ReviewCard extends StatelessWidget {
                         const SizedBox(width: 6),
                         Text(
                           '· ${_relativeAge(review.createdAt)}',
-                          style: TextStyle(
-                              fontSize: 11, color: context.textDim),
+                          style: AppTextStyles.captionSm
+                              .copyWith(fontSize: 11, color: context.textDim),
                         ),
                       ],
                     ),
@@ -272,8 +273,7 @@ class _ReviewCard extends StatelessWidget {
             const SizedBox(height: 10),
             Text(
               '"${review.comment}"',
-              style: TextStyle(
-                fontSize: 13,
+              style: AppTextStyles.caption.copyWith(
                 color: context.textDim,
                 height: 1.5,
               ),
@@ -360,7 +360,7 @@ class _ErrorBanner extends StatelessWidget {
           Expanded(
             child: Text(
               message,
-              style: TextStyle(fontSize: 12, color: context.red),
+              style: AppTextStyles.captionSm.copyWith(color: context.red),
             ),
           ),
           GestureDetector(
@@ -391,10 +391,10 @@ class _TagChip extends StatelessWidget {
       ),
       child: Text(
         text,
-        style: TextStyle(
+        style: AppTextStyles.captionSm.copyWith(
           fontSize: 11,
           color: context.text,
-          fontWeight: FontWeight.w600,
+          fontWeight: FontWeight.w700,
         ),
       ),
     );

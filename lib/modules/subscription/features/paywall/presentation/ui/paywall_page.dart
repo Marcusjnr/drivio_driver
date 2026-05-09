@@ -29,7 +29,6 @@ class _PaywallPageState extends ConsumerState<PaywallPage> {
     SubscriptionPlan? plan,
     Subscription? sub,
   ) async {
-    // If the driver is already covered (trial or active), just go home.
     if (sub != null && sub.status.unlocksMarketplace) {
       AppNavigation.replaceAll<void>(AppRoutes.home);
       return;
@@ -62,22 +61,22 @@ class _PaywallPageState extends ConsumerState<PaywallPage> {
 
     final List<_Benefit> benefits = const <_Benefit>[
       _Benefit(
-        emoji: '🚗',
+        icon: Icons.bolt_rounded,
         title: 'Unlimited ride requests',
         sub: 'No per-trip commission. Keep 100% of what you charge.',
       ),
       _Benefit(
-        emoji: '💸',
+        icon: Icons.tune_rounded,
         title: 'Set your own prices',
         sub: 'Slider, stepper, or counter-offer — you decide the fare.',
       ),
       _Benefit(
-        emoji: '📈',
+        icon: Icons.insights_rounded,
         title: 'Earnings & zone insights',
         sub: 'See where riders pay more and when.',
       ),
       _Benefit(
-        emoji: '🛡️',
+        icon: Icons.verified_rounded,
         title: 'Verified driver badge',
         sub: 'Get 3× more request visibility.',
       ),
@@ -95,32 +94,38 @@ class _PaywallPageState extends ConsumerState<PaywallPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
-            Text(
-              'STEP 4 OF 4',
-              style: TextStyle(
-                fontSize: 11,
-                color: context.textMuted,
-                fontFamily: 'monospace',
-                letterSpacing: 1.6,
-              ),
+            Row(
+              children: <Widget>[
+                Text(
+                  'STEP 4 OF 4',
+                  style: AppTextStyles.mono.copyWith(
+                    color: context.textDim,
+                    letterSpacing: 1.8,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                const Expanded(child: ProgressSteps(total: 4, completed: 4)),
+              ],
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 18),
             Text(
               sub != null && sub.isTrialing
                   ? 'Your trial is\nactive.'
                   : 'Activate your plan\nto start earning.',
               style: AppTextStyles.screenTitle.copyWith(color: context.text),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 10),
             RichText(
               text: TextSpan(
-                style: AppTextStyles.bodySm
-                    .copyWith(color: context.textDim, height: 1.5),
+                style: AppTextStyles.bodySm.copyWith(
+                  color: context.textDim,
+                  height: 1.5,
+                ),
                 children: <InlineSpan>[
                   const TextSpan(text: 'Drivio Pro is '),
                   TextSpan(
                     text: 'flat-rate',
-                    style: TextStyle(
+                    style: AppTextStyles.bodySm.copyWith(
                       color: context.text,
                       fontWeight: FontWeight.w700,
                     ),
@@ -137,19 +142,21 @@ class _PaywallPageState extends ConsumerState<PaywallPage> {
               )
             else
               _PlanCard(plan: plan, subscription: sub),
-            const SizedBox(height: 18),
+            const SizedBox(height: 22),
+            Text(
+              'WHAT YOU GET',
+              style: AppTextStyles.eyebrow.copyWith(color: context.textDim),
+            ),
+            const SizedBox(height: 10),
             ...benefits.map(
               (_Benefit b) => Padding(
-                padding: const EdgeInsets.only(bottom: 10),
+                padding: const EdgeInsets.only(bottom: 8),
                 child: _BenefitTile(b: b),
               ),
             ),
             if (state.error != null) ...<Widget>[
               const SizedBox(height: 12),
-              Text(
-                state.error!,
-                style: AppTextStyles.bodySm.copyWith(color: context.red),
-              ),
+              _ErrorRow(message: state.error!),
             ],
           ],
         ),
@@ -159,21 +166,26 @@ class _PaywallPageState extends ConsumerState<PaywallPage> {
 }
 
 class _Benefit {
-  const _Benefit(
-      {required this.emoji, required this.title, required this.sub});
-  final String emoji;
+  const _Benefit({
+    required this.icon,
+    required this.title,
+    required this.sub,
+  });
+
+  final IconData icon;
   final String title;
   final String sub;
 }
 
-class _BenefitTile extends ConsumerWidget {
+class _BenefitTile extends StatelessWidget {
   const _BenefitTile({required this.b});
+
   final _Benefit b;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
       decoration: BoxDecoration(
         color: context.surface,
         borderRadius: AppRadius.md,
@@ -182,7 +194,16 @@ class _BenefitTile extends ConsumerWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
-          Text(b.emoji, style: const TextStyle(fontSize: 22)),
+          Container(
+            width: 32,
+            height: 32,
+            decoration: BoxDecoration(
+              color: context.accent.withValues(alpha: 0.14),
+              borderRadius: AppRadius.sm,
+            ),
+            alignment: Alignment.center,
+            child: Icon(b.icon, size: 16, color: context.accent),
+          ),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
@@ -190,17 +211,12 @@ class _BenefitTile extends ConsumerWidget {
               children: <Widget>[
                 Text(
                   b.title,
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: context.text,
-                    fontWeight: FontWeight.w600,
-                  ),
+                  style: AppTextStyles.h3.copyWith(color: context.text),
                 ),
-                const SizedBox(height: 2),
+                const SizedBox(height: 3),
                 Text(
                   b.sub,
-                  style: TextStyle(
-                    fontSize: 12,
+                  style: AppTextStyles.captionSm.copyWith(
                     color: context.textDim,
                     height: 1.4,
                   ),
@@ -214,14 +230,14 @@ class _BenefitTile extends ConsumerWidget {
   }
 }
 
-class _PlanCard extends ConsumerWidget {
+class _PlanCard extends StatelessWidget {
   const _PlanCard({required this.plan, required this.subscription});
 
   final SubscriptionPlan? plan;
   final Subscription? subscription;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final int priceNaira = plan == null ? 0 : (plan!.priceMinor ~/ 100);
     final String intervalLabel = plan?.interval.label ?? 'month';
     final String name = plan?.name ?? 'Drivio Pro';
@@ -230,92 +246,86 @@ class _PlanCard extends ConsumerWidget {
     final int? days = subscription?.daysRemaining;
 
     return Container(
-      padding: const EdgeInsets.all(18),
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: <Color>[
-            context.accent.withValues(alpha: 0.12),
+            context.accent.withValues(alpha: 0.14),
             context.accent.withValues(alpha: 0.02),
           ],
         ),
         borderRadius: AppRadius.lg,
-        border: Border.all(color: context.accent.withValues(alpha: 0.3)),
+        border: Border.all(color: context.accent.withValues(alpha: 0.32)),
       ),
-      child: Stack(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+          Row(
             children: <Widget>[
               Text(
                 name.toUpperCase(),
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
+                style: AppTextStyles.eyebrow.copyWith(
                   color: context.accent,
-                  letterSpacing: 0.6,
+                  letterSpacing: 1.4,
                 ),
               ),
-              const SizedBox(height: 6),
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.baseline,
-                textBaseline: TextBaseline.alphabetic,
-                children: <Widget>[
-                  Text(
-                    NairaFormatter.format(priceNaira),
-                    style: TextStyle(
-                      fontSize: 42,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: -1.2,
-                      color: context.text,
+              const Spacer(),
+              if (trialing)
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 4,
+                  ),
+                  decoration: BoxDecoration(
+                    color: context.accent,
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Text(
+                    'TRIAL',
+                    style: AppTextStyles.micro.copyWith(
+                      color: context.accentInk,
+                      letterSpacing: 1.4,
                     ),
                   ),
-                  const SizedBox(width: 4),
-                  Text(
-                    '/ $intervalLabel',
-                    style: TextStyle(fontSize: 14, color: context.textDim),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 4),
+                ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.baseline,
+            textBaseline: TextBaseline.alphabetic,
+            children: <Widget>[
               Text(
-                trialing && days != null
-                    ? 'Trial: $days days left · cancel anytime'
-                    : '90-day free trial · cancel anytime',
-                style: TextStyle(fontSize: 12, color: context.textDim),
+                NairaFormatter.format(priceNaira),
+                style: AppTextStyles.priceHero.copyWith(
+                  color: context.text,
+                  fontSize: 44,
+                  letterSpacing: -1.4,
+                ),
+              ),
+              const SizedBox(width: 6),
+              Text(
+                '/ $intervalLabel',
+                style: AppTextStyles.bodySm.copyWith(color: context.textDim),
               ),
             ],
           ),
-          if (trialing)
-            Positioned(
-              top: 0,
-              right: 0,
-              child: Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: context.accent,
-                  borderRadius: BorderRadius.circular(6),
-                ),
-                child: Text(
-                  'TRIAL',
-                  style: TextStyle(
-                    fontSize: 10,
-                    fontWeight: FontWeight.w700,
-                    color: context.accentInk,
-                    letterSpacing: 0.6,
-                  ),
-                ),
-              ),
-            ),
+          const SizedBox(height: 6),
+          Text(
+            trialing && days != null
+                ? 'Trial: $days days left · cancel anytime'
+                : '90-day free trial · cancel anytime',
+            style: AppTextStyles.captionSm.copyWith(color: context.textDim),
+          ),
         ],
       ),
     );
   }
 }
 
-class _BottomBar extends ConsumerWidget {
+class _BottomBar extends StatelessWidget {
   const _BottomBar({
     required this.plan,
     required this.subscription,
@@ -329,7 +339,7 @@ class _BottomBar extends ConsumerWidget {
   final VoidCallback onActivate;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final SubscriptionStatus? status = subscription?.status;
     final bool covered = status?.unlocksMarketplace ?? false;
     final int priceNaira = plan == null ? 0 : (plan!.priceMinor ~/ 100);
@@ -350,11 +360,13 @@ class _BottomBar extends ConsumerWidget {
     final DateTime? billDate = subscription?.currentPeriodEnd;
     final bool trialing = status == SubscriptionStatus.trialing;
     final String fineprint = trialing && billDate != null
-        ? 'Then ${NairaFormatter.format(priceNaira)}/$intervalLabel · first bill ${_fmtDate(billDate)}'
-        : '${NairaFormatter.format(priceNaira)}/$intervalLabel · cancel anytime';
+        ? 'Then ${NairaFormatter.format(priceNaira)}/$intervalLabel · '
+            'first bill ${_fmtDate(billDate)}'
+        : '${NairaFormatter.format(priceNaira)}/$intervalLabel · '
+            'cancel anytime';
 
     return Container(
-      padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
+      padding: const EdgeInsets.fromLTRB(20, 14, 20, 16),
       decoration: BoxDecoration(
         color: context.bg,
         border: Border(top: BorderSide(color: context.border)),
@@ -369,7 +381,10 @@ class _BottomBar extends ConsumerWidget {
           const SizedBox(height: 8),
           Text(
             fineprint,
-            style: TextStyle(fontSize: 11, color: context.textMuted),
+            style: AppTextStyles.micro.copyWith(
+              color: context.textMuted,
+              letterSpacing: 0.3,
+            ),
           ),
         ],
       ),
@@ -382,5 +397,39 @@ class _BottomBar extends ConsumerWidget {
       'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
     ];
     return '${months[d.month - 1]} ${d.day}';
+  }
+}
+
+class _ErrorRow extends StatelessWidget {
+  const _ErrorRow({required this.message});
+
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: context.red.withValues(alpha: 0.10),
+        borderRadius: AppRadius.md,
+        border: Border.all(color: context.red.withValues(alpha: 0.30)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Icon(Icons.error_outline_rounded, size: 16, color: context.red),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              message,
+              style: AppTextStyles.bodySm.copyWith(
+                color: context.red,
+                height: 1.4,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }

@@ -136,7 +136,11 @@ class _OverallPill extends StatelessWidget {
       ),
       child: Text(
         status.label,
-        style: TextStyle(fontSize: 11, color: fg, fontWeight: FontWeight.w600),
+        style: AppTextStyles.captionSm.copyWith(
+          fontSize: 11,
+          color: fg,
+          fontWeight: FontWeight.w700,
+        ),
       ),
     );
   }
@@ -211,16 +215,15 @@ class _StepRow extends StatelessWidget {
                 children: <Widget>[
                   Text(
                     step.title,
-                    style: TextStyle(
-                      fontSize: 14,
+                    style: AppTextStyles.bodySm.copyWith(
                       color: context.text,
-                      fontWeight: FontWeight.w600,
+                      fontWeight: FontWeight.w700,
                     ),
                   ),
                   const SizedBox(height: 2),
                   Text(
                     step.rejectionReason ?? step.subtitle,
-                    style: TextStyle(
+                    style: AppTextStyles.captionSm.copyWith(
                       fontSize: 11,
                       color: step.status == KycStepStatus.rejected
                           ? context.red
@@ -233,10 +236,10 @@ class _StepRow extends StatelessWidget {
             const SizedBox(width: 8),
             Text(
               _shortLabel(step.status),
-              style: TextStyle(
+              style: AppTextStyles.captionSm.copyWith(
                 fontSize: 11,
                 color: iconColor,
-                fontWeight: FontWeight.w600,
+                fontWeight: FontWeight.w700,
               ),
             ),
           ],
@@ -313,10 +316,9 @@ class _ReviewBanner extends StatelessWidget {
           Expanded(
             child: Text(
               text,
-              style: TextStyle(
-                fontSize: 13,
+              style: AppTextStyles.caption.copyWith(
                 color: context.text,
-                fontWeight: FontWeight.w600,
+                fontWeight: FontWeight.w700,
               ),
             ),
           ),

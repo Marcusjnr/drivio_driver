@@ -169,10 +169,9 @@ class _ActionRow extends StatelessWidget {
                   const SizedBox(width: 10),
                   Text(
                     'Bid placed · waiting for passenger',
-                    style: TextStyle(
-                      fontSize: 13,
+                    style: AppTextStyles.caption.copyWith(
                       color: context.text,
-                      fontWeight: FontWeight.w600,
+                      fontWeight: FontWeight.w700,
                     ),
                   ),
                 ],
@@ -254,13 +253,12 @@ class _RouteRow extends StatelessWidget {
               Text('PICKUP',
                   style:
                       AppTextStyles.eyebrow.copyWith(color: context.textDim)),
-              const SizedBox(height: 1),
+              const SizedBox(height: 2),
               Text(
                 pickup,
-                style: TextStyle(
-                  fontSize: 14,
+                style: AppTextStyles.bodySm.copyWith(
                   color: context.text,
-                  fontWeight: FontWeight.w600,
+                  fontWeight: FontWeight.w700,
                 ),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
@@ -271,13 +269,12 @@ class _RouteRow extends StatelessWidget {
                 style:
                     AppTextStyles.eyebrow.copyWith(color: context.textDim),
               ),
-              const SizedBox(height: 1),
+              const SizedBox(height: 2),
               Text(
                 dropoff,
-                style: TextStyle(
-                  fontSize: 14,
+                style: AppTextStyles.bodySm.copyWith(
                   color: context.text,
-                  fontWeight: FontWeight.w600,
+                  fontWeight: FontWeight.w700,
                 ),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
@@ -381,8 +378,10 @@ class _FareCardState extends State<_FareCard> {
                     Flexible(
                       child: Text(
                         'Suggested ${NairaFormatter.format(state.suggestedNaira)}',
-                        style:
-                            TextStyle(fontSize: 11, color: context.textDim),
+                        style: AppTextStyles.captionSm.copyWith(
+                          fontSize: 11,
+                          color: context.textDim,
+                        ),
                         overflow: TextOverflow.ellipsis,
                         softWrap: false,
                       ),
@@ -428,14 +427,15 @@ class _FareCardState extends State<_FareCard> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: <Widget>[
-              Text('You keep',
-                  style: TextStyle(fontSize: 12, color: context.textDim)),
+              Text(
+                'You keep',
+                style: AppTextStyles.captionSm.copyWith(color: context.textDim),
+              ),
               Text(
                 NairaFormatter.format(state.netToYou),
-                style: TextStyle(
-                  fontSize: 12,
+                style: AppTextStyles.captionSm.copyWith(
                   color: context.accent,
-                  fontWeight: FontWeight.w600,
+                  fontWeight: FontWeight.w700,
                 ),
               ),
             ],
@@ -539,10 +539,9 @@ class _VariantSwitcher extends StatelessWidget {
                   alignment: Alignment.center,
                   child: Text(
                     v.name.toUpperCase(),
-                    style: TextStyle(
-                      fontSize: 11,
+                    style: AppTextStyles.micro.copyWith(
                       color: isActive ? context.text : context.textDim,
-                      fontWeight: FontWeight.w600,
+                      letterSpacing: 1.2,
                     ),
                   ),
                 ),
@@ -588,10 +587,9 @@ class _TypeKeys extends StatelessWidget {
                         alignment: Alignment.center,
                         child: Text(
                           d > 0 ? '+$d' : '$d',
-                          style: TextStyle(
+                          style: AppTextStyles.caption.copyWith(
                             color: context.text,
-                            fontWeight: FontWeight.w600,
-                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
                           ),
                         ),
                       ),
@@ -635,12 +633,21 @@ class _SliderVariant extends StatelessWidget {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: <Widget>[
-            Text(NairaFormatter.format(min.round()),
-                style: TextStyle(fontSize: 11, color: context.textMuted)),
-            Text('Suggested',
-                style: TextStyle(fontSize: 11, color: context.textMuted)),
-            Text(NairaFormatter.format(max.round()),
-                style: TextStyle(fontSize: 11, color: context.textMuted)),
+            Text(
+              NairaFormatter.format(min.round()),
+              style: AppTextStyles.captionSm
+                  .copyWith(fontSize: 11, color: context.textMuted),
+            ),
+            Text(
+              'Suggested',
+              style: AppTextStyles.captionSm
+                  .copyWith(fontSize: 11, color: context.textMuted),
+            ),
+            Text(
+              NairaFormatter.format(max.round()),
+              style: AppTextStyles.captionSm
+                  .copyWith(fontSize: 11, color: context.textMuted),
+            ),
           ],
         ),
       ],
@@ -686,16 +693,15 @@ class _ChipsVariant extends StatelessWidget {
                     children: <Widget>[
                       Text(
                         o.label,
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
+                        style: AppTextStyles.caption.copyWith(
                           color: active ? context.accentInk : context.text,
+                          fontWeight: FontWeight.w700,
                         ),
                       ),
                       const SizedBox(height: 2),
                       Text(
                         NairaFormatter.format(o.value),
-                        style: TextStyle(
+                        style: AppTextStyles.captionSm.copyWith(
                           fontSize: 11,
                           color: active
                               ? context.accentInk.withValues(alpha: 0.85)
@@ -757,16 +763,16 @@ class _SentimentBar extends StatelessWidget {
               children: <Widget>[
                 Text(
                   labels[idx],
-                  style: TextStyle(
-                    fontSize: 13,
+                  style: AppTextStyles.caption.copyWith(
                     color: context.text,
-                    fontWeight: FontWeight.w600,
+                    fontWeight: FontWeight.w700,
                   ),
                 ),
                 const SizedBox(height: 2),
                 Text(
                   'Nearby drivers: ₦2.8k – ₦4.2k',
-                  style: TextStyle(fontSize: 11, color: context.textDim),
+                  style: AppTextStyles.captionSm
+                      .copyWith(fontSize: 11, color: context.textDim),
                 ),
               ],
             ),

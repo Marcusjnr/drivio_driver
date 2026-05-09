@@ -130,7 +130,23 @@ class _UploadTile extends StatelessWidget {
         ),
         child: Row(
           children: <Widget>[
-            const Text('📄', style: TextStyle(fontSize: 22)),
+            Container(
+              width: 36,
+              height: 36,
+              decoration: BoxDecoration(
+                color: (uploaded ? context.accent : context.textDim)
+                    .withValues(alpha: 0.14),
+                borderRadius: AppRadius.sm,
+              ),
+              alignment: Alignment.center,
+              child: Icon(
+                uploaded
+                    ? Icons.check_circle_rounded
+                    : Icons.upload_file_rounded,
+                size: 18,
+                color: uploaded ? context.accent : context.textDim,
+              ),
+            ),
             const SizedBox(width: 12),
             Expanded(
               child: Column(
@@ -142,10 +158,9 @@ class _UploadTile extends StatelessWidget {
                         : uploaded
                             ? (state.uploadedFileName ?? 'Uploaded')
                             : 'Tap to upload · PDF or photo',
-                    style: TextStyle(
-                      fontSize: 14,
+                    style: AppTextStyles.bodySm.copyWith(
                       color: context.text,
-                      fontWeight: FontWeight.w600,
+                      fontWeight: FontWeight.w700,
                     ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
@@ -155,7 +170,7 @@ class _UploadTile extends StatelessWidget {
                     uploaded
                         ? 'Looking good. Submit when ready.'
                         : 'Camera, gallery, or file picker.',
-                    style: TextStyle(
+                    style: AppTextStyles.captionSm.copyWith(
                       fontSize: 11,
                       color: uploaded ? context.accent : context.textDim,
                     ),

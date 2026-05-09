@@ -13,7 +13,7 @@ class EdgeOfflinePage extends ConsumerWidget {
         children: <Widget>[
           const Positioned.fill(child: DrivioMap()),
           Positioned.fill(
-            child: Container(color: context.bg.withValues(alpha: 0.75)),
+            child: Container(color: context.bg.withValues(alpha: 0.78)),
           ),
           Center(
             child: Padding(
@@ -22,15 +22,21 @@ class EdgeOfflinePage extends ConsumerWidget {
                 mainAxisSize: MainAxisSize.min,
                 children: <Widget>[
                   Container(
-                    width: 68,
-                    height: 68,
+                    width: 72,
+                    height: 72,
                     decoration: BoxDecoration(
                       color: context.red.withValues(alpha: 0.14),
-                      border: Border.all(color: context.red.withValues(alpha: 0.3)),
+                      border: Border.all(
+                        color: context.red.withValues(alpha: 0.30),
+                      ),
                       borderRadius: BorderRadius.circular(20),
                     ),
                     alignment: Alignment.center,
-                    child: const Text('📡', style: TextStyle(fontSize: 32)),
+                    child: Icon(
+                      Icons.cloud_off_rounded,
+                      size: 30,
+                      color: context.red,
+                    ),
                   ),
                   const SizedBox(height: 18),
                   Text(
@@ -39,26 +45,28 @@ class EdgeOfflinePage extends ConsumerWidget {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    "We can't reach Drivio right now. Your active trip is saved — we'll sync as soon as you're back.",
+                    "We can't reach Drivio right now. Your active trip "
+                    "is saved — we'll sync as soon as you're back.",
                     textAlign: TextAlign.center,
                     style: AppTextStyles.bodySm.copyWith(
                       color: context.textDim,
                       height: 1.5,
                     ),
                   ),
-                  const SizedBox(height: 20),
+                  const SizedBox(height: 22),
                   DrivioButton(
                     label: 'Retry connection',
                     variant: DrivioButtonVariant.primary,
-                    onPressed: () => AppNavigation.replaceAll<void>(AppRoutes.home),
+                    onPressed: () =>
+                        AppNavigation.replaceAll<void>(AppRoutes.home),
                   ),
                   const SizedBox(height: 14),
                   Text(
                     'Last synced 2 min ago · Wi-Fi unavailable',
-                    style: TextStyle(
+                    style: AppTextStyles.mono.copyWith(
                       fontSize: 12,
                       color: context.textMuted,
-                      fontFamily: 'monospace',
+                      letterSpacing: 0.6,
                     ),
                   ),
                 ],

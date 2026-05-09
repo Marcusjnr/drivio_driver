@@ -77,11 +77,10 @@ class ReferralPage extends ConsumerWidget {
                   state.isLoading
                       ? 'Loading…'
                       : (code ?? 'No code yet'),
-                  style: TextStyle(
+                  style: AppTextStyles.mono.copyWith(
                     fontSize: 20,
                     fontWeight: FontWeight.w700,
                     letterSpacing: 2.4,
-                    fontFamily: 'monospace',
                     color: code == null
                         ? context.textDim
                         : context.accent,
@@ -110,9 +109,11 @@ class ReferralPage extends ConsumerWidget {
                     borderRadius: BorderRadius.circular(10),
                   ),
                 ),
-                child: const Text(
+                child: Text(
                   'Copy',
-                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
+                  style: AppTextStyles.captionSm.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
               ),
             ],

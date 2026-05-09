@@ -51,9 +51,17 @@ city comes next.
 
 We make six commitments:
 
-1. **Dark-first.** Drivers spend most of the day in mixed lighting.
-   Dark surfaces with mint accents read better through a windscreen,
+1. **Theme-aware, with per-app defaults.** The driver app opens in
+   **dark** — drivers spend most of the day in mixed lighting and
+   dark surfaces with mint accents read better through a windscreen,
    stay calm at night, and cut tropical-sun glare on cheap screens.
+   The passenger app opens in **light** — consumer mobility expects
+   a clean, bright first impression. Both apps support full dark
+   and light themes and ship with an in-app **Appearance** setting
+   (Match my system / Light / Dark) that persists across launches.
+   Every component **must** look correct in both modes — read
+   colours via `context.<token>` (driver) or `context.palette.<token>`
+   (passenger), never raw `AppColors.*Dark`/`*Light`.
 2. **Mint is meaning.** `#5EE4A8` is reserved for *live*, *go*,
    *money in*. We don't use it as decoration. If something is mint,
    it means something.
@@ -522,6 +530,63 @@ Pill(text: 'PEAK · 1.5×', tone: PillTone.amber)
 Tones: `neutral`, `accent`, `blue`, `amber`, `red`. Pill radius is
 `pill` (999). Always uppercase. Always letter-spaced ≥ 1.4. Never
 end with a period.
+
+### `IconDisc`
+
+The single most-repeated affordance in the app: a tinted square (or
+circle) with a Material icon centered. Used as the visual anchor for
+status, error, success, and feature-callout cards across notifications,
+KYC rows, paywall benefits, OTP phone-cards, edge-state heroes,
+cancelled/completed trip states, and empty-state callouts.
+
+```dart
+// Empty-state hero (44×44 mint-tinted square)
+IconDisc(icon: Icons.bolt_rounded, tone: IconDiscTone.accent)
+
+// Cancelled-trip hero (56×56 red-tinted circle)
+IconDisc(
+  icon: Icons.close_rounded,
+  tone: IconDiscTone.red,
+  size: IconDiscSize.lg,
+  shape: IconDiscShape.circle,
+)
+
+// Full-screen edge-state hero (72×72 red-tinted square with border)
+IconDisc(
+  icon: Icons.lock_rounded,
+  tone: IconDiscTone.red,
+  size: IconDiscSize.xl,
+  bordered: true,
+)
+
+// In-row affordance (32×32 surface-tinted square — quiet/neutral)
+IconDisc(
+  icon: Icons.bedtime_rounded,
+  tone: IconDiscTone.neutral,
+  size: IconDiscSize.sm,
+)
+```
+
+**Tones**: `accent`, `blue`, `amber`, `red`, `neutral`. Each pair (tint
+14% / fg 100%) is fixed — don't pass custom colours. The point of the
+component is recognition; one of the five tones, no exceptions.
+
+**Sizes**: `xs (28)`, `sm (32)`, `md (44)` ← default, `lg (56)`,
+`xl (72)`. Sizes match the affordance scale documented above.
+
+**Shapes**: `square` (default — for *features / states / actions*) and
+`circle` (for *people / places / things*). The semantic split is
+intentional — pick the shape that matches the noun the disc represents.
+
+**Bordered**: opt-in 1px border at the same tint at 32% alpha. Use only
+on `xl` edge-state heroes where the disc needs extra weight against a
+full-screen backdrop.
+
+When you need a status icon **stronger than `IconDisc` but quieter than
+`Pill`**: use `IconDisc(size: xs)`. When you need just a label, use
+`Pill`. When the affordance is interactive (tappable utility action,
+not a status), use `IconCircleButton`. Three components, three
+non-overlapping jobs.
 
 ### `Avatar`
 

@@ -14,6 +14,7 @@ export 'widgets/divider_dot.dart';
 export 'widgets/drivio_safe_area.dart';
 export 'widgets/field_row.dart';
 export 'widgets/icon_circle_button.dart';
+export 'widgets/icon_disc.dart';
 export 'widgets/icons/drivio_icons.dart';
 export 'widgets/inputs/drivio_input.dart';
 export 'widgets/inputs/phone_number_input.dart';

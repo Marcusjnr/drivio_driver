@@ -61,31 +61,34 @@ class _SignUpPageState extends ConsumerState<SignUpPage> {
             Row(
               children: <Widget>[
                 BackButtonBox(onTap: () => AppNavigation.pop()),
-                const SizedBox(width: 8),
+                const SizedBox(width: 12),
                 Text(
                   'STEP 1 OF 2',
-                  style: TextStyle(
-                    fontSize: 11,
-                    color: context.textMuted,
-                    fontFamily: 'monospace',
-                    letterSpacing: 1.4,
+                  style: AppTextStyles.mono.copyWith(
+                    color: context.textDim,
+                    letterSpacing: 1.8,
                   ),
                 ),
                 const SizedBox(width: 12),
                 const Expanded(child: ProgressSteps(total: 2, completed: 1)),
               ],
             ),
-            const SizedBox(height: 22),
+            const SizedBox(height: 24),
             Text(
               "Let's set up your\ndriver account.",
-              style: AppTextStyles.screenTitleSm.copyWith(color: context.text),
+              style:
+                  AppTextStyles.screenTitleSm.copyWith(color: context.text),
             ),
-            const SizedBox(height: 6),
+            const SizedBox(height: 8),
             Text(
-              "Takes about 3 minutes. You'll need your ID and vehicle docs ready.",
-              style: AppTextStyles.caption.copyWith(color: context.textDim),
+              "Takes about 3 minutes. You'll need your ID and vehicle "
+              'docs ready.',
+              style: AppTextStyles.bodySm.copyWith(
+                color: context.textDim,
+                height: 1.5,
+              ),
             ),
-            const SizedBox(height: 22),
+            const SizedBox(height: 26),
             DrivioInput(
               label: 'Full name',
               hint: 'Tunde Ogunleye',
@@ -118,51 +121,49 @@ class _SignUpPageState extends ConsumerState<SignUpPage> {
               onChanged: c.onPasswordChanged,
               compact: true,
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 14),
             _ReferralCard(
               controller: _referral,
               onChanged: c.onReferralChanged,
             ),
             if (state.error != null) ...<Widget>[
               const SizedBox(height: 14),
-              Text(
-                state.error!,
-                style: TextStyle(fontSize: 13, color: context.red, height: 1.4),
-              ),
+              _ErrorRow(message: state.error!),
             ],
-            const SizedBox(height: 22),
+            const SizedBox(height: 24),
             DrivioButton(
-              label: state.isLoading ? 'Sending code\u2026' : 'Continue',
+              label: state.isLoading ? 'Sending code…' : 'Continue',
               disabled: !state.canSubmit || state.isLoading,
               onPressed: state.canSubmit && !state.isLoading ? _onContinue : null,
             ),
-            const SizedBox(height: 10),
+            const SizedBox(height: 12),
             Center(
               child: Text(
-                "By continuing you agree to Drivio's Driver Agreement & Privacy Policy.",
+                "By continuing you agree to Drivio's Driver Agreement & "
+                'Privacy Policy.',
                 textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 11,
+                style: AppTextStyles.captionSm.copyWith(
                   color: context.textMuted,
                   height: 1.5,
                 ),
               ),
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 22),
             Center(
               child: GestureDetector(
                 onTap: () =>
                     AppNavigation.replace<void, void>(AppRoutes.signIn),
                 child: RichText(
                   text: TextSpan(
-                    style: TextStyle(color: context.textDim, fontSize: 13),
+                    style:
+                        AppTextStyles.bodySm.copyWith(color: context.textDim),
                     children: <InlineSpan>[
-                      const TextSpan(text: 'Already registered? '),
+                      const TextSpan(text: 'Already registered?  '),
                       TextSpan(
                         text: 'Sign in',
-                        style: TextStyle(
+                        style: AppTextStyles.bodySm.copyWith(
                           color: context.accent,
-                          fontWeight: FontWeight.w600,
+                          fontWeight: FontWeight.w700,
                         ),
                       ),
                     ],
@@ -189,17 +190,31 @@ class _ReferralCard extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
       decoration: BoxDecoration(
         color: context.surface,
         borderRadius: AppRadius.md,
         border: Border.all(color: context.borderStrong),
       ),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: <Widget>[
           Row(
             children: <Widget>[
-              const Text('\u{1F381}', style: TextStyle(fontSize: 18)),
+              Container(
+                width: 28,
+                height: 28,
+                decoration: BoxDecoration(
+                  color: context.accent.withValues(alpha: 0.16),
+                  borderRadius: AppRadius.sm,
+                ),
+                alignment: Alignment.center,
+                child: Icon(
+                  Icons.card_giftcard_rounded,
+                  size: 16,
+                  color: context.accent,
+                ),
+              ),
               const SizedBox(width: 10),
               Expanded(
                 child: Column(
@@ -207,16 +222,12 @@ class _ReferralCard extends ConsumerWidget {
                   children: <Widget>[
                     Text(
                       'Have a referral code?',
-                      style: TextStyle(
-                        fontSize: 13,
-                        color: context.text,
-                        fontWeight: FontWeight.w600,
-                      ),
+                      style: AppTextStyles.h3.copyWith(color: context.text),
                     ),
+                    const SizedBox(height: 2),
                     Text(
                       'Get 1 extra free month on us.',
-                      style: TextStyle(
-                        fontSize: 11,
+                      style: AppTextStyles.captionSm.copyWith(
                         color: context.textDim,
                       ),
                     ),
@@ -225,12 +236,46 @@ class _ReferralCard extends ConsumerWidget {
               ),
             ],
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 12),
           DrivioInput(
             hint: 'Enter code',
             controller: controller,
             onChanged: onChanged,
             compact: true,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ErrorRow extends StatelessWidget {
+  const _ErrorRow({required this.message});
+
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: context.red.withValues(alpha: 0.10),
+        borderRadius: AppRadius.md,
+        border: Border.all(color: context.red.withValues(alpha: 0.30)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Icon(Icons.error_outline_rounded, size: 16, color: context.red),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              message,
+              style: AppTextStyles.bodySm.copyWith(
+                color: context.red,
+                height: 1.4,
+              ),
+            ),
           ),
         ],
       ),

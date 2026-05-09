@@ -43,30 +43,25 @@ class _CallPageState extends ConsumerState<CallPage> {
                   _state == _CallState.ringing
                       ? 'CALLING RIDER…'
                       : 'ON CALL',
-                  style: TextStyle(
-                    fontSize: 12,
+                  style: AppTextStyles.eyebrow.copyWith(
                     color: context.textDim,
                     letterSpacing: 1.6,
                   ),
                 ),
                 const SizedBox(height: 24),
-                const Avatar(name: 'Kemi A', variant: 3, size: 112),
+                const Avatar(name: 'Rider', variant: 3, size: 112),
                 const SizedBox(height: 20),
                 Text(
-                  'Kemi A',
-                  style: TextStyle(
-                    fontSize: 26,
-                    fontWeight: FontWeight.w700,
-                    color: context.text,
-                  ),
+                  'Rider',
+                  style: AppTextStyles.screenTitleSm
+                      .copyWith(color: context.text),
                 ),
                 const SizedBox(height: 6),
                 Text(
                   _state == _CallState.ringing ? 'Ringing…' : '$mm:$ss',
-                  style: TextStyle(
+                  style: AppTextStyles.mono.copyWith(
                     fontSize: 14,
                     color: context.textDim,
-                    fontFamily: 'monospace',
                     letterSpacing: 1.2,
                   ),
                 ),
@@ -119,7 +114,8 @@ class _CallPageState extends ConsumerState<CallPage> {
                 const SizedBox(height: 14),
                 Text(
                   'Your number stays private. Both sides see a relay.',
-                  style: TextStyle(fontSize: 11, color: context.textDim),
+                  style: AppTextStyles.captionSm
+                      .copyWith(fontSize: 11, color: context.textDim),
                 ),
               ],
             ),
@@ -206,7 +202,13 @@ class _CircleBtn extends ConsumerWidget {
           child: Icon(icon, size: 22, color: context.text),
         ),
         const SizedBox(height: 6),
-        Text(label, style: TextStyle(fontSize: 10, color: context.textDim)),
+        Text(
+          label,
+          style: AppTextStyles.micro.copyWith(
+            color: context.textDim,
+            letterSpacing: 0.4,
+          ),
+        ),
       ],
     );
   }

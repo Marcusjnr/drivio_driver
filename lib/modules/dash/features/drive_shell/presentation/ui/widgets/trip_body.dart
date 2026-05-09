@@ -101,15 +101,15 @@ class _InTripBody extends StatelessWidget {
                 children: <Widget>[
                   Text(
                     'Rider',
-                    style: TextStyle(
-                      fontSize: 15,
+                    style: AppTextStyles.body.copyWith(
                       color: context.text,
-                      fontWeight: FontWeight.w600,
+                      fontWeight: FontWeight.w700,
                     ),
                   ),
                   Text(
                     stageLabel,
-                    style: TextStyle(fontSize: 12, color: context.textDim),
+                    style: AppTextStyles.captionSm
+                        .copyWith(color: context.textDim),
                   ),
                 ],
               ),
@@ -117,16 +117,14 @@ class _InTripBody extends StatelessWidget {
             Column(
               crossAxisAlignment: CrossAxisAlignment.end,
               children: <Widget>[
-                Text('FARE · LOCKED',
-                    style: AppTextStyles.eyebrow
-                        .copyWith(color: context.textDim)),
+                Text(
+                  'FARE · LOCKED',
+                  style: AppTextStyles.eyebrow
+                      .copyWith(color: context.textDim),
+                ),
                 Text(
                   NairaFormatter.format(trip.fareNaira),
-                  style: TextStyle(
-                    fontSize: 17,
-                    fontWeight: FontWeight.w700,
-                    color: context.accent,
-                  ),
+                  style: AppTextStyles.h2.copyWith(color: context.accent),
                 ),
               ],
             ),
@@ -203,7 +201,7 @@ class _InTripBody extends StatelessWidget {
               : () => _showCancelReasonSheet(context, controller),
           child: Text(
             'Cancel trip',
-            style: TextStyle(color: context.textDim, fontSize: 12),
+            style: AppTextStyles.captionSm.copyWith(color: context.textDim),
           ),
         ),
       ],
@@ -389,16 +387,15 @@ class _CancelReasonSheetState extends State<_CancelReasonSheet> {
                             children: <Widget>[
                               Text(
                                 r.title,
-                                style: TextStyle(
-                                  fontSize: 13,
+                                style: AppTextStyles.caption.copyWith(
                                   color: context.text,
-                                  fontWeight: FontWeight.w600,
+                                  fontWeight: FontWeight.w700,
                                 ),
                               ),
                               const SizedBox(height: 2),
                               Text(
                                 r.sub,
-                                style: TextStyle(
+                                style: AppTextStyles.captionSm.copyWith(
                                   fontSize: 11,
                                   color: context.textDim,
                                 ),
@@ -424,7 +421,7 @@ class _CancelReasonSheetState extends State<_CancelReasonSheet> {
               onPressed: () => Navigator.of(context).pop(),
               child: Text(
                 'Keep trip',
-                style: TextStyle(color: context.textDim, fontSize: 13),
+                style: AppTextStyles.caption.copyWith(color: context.textDim),
               ),
             ),
           ],
@@ -463,15 +460,16 @@ class _CompletedBody extends ConsumerWidget {
         Center(
           child: Column(
             children: <Widget>[
-              Text('YOU EARNED',
-                  style: AppTextStyles.eyebrow
-                      .copyWith(color: context.textDim)),
-              const SizedBox(height: 4),
+              Text(
+                'YOU EARNED',
+                style:
+                    AppTextStyles.eyebrow.copyWith(color: context.textDim),
+              ),
+              const SizedBox(height: 6),
               Text(
                 NairaFormatter.format(trip.fareNaira),
-                style: TextStyle(
+                style: AppTextStyles.priceHero.copyWith(
                   fontSize: 44,
-                  fontWeight: FontWeight.w700,
                   letterSpacing: -1.2,
                   color: context.accent,
                 ),
@@ -479,7 +477,8 @@ class _CompletedBody extends ConsumerWidget {
               const SizedBox(height: 4),
               Text(
                 'Credited to your wallet',
-                style: TextStyle(fontSize: 12, color: context.textDim),
+                style:
+                    AppTextStyles.captionSm.copyWith(color: context.textDim),
               ),
             ],
           ),
@@ -569,10 +568,10 @@ class _RatingPanel extends StatelessWidget {
                   ),
                   child: Text(
                     tag,
-                    style: TextStyle(
+                    style: AppTextStyles.captionSm.copyWith(
                       fontSize: 11,
                       color: selected ? context.accentInk : context.text,
-                      fontWeight: FontWeight.w600,
+                      fontWeight: FontWeight.w700,
                     ),
                   ),
                 ),
@@ -607,27 +606,37 @@ class _CancelledBody extends StatelessWidget {
         Center(
           child: Column(
             children: <Widget>[
-              const Text('🚫', style: TextStyle(fontSize: 38)),
-              const SizedBox(height: 8),
+              Container(
+                width: 64,
+                height: 64,
+                decoration: BoxDecoration(
+                  color: context.red.withValues(alpha: 0.12),
+                  shape: BoxShape.circle,
+                ),
+                alignment: Alignment.center,
+                child: Icon(
+                  Icons.close_rounded,
+                  size: 30,
+                  color: context.red,
+                ),
+              ),
+              const SizedBox(height: 12),
               Text(
                 'Trip cancelled',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w700,
-                  color: context.text,
-                ),
+                style: AppTextStyles.h2.copyWith(color: context.text),
               ),
               if (trip.cancellationReason != null) ...<Widget>[
                 const SizedBox(height: 4),
                 Text(
                   trip.cancellationReason!.replaceAll('_', ' '),
-                  style: TextStyle(fontSize: 12, color: context.textDim),
+                  style:
+                      AppTextStyles.captionSm.copyWith(color: context.textDim),
                 ),
               ],
             ],
           ),
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 18),
         DrivioButton(label: 'Back to home', onPressed: onContinue),
       ],
     );
@@ -665,10 +674,10 @@ class _ActionTile extends StatelessWidget {
               const SizedBox(height: 4),
               Text(
                 label,
-                style: TextStyle(
+                style: AppTextStyles.captionSm.copyWith(
                   fontSize: 11,
                   color: context.text,
-                  fontWeight: FontWeight.w500,
+                  fontWeight: FontWeight.w600,
                 ),
               ),
             ],

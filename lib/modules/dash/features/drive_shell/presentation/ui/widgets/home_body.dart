@@ -46,15 +46,12 @@ class HomeBody extends ConsumerWidget {
                       tileNotReady
                           ? '—'
                           : NairaFormatter.format(summary.earningsNaira),
-                      style: TextStyle(
-                        fontSize: 32,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: -0.6,
+                      style: AppTextStyles.displayLg.copyWith(
                         color: context.accent,
                       ),
                     ),
                     if (dash.error != null && tileNotReady) ...<Widget>[
-                      const SizedBox(height: 2),
+                      const SizedBox(height: 4),
                       GestureDetector(
                         onTap: () => ref
                             .read(dashboardControllerProvider.notifier)
@@ -65,7 +62,7 @@ class HomeBody extends ConsumerWidget {
                             Flexible(
                               child: Text(
                                 dash.error!,
-                                style: TextStyle(
+                                style: AppTextStyles.captionSm.copyWith(
                                   fontSize: 11,
                                   color: context.amber,
                                 ),
@@ -166,10 +163,10 @@ class _MiniMetric extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(vertical: 10),
+      padding: const EdgeInsets.symmetric(vertical: 12),
       decoration: BoxDecoration(
         color: context.surface2,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: AppRadius.md,
       ),
       child: Column(
         children: <Widget>[
@@ -182,9 +179,7 @@ class _MiniMetric extends StatelessWidget {
               ],
               Text(
                 value,
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w700,
+                style: AppTextStyles.h2.copyWith(
                   color: showStar ? context.amber : context.text,
                 ),
               ),
@@ -192,8 +187,11 @@ class _MiniMetric extends StatelessWidget {
           ),
           const SizedBox(height: 2),
           Text(
-            label,
-            style: TextStyle(fontSize: 11, color: context.textDim),
+            label.toUpperCase(),
+            style: AppTextStyles.eyebrow.copyWith(
+              color: context.textDim,
+              letterSpacing: 1.0,
+            ),
           ),
         ],
       ),
@@ -261,19 +259,17 @@ class _CoachTipCard extends StatelessWidget {
               children: <Widget>[
                 Text(
                   tip.title,
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w700,
+                  style: AppTextStyles.caption.copyWith(
                     color: context.text,
+                    fontWeight: FontWeight.w700,
                   ),
                 ),
                 const SizedBox(height: 2),
                 Text(
                   tip.body,
-                  style: TextStyle(
-                    fontSize: 12,
-                    height: 1.4,
+                  style: AppTextStyles.captionSm.copyWith(
                     color: context.textDim,
+                    height: 1.4,
                   ),
                 ),
                 if (onCta != null) ...<Widget>[
@@ -282,10 +278,9 @@ class _CoachTipCard extends StatelessWidget {
                     onTap: onCta,
                     child: Text(
                       '${tip.ctaLabel} →',
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w700,
+                      style: AppTextStyles.captionSm.copyWith(
                         color: palette.text,
+                        fontWeight: FontWeight.w700,
                       ),
                     ),
                   ),
@@ -298,8 +293,11 @@ class _CoachTipCard extends StatelessWidget {
             behavior: HitTestBehavior.opaque,
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-              child:
-                  Icon(Icons.close, size: 14, color: context.textMuted),
+              child: Icon(
+                Icons.close_rounded,
+                size: 14,
+                color: context.textMuted,
+              ),
             ),
           ),
         ],

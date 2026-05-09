@@ -85,17 +85,14 @@ class _EarningsPageState extends ConsumerState<EarningsPage> {
                           children: <Widget>[
                             Text(
                               NairaFormatter.format(state.periodNetNaira),
-                              style: TextStyle(
-                                fontSize: 28,
-                                fontWeight: FontWeight.w700,
+                              style: AppTextStyles.screenTitle.copyWith(
                                 color: context.accent,
                               ),
                             ),
                             const SizedBox(height: 2),
                             Text(
                               '${state.periodTripCount} trip${state.periodTripCount == 1 ? '' : 's'} in ${state.period.tripFooterSuffix}',
-                              style: TextStyle(
-                                fontSize: 12,
+                              style: AppTextStyles.captionSm.copyWith(
                                 color: context.textDim,
                               ),
                             ),
@@ -125,8 +122,7 @@ class _EarningsPageState extends ConsumerState<EarningsPage> {
                           child: Center(
                             child: Text(
                               labels[i],
-                              style: TextStyle(
-                                fontSize: 11,
+                              style: AppTextStyles.micro.copyWith(
                                 color: active
                                     ? context.accent
                                     : context.textMuted,
@@ -154,7 +150,8 @@ class _EarningsPageState extends ConsumerState<EarningsPage> {
                   if (state.entries.length > 8)
                     Text(
                       'showing ${state.entries.length > 20 ? 20 : state.entries.length}',
-                      style: TextStyle(fontSize: 11, color: context.textMuted),
+                      style: AppTextStyles.captionSm
+                          .copyWith(fontSize: 11, color: context.textMuted),
                     ),
                 ],
               ),
@@ -298,10 +295,9 @@ class _BalanceCard extends StatelessWidget {
           const SizedBox(height: 4),
           Text(
             NairaFormatter.format(state.balanceNaira),
-            style: TextStyle(
+            style: AppTextStyles.priceHero.copyWith(
               fontSize: 42,
-              fontWeight: FontWeight.w700,
-              letterSpacing: -1,
+              letterSpacing: -1.2,
               color: context.text,
             ),
           ),
@@ -310,7 +306,7 @@ class _BalanceCard extends StatelessWidget {
             state.wallet == null
                 ? 'No payouts yet'
                 : 'Updated ${_relativeTime(state.wallet!.updatedAt)}',
-            style: TextStyle(fontSize: 12, color: context.textDim),
+            style: AppTextStyles.captionSm.copyWith(color: context.textDim),
           ),
           const SizedBox(height: 14),
           Row(
@@ -389,16 +385,16 @@ class _LedgerRow extends StatelessWidget {
               children: <Widget>[
                 Text(
                   _labelFor(entry.kind),
-                  style: TextStyle(
-                    fontSize: 13,
+                  style: AppTextStyles.caption.copyWith(
                     color: context.text,
-                    fontWeight: FontWeight.w600,
+                    fontWeight: FontWeight.w700,
                   ),
                 ),
                 const SizedBox(height: 2),
                 Text(
                   entry.description ?? _fmtTime(entry.createdAt),
-                  style: TextStyle(fontSize: 11, color: context.textDim),
+                  style: AppTextStyles.captionSm
+                      .copyWith(fontSize: 11, color: context.textDim),
                 ),
               ],
             ),
@@ -408,8 +404,7 @@ class _LedgerRow extends StatelessWidget {
             children: <Widget>[
               Text(
                 '$sign${NairaFormatter.format(entry.amountMinor ~/ 100)}',
-                style: TextStyle(
-                  fontSize: 14,
+                style: AppTextStyles.bodySm.copyWith(
                   fontWeight: FontWeight.w700,
                   color: tone,
                 ),
@@ -510,12 +505,11 @@ class _SegmentedTabs extends StatelessWidget {
                 ),
                 child: Text(
                   t.label,
-                  style: TextStyle(
-                    fontFamily: 'monospace',
-                    fontSize: 11,
+                  style: AppTextStyles.mono.copyWith(
                     color: t.period == period
                         ? context.text
                         : context.textDim,
+                    letterSpacing: 1.2,
                   ),
                 ),
               ),

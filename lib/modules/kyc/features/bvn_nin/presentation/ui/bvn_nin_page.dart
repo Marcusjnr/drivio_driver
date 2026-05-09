@@ -145,10 +145,9 @@ class _KindToggle extends StatelessWidget {
         alignment: Alignment.center,
         child: Text(
           label,
-          style: TextStyle(
-            fontSize: 13,
-            fontWeight: FontWeight.w700,
+          style: AppTextStyles.caption.copyWith(
             color: selected ? context.bg : context.text,
+            fontWeight: FontWeight.w700,
           ),
         ),
       ),

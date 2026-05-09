@@ -42,17 +42,32 @@ class EdgeNoRequestsPage extends ConsumerWidget {
             child: BottomSheetCard(
               child: Column(
                 children: <Widget>[
-                  const Text('🌙', style: TextStyle(fontSize: 40)),
-                  const SizedBox(height: 8),
+                  Container(
+                    width: 56,
+                    height: 56,
+                    decoration: BoxDecoration(
+                      color: context.surface2,
+                      shape: BoxShape.circle,
+                      border: Border.all(color: context.borderStrong),
+                    ),
+                    alignment: Alignment.center,
+                    child: Icon(
+                      Icons.bedtime_rounded,
+                      size: 26,
+                      color: context.textDim,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
                   Text(
                     'Things are quiet right now',
-                    style: AppTextStyles.h3.copyWith(color: context.text),
+                    style: AppTextStyles.h2.copyWith(color: context.text),
                   ),
                   const SizedBox(height: 6),
                   SizedBox(
                     width: 280,
                     child: Text(
-                      'Zero requests in your area. Most drivers head toward Lekki on Sunday afternoons.',
+                      "Zero requests in your area. We'll surface "
+                      "demand-heavy zones the moment they pick up.",
                       textAlign: TextAlign.center,
                       style: AppTextStyles.caption.copyWith(
                         color: context.textDim,
@@ -60,8 +75,11 @@ class EdgeNoRequestsPage extends ConsumerWidget {
                       ),
                     ),
                   ),
-                  const SizedBox(height: 14),
-                  const DrivioButton(label: '🗺️ Show hotspots near me', onPressed: null),
+                  const SizedBox(height: 18),
+                  const DrivioButton(
+                    label: 'Show hotspots near me',
+                    onPressed: null,
+                  ),
                   const SizedBox(height: 8),
                   const DrivioButton(
                     label: 'Lower my suggested fare',

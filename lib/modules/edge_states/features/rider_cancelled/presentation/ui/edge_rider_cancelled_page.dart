@@ -36,19 +36,26 @@ class EdgeRiderCancelledPage extends ConsumerWidget {
               child: Column(
                 children: <Widget>[
                   Container(
-                    width: 52,
-                    height: 52,
+                    width: 56,
+                    height: 56,
                     decoration: BoxDecoration(
                       color: context.red.withValues(alpha: 0.14),
-                      borderRadius: BorderRadius.circular(14),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(
+                        color: context.red.withValues(alpha: 0.30),
+                      ),
                     ),
                     alignment: Alignment.center,
-                    child: const Text('✕', style: TextStyle(fontSize: 24)),
+                    child: Icon(
+                      Icons.close_rounded,
+                      size: 28,
+                      color: context.red,
+                    ),
                   ),
                   const SizedBox(height: 12),
                   Text(
-                    'Kemi cancelled the trip',
-                    style: AppTextStyles.h3.copyWith(color: context.text),
+                    'The rider cancelled this trip',
+                    style: AppTextStyles.h2.copyWith(color: context.text),
                   ),
                   const SizedBox(height: 6),
                   RichText(
@@ -59,10 +66,12 @@ class EdgeRiderCancelledPage extends ConsumerWidget {
                         height: 1.5,
                       ),
                       children: <InlineSpan>[
-                        const TextSpan(text: "Because you'd started driving, you earned a "),
+                        const TextSpan(
+                          text: "Because you'd started driving, you earned a ",
+                        ),
                         TextSpan(
                           text: '${NairaFormatter.format(1200)} cancellation fee',
-                          style: TextStyle(
+                          style: AppTextStyles.caption.copyWith(
                             color: context.accent,
                             fontWeight: FontWeight.w700,
                           ),
@@ -71,9 +80,9 @@ class EdgeRiderCancelledPage extends ConsumerWidget {
                       ],
                     ),
                   ),
-                  const SizedBox(height: 14),
+                  const SizedBox(height: 16),
                   Container(
-                    padding: const EdgeInsets.all(12),
+                    padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
                     decoration: BoxDecoration(
                       color: context.surface2,
                       borderRadius: AppRadius.md,
@@ -84,12 +93,12 @@ class EdgeRiderCancelledPage extends ConsumerWidget {
                       children: <Widget>[
                         Text(
                           'Cancellation credit',
-                          style: TextStyle(fontSize: 13, color: context.textDim),
+                          style: AppTextStyles.caption
+                              .copyWith(color: context.textDim),
                         ),
                         Text(
                           '+${NairaFormatter.format(1200)}',
-                          style: TextStyle(
-                            fontSize: 13,
+                          style: AppTextStyles.caption.copyWith(
                             color: context.accent,
                             fontWeight: FontWeight.w700,
                           ),
@@ -97,10 +106,11 @@ class EdgeRiderCancelledPage extends ConsumerWidget {
                       ],
                     ),
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 14),
                   DrivioButton(
                     label: 'Back online · find next trip',
-                    onPressed: () => AppNavigation.replaceAll<void>(AppRoutes.home),
+                    onPressed: () =>
+                        AppNavigation.replaceAll<void>(AppRoutes.home),
                   ),
                   const SizedBox(height: 8),
                   const DrivioButton(

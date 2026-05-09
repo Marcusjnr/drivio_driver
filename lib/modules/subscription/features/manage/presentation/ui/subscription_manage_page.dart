@@ -166,12 +166,8 @@ class _PlanCard extends StatelessWidget {
                   const SizedBox(height: 4),
                   Text(
                     priceLine,
-                    style: TextStyle(
-                      fontSize: 28,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: -0.6,
-                      color: context.text,
-                    ),
+                    style: AppTextStyles.screenTitle
+                        .copyWith(color: context.text),
                   ),
                 ],
               ),
@@ -205,11 +201,13 @@ class _PlanCard extends StatelessWidget {
                       : daysLeft <= 0
                           ? 'Expired'
                           : '$daysLeft day${daysLeft == 1 ? '' : 's'} left',
-                  style: TextStyle(fontSize: 12, color: context.textDim),
+                  style:
+                      AppTextStyles.captionSm.copyWith(color: context.textDim),
                 ),
                 Text(
                   '${_renewVerb(sub?.status)} ${_fmtDate(periodEnd)}',
-                  style: TextStyle(fontSize: 12, color: context.textDim),
+                  style:
+                      AppTextStyles.captionSm.copyWith(color: context.textDim),
                 ),
               ],
             ),
@@ -321,16 +319,14 @@ class _BillingHistory extends StatelessWidget {
                     children: <Widget>[
                       Text(
                         _fmtDate(e.createdAt),
-                        style: TextStyle(
-                          fontSize: 14,
+                        style: AppTextStyles.bodySm.copyWith(
                           color: context.text,
-                          fontWeight: FontWeight.w500,
+                          fontWeight: FontWeight.w600,
                         ),
                       ),
                       Text(
                         e.description ?? 'Subscription charge',
-                        style: TextStyle(
-                          fontSize: 12,
+                        style: AppTextStyles.captionSm.copyWith(
                           color: context.textDim,
                         ),
                       ),
@@ -342,15 +338,15 @@ class _BillingHistory extends StatelessWidget {
                   children: <Widget>[
                     Text(
                       NairaFormatter.format(e.amountMinor ~/ 100),
-                      style: TextStyle(
-                        fontSize: 14,
+                      style: AppTextStyles.bodySm.copyWith(
                         color: context.text,
-                        fontWeight: FontWeight.w600,
+                        fontWeight: FontWeight.w700,
                       ),
                     ),
                     Text(
                       '✓ Paid',
-                      style: TextStyle(fontSize: 11, color: context.accent),
+                      style: AppTextStyles.captionSm
+                          .copyWith(fontSize: 11, color: context.accent),
                     ),
                   ],
                 ),

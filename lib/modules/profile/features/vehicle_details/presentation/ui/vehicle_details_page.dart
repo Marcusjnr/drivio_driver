@@ -96,7 +96,11 @@ class VehicleDetailsPage extends ConsumerWidget {
           ),
           child: Text(
             'ℹ️ Changing your vehicle requires re-verification. You\'ll stay online during review.',
-            style: TextStyle(fontSize: 11, color: context.textDim, height: 1.5),
+            style: AppTextStyles.captionSm.copyWith(
+              fontSize: 11,
+              color: context.textDim,
+              height: 1.5,
+            ),
           ),
         ),
       ],
@@ -147,12 +151,16 @@ class _StatBlock extends StatelessWidget {
           const SizedBox(height: 4),
           Text(
             value,
-            style: TextStyle(
-              fontSize: 15,
-              fontWeight: FontWeight.w700,
-              color: context.text,
-              fontFamily: mono ? 'monospace' : AppTextStyles.fontFamily,
-            ),
+            style: mono
+                ? AppTextStyles.mono.copyWith(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                    color: context.text,
+                  )
+                : AppTextStyles.body.copyWith(
+                    color: context.text,
+                    fontWeight: FontWeight.w700,
+                  ),
           ),
         ],
       ),
