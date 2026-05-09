@@ -5,6 +5,9 @@ import 'package:drivio_driver/modules/commons/di/di.dart';
 import 'package:drivio_driver/modules/commons/errors/error_messages.dart';
 import 'package:drivio_driver/modules/commons/logging/app_logger.dart';
 import 'package:drivio_driver/modules/commons/types/subscription.dart';
+import 'package:drivio_driver/modules/dash/features/home/presentation/logic/controller/home_controller.dart';
+import 'package:drivio_driver/modules/dash/features/home/presentation/logic/controller/presence_controller.dart';
+import 'package:drivio_driver/modules/marketplace/features/feed/presentation/logic/controller/marketplace_controller.dart';
 
 class SubscriptionState {
   const SubscriptionState({
@@ -58,9 +61,11 @@ class SubscriptionState {
 }
 
 class SubscriptionController extends StateNotifier<SubscriptionState> {
-  SubscriptionController(this._repo) : super(const SubscriptionState());
+  SubscriptionController(this._repo, this._ref)
+    : super(const SubscriptionState());
 
   final SubscriptionRepository _repo;
+  final Ref _ref;
 
   Future<void> refresh() async {
     state = state.copyWith(isLoading: true, clearError: true);
@@ -82,6 +87,14 @@ class SubscriptionController extends StateNotifier<SubscriptionState> {
   }
 
   /// Returns true on success. Friendly errors land on `state.error`.
+  ///
+  /// On a successful pause we explicitly drive the local "go offline"
+  /// sequence — stopping the GPS stream, clearing the marketplace feed,
+  /// and flipping the home toggle. The server already flips
+  /// `driver_presence.status` to `offline` inside `pause_my_subscription`,
+  /// but the local heartbeat would otherwise upsert `online` again on
+  /// its next 30 s tick. The `home_page` rebuild guard is a defensive
+  /// backup; this call site is the deterministic path.
   Future<bool> pause() async {
     if (state.isMutating) return false;
     state = state.copyWith(isMutating: true, clearError: true);
@@ -89,6 +102,7 @@ class SubscriptionController extends StateNotifier<SubscriptionState> {
       await _repo.pauseMine();
       await refresh();
       if (!mounted) return false;
+      await _forceOfflineLocally();
       state = state.copyWith(isMutating: false);
       return true;
     } catch (e, s) {
@@ -102,6 +116,24 @@ class SubscriptionController extends StateNotifier<SubscriptionState> {
         ),
       );
       return false;
+    }
+  }
+
+  Future<void> _forceOfflineLocally() async {
+    try {
+      await _ref.read(presenceControllerProvider.notifier).stopStreaming();
+      await _ref.read(marketplaceControllerProvider.notifier).stop();
+      _ref
+          .read(homeControllerProvider.notifier)
+          .setStatus(DriverStatus.offline);
+    } catch (e, s) {
+      // Best-effort. Server-side has already flipped status to paused
+      // and presence to offline; this just coordinates the UI.
+      AppLogger.w(
+        'Local offline cleanup failed after pause',
+        error: e,
+        stackTrace: s,
+      );
     }
   }
 
@@ -138,5 +170,6 @@ class SubscriptionController extends StateNotifier<SubscriptionState> {
 final StateNotifierProvider<SubscriptionController, SubscriptionState>
     subscriptionControllerProvider =
     StateNotifierProvider<SubscriptionController, SubscriptionState>(
-  (Ref _) => SubscriptionController(locator<SubscriptionRepository>()),
+  (Ref ref) =>
+      SubscriptionController(locator<SubscriptionRepository>(), ref),
 );
