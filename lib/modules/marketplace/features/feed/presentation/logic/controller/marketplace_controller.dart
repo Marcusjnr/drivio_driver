@@ -68,24 +68,36 @@ class MarketplaceState {
 ///     [_kRefetchOnMoveM] (so a cruising driver picks up requests that
 ///     just entered range);
 ///   * refetches on every realtime change event for a request the
-///     driver may now (or may no longer) see.
+///     driver may now (or may no longer) see;
+///   * refetches every [_kPollWindow] as a safety net — Supabase's
+///     Phoenix realtime channel can quietly stop delivering inserts
+///     after long idle without firing an `onError`. A stationary
+///     waiting driver would otherwise miss new requests entirely.
+///     The poll guarantees the feed lands within 5 s of an insert
+///     even when realtime is silently dead.
 class MarketplaceController extends StateNotifier<MarketplaceState> {
   MarketplaceController(this._repo) : super(const MarketplaceState());
 
   final RideRequestRepository _repo;
   StreamSubscription<RideRequestEvent>? _eventSub;
-  Timer? _expiryTimer;
+  Timer? _pollTimer;
 
   /// Re-fetch when the driver has moved at least this far since the
   /// last fetch. Cheaper than refetching on every 10 m GPS tick, dense
   /// enough that even at the smallest 2 km ring the feed stays fresh.
   static const double _kRefetchOnMoveM = 250;
 
+  /// Safety-net cadence. The fetch is a single SECURITY DEFINER RPC
+  /// returning at most 50 already-filtered rows, so 12 calls/minute
+  /// per online driver is comfortably within budget.
+  static const Duration _kPollWindow = Duration(seconds: 5);
+
   double? _lastFetchLat;
   double? _lastFetchLng;
+  bool _fetchInFlight = false;
 
-  /// Subscribe to realtime + (if we already have a fix) do an initial
-  /// fetch. Idempotent.
+  /// Subscribe to realtime + start the safety-net poll + (if we already
+  /// have a fix) do an initial fetch. Idempotent.
   Future<void> start() async {
     if (_eventSub == null) {
       _eventSub = _repo.changes().listen(
@@ -93,9 +105,9 @@ class MarketplaceController extends StateNotifier<MarketplaceState> {
         onError: (Object e) =>
             state = state.copyWith(error: 'Realtime: $e'),
       );
-      _expiryTimer ??= Timer.periodic(
-        const Duration(seconds: 5),
-        (_) => _pruneExpired(),
+      _pollTimer ??= Timer.periodic(
+        _kPollWindow,
+        (_) => _refetchIfPositioned(),
       );
     }
     await _refetchIfPositioned();
@@ -104,10 +116,11 @@ class MarketplaceController extends StateNotifier<MarketplaceState> {
   Future<void> stop() async {
     await _eventSub?.cancel();
     _eventSub = null;
-    _expiryTimer?.cancel();
-    _expiryTimer = null;
+    _pollTimer?.cancel();
+    _pollTimer = null;
     _lastFetchLat = null;
     _lastFetchLng = null;
+    _fetchInFlight = false;
     state = state.copyWith(requests: const <RideRequest>[]);
   }
 
@@ -147,30 +160,29 @@ class MarketplaceController extends StateNotifier<MarketplaceState> {
   }
 
   Future<void> _fetch(double lat, double lng) async {
+    // Single-flight guard. The 5 s poll, the realtime listener, the
+    // move-driven refetch, and pull-to-refresh can all race; we only
+    // ever want one fetch in flight at a time.
+    if (_fetchInFlight) return;
+    _fetchInFlight = true;
     state = state.copyWith(isLoading: true, clearError: true);
     try {
       final List<RideRequest> next = await _repo.listNearby(
         driverLat: lat,
         driverLng: lng,
       );
+      if (!mounted) return;
       _lastFetchLat = lat;
       _lastFetchLng = lng;
       state = state.copyWith(requests: next, isLoading: false);
     } catch (e) {
+      if (!mounted) return;
       state = state.copyWith(
         isLoading: false,
         error: "Couldn't load requests. Pull down to retry.",
       );
-    }
-  }
-
-  void _pruneExpired() {
-    final DateTime now = DateTime.now();
-    final List<RideRequest> kept = state.requests
-        .where((RideRequest r) => r.expiresAt.isAfter(now))
-        .toList(growable: false);
-    if (kept.length != state.requests.length) {
-      state = state.copyWith(requests: kept);
+    } finally {
+      _fetchInFlight = false;
     }
   }
 
@@ -194,7 +206,7 @@ class MarketplaceController extends StateNotifier<MarketplaceState> {
   @override
   void dispose() {
     _eventSub?.cancel();
-    _expiryTimer?.cancel();
+    _pollTimer?.cancel();
     super.dispose();
   }
 }

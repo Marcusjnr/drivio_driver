@@ -9,8 +9,10 @@ import 'package:drivio_driver/modules/commons/location/location_permission_servi
 import 'package:drivio_driver/modules/commons/types/demand_cell.dart';
 import 'package:drivio_driver/modules/commons/types/ride_request.dart';
 import 'package:drivio_driver/modules/commons/types/trip.dart';
+import 'package:drivio_driver/modules/commons/utils/map_bounds.dart';
 import 'package:drivio_driver/modules/commons/widgets/map/live_map.dart';
 import 'package:drivio_driver/modules/dash/features/drive_shell/presentation/logic/controller/drive_shell_controller.dart';
+import 'package:drivio_driver/modules/dash/features/drive_shell/presentation/logic/route_ahead_provider.dart';
 import 'package:drivio_driver/modules/dash/features/drive_shell/presentation/ui/widgets/bidding_body.dart';
 import 'package:drivio_driver/modules/dash/features/drive_shell/presentation/ui/widgets/home_body.dart';
 import 'package:drivio_driver/modules/dash/features/drive_shell/presentation/ui/widgets/trip_body.dart';
@@ -52,6 +54,7 @@ class _DriveShellPageState extends ConsumerState<DriveShellPage> {
   bool _kycGateOpen = false;
   bool _pendingGateOpen = false;
   bool _subGateOpen = false;
+  bool _autoOfflineInFlight = false;
   // True when the driver tried to go online without a usable location
   // permission. Holds the snapshot of the failure state so the gate
   // sheet can render the right copy + CTA (re-prompt vs Open Settings).
@@ -95,6 +98,56 @@ class _DriveShellPageState extends ConsumerState<DriveShellPage> {
         ref.watch(subscriptionControllerProvider);
     final bool subUnlocks = subState.unlocksMarketplace;
     final PresenceState presenceState = ref.watch(presenceControllerProvider);
+
+    // Bridge presence → marketplace. The marketplace controller's
+    // `_refetchIfPositioned` bails until the driver's GPS lands; without
+    // this listener none of the refetch triggers (realtime, 5 s poll,
+    // move-driven) ever produce a request because `state.driverLat`
+    // stays null. This bridge lives on the shell rather than HomePage
+    // because DriveShellPage is the actual mounted route — the legacy
+    // HomePage in dash/features/home isn't wired into the router.
+    ref.listen<PresenceState>(
+      presenceControllerProvider,
+      (PresenceState? prev, PresenceState next) {
+        if (next.lastLat != null &&
+            next.lastLng != null &&
+            (prev?.lastLat != next.lastLat || prev?.lastLng != next.lastLng)) {
+          ref
+              .read(marketplaceControllerProvider.notifier)
+              .updateDriverPosition(next.lastLat!, next.lastLng!);
+        }
+      },
+    );
+
+    // Force-offline if the subscription flipped to a non-unlocking state
+    // while the driver was online (commonly: paused, also covers
+    // expired/cancelled). Mirrors the manual offline toggle: stops GPS
+    // streaming, halts marketplace polling, and flips the local
+    // `isOnline` flag. The `_autoOfflineInFlight` guard prevents the
+    // awaited stop sequence from re-firing on subsequent builds.
+    if (home.isOnline &&
+        subState.subscription != null &&
+        !subUnlocks &&
+        !_autoOfflineInFlight) {
+      _autoOfflineInFlight = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) async {
+        if (!mounted) return;
+        try {
+          await ref.read(presenceControllerProvider.notifier).stopStreaming();
+          if (!mounted) return;
+          await ref.read(marketplaceControllerProvider.notifier).stop();
+          if (!mounted) return;
+          homeC.setStatus(DriverStatus.offline);
+          if (subState.subscription!.isPaused) {
+            AppNotifier.warning(
+              message: "You're offline — subscription is paused.",
+            );
+          }
+        } finally {
+          if (mounted) _autoOfflineInFlight = false;
+        }
+      });
+    }
 
     // ── Mode transitions driven by underlying controllers ───────────────
 
@@ -230,6 +283,7 @@ class _DriveShellPageState extends ConsumerState<DriveShellPage> {
               markers: mapProps.markers,
               polylines: mapProps.polylines,
               polygons: mapProps.polygons,
+              fitBounds: mapProps.fitBounds,
             ),
           ),
           Positioned(
@@ -398,10 +452,33 @@ class _DriveShellPageState extends ConsumerState<DriveShellPage> {
         if (req == null) {
           return _MapProps(initialCenter: driverFix, initialZoom: 13);
         }
+        final LatLng pickupLatLng = LatLng(req.pickupLat, req.pickupLng);
+        final LatLng dropoffLatLng = LatLng(req.dropoffLat, req.dropoffLng);
         final LatLng centre = LatLng(
           (req.pickupLat + req.dropoffLat) / 2,
           (req.pickupLng + req.dropoffLng) / 2,
         );
+        // Fetch the road-following preview so the driver sees the trip
+        // shape, not a straight A-B line. Pickup + dropoff are stable
+        // for a given request — no GPS-snapping required here.
+        final RouteAheadKey biddingKey = RouteAheadKey(
+          originLat: req.pickupLat,
+          originLng: req.pickupLng,
+          destinationLat: req.dropoffLat,
+          destinationLng: req.dropoffLng,
+        );
+        final List<LatLng> directionsShape =
+            ref.watch(routeAheadShapeProvider(biddingKey)).asData?.value ??
+                const <LatLng>[];
+        final List<LatLng> previewPoints = directionsShape.length >= 2
+            ? directionsShape
+            : <LatLng>[pickupLatLng, dropoffLatLng];
+        // Frame the whole route so the driver can size up the trip at a
+        // glance. Once the road-following shape lands the bounds tighten
+        // to the actual polyline; until then we frame the straight A-B.
+        final ({LatLng a, LatLng b}) bidBounds =
+            boundsForPoints(previewPoints) ??
+                (a: pickupLatLng, b: dropoffLatLng);
         return _MapProps(
           initialCenter: centre,
           initialZoom: 13,
@@ -410,15 +487,25 @@ class _DriveShellPageState extends ConsumerState<DriveShellPage> {
           markers: <LiveMapMarker>[
             LiveMapMarker(
               id: 'pickup',
-              position: LatLng(req.pickupLat, req.pickupLng),
+              position: pickupLatLng,
               kind: LiveMapMarkerKind.pickup,
             ),
             LiveMapMarker(
               id: 'dropoff',
-              position: LatLng(req.dropoffLat, req.dropoffLng),
+              position: dropoffLatLng,
               kind: LiveMapMarkerKind.dropoff,
             ),
           ],
+          polylines: <LiveMapPolyline>[
+            LiveMapPolyline(
+              id: 'bid_preview',
+              points: previewPoints,
+              color: '#0B7F52', // darker brand-green for the route preview
+              width: 4,
+              opacity: 0.9,
+            ),
+          ],
+          fitBounds: bidBounds,
         );
       case ShellMode.trip:
       case ShellMode.tripCompleted:
@@ -446,8 +533,13 @@ class _DriveShellPageState extends ConsumerState<DriveShellPage> {
                 trip.state == TripState.inProgress);
 
         // Forward-looking route line: driver position → pickup (pre-pickup
-        // states) or → dropoff (in-progress). Straight-line v1; per spec
-        // turn-by-turn is handed off to Google/Apple Maps via DRV-053.
+        // states) or → dropoff (in-progress). Pulls the road-following
+        // shape from `routeAheadShapeProvider` (Google Routes API via the
+        // shared places-proxy edge function); falls back to a straight
+        // 2-point line while the request is in flight or if the API is
+        // unavailable so the rider always sees a connection.
+        // Per-spec turn-by-turn is still handed off to Google/Apple Maps
+        // via DRV-053 — this line is just the at-a-glance preview.
         final List<LiveMapPolyline> lines = <LiveMapPolyline>[];
         if (breadcrumb.length >= 2) {
           lines.add(LiveMapPolyline(
@@ -458,24 +550,60 @@ class _DriveShellPageState extends ConsumerState<DriveShellPage> {
             opacity: 0.95,
           ));
         }
+        ({LatLng a, LatLng b})? tripBounds;
         if (driverFix != null && isLive) {
           final LatLng? aheadTarget = _routeAheadTarget(trip);
           if (aheadTarget != null) {
+            // Snap to a ~100 m grid so micro-GPS-jitter doesn't refire
+            // the directions request on every position tick.
+            final RouteAheadKey key = RouteAheadKey(
+              originLat: snapForRouteCache(driverFix.latitude),
+              originLng: snapForRouteCache(driverFix.longitude),
+              destinationLat: aheadTarget.latitude,
+              destinationLng: aheadTarget.longitude,
+            );
+            final List<LatLng> directionsShape =
+                ref.watch(routeAheadShapeProvider(key)).asData?.value ??
+                    const <LatLng>[];
+            // Stitch the EXACT driver position onto the front of the
+            // polyline. The directions endpoint was queried with the
+            // snapped coords, so its first point can sit ~100 m away
+            // from where the driver actually is — without this prepend
+            // the line visibly disconnects from the GPS dot.
+            final List<LatLng> points = directionsShape.length >= 2
+                ? <LatLng>[driverFix, ...directionsShape]
+                : <LatLng>[driverFix, aheadTarget];
             lines.add(LiveMapPolyline(
               id: 'route_ahead',
-              points: <LatLng>[driverFix, aheadTarget],
-              color: '#3B82F6', // blue = where we're heading
+              points: points,
+              color: '#0B7F52', // darker brand-green = where we're heading
               width: 4,
               opacity: 0.85,
             ));
+            tripBounds = boundsForPoints(points) ??
+                (a: driverFix, b: aheadTarget);
           }
         }
 
+        // Camera framing during the trip:
+        //   • enRoute / arrived → frame driver + the upcoming target so
+        //     the driver always sees the route ahead at a glance. A
+        //     locked-on-driver follow-cam (the previous behaviour) hid
+        //     the polyline off-screen and was the bug behind the
+        //     "I can't see the route to pickup" report.
+        //   • inProgress → follow the driver, MapLibre's standard
+        //     turn-by-turn-style behaviour. Per-spec the actual
+        //     navigation happens in Google/Apple Maps via DRV-053; this
+        //     just keeps the in-app map context useful.
+        final bool followDuringTrip =
+            shell.mode == ShellMode.trip &&
+            trip.state == TripState.inProgress;
         return _MapProps(
           initialCenter: LatLng(trip.pickupLat, trip.pickupLng),
           initialZoom: 15,
           showUserLocation: true,
-          followUser: isLive,
+          followUser: followDuringTrip,
+          fitBounds: followDuringTrip ? null : tripBounds,
           markers: <LiveMapMarker>[
             LiveMapMarker(
               id: 'pickup',
@@ -803,6 +931,7 @@ class _MapProps {
     this.markers = const <LiveMapMarker>[],
     this.polylines = const <LiveMapPolyline>[],
     this.polygons = const <LiveMapPolygon>[],
+    this.fitBounds,
   });
 
   final LatLng? initialCenter;
@@ -812,6 +941,7 @@ class _MapProps {
   final List<LiveMapMarker> markers;
   final List<LiveMapPolyline> polylines;
   final List<LiveMapPolygon> polygons;
+  final ({LatLng a, LatLng b})? fitBounds;
 }
 
 // ── Small overlay widgets re-implemented to live with the shell ────────

@@ -22,7 +22,7 @@ class LiveMapPolyline {
   const LiveMapPolyline({
     required this.id,
     required this.points,
-    this.color = '#34D399',
+    this.color = '#0B7F52',
     this.width = 5,
     this.opacity = 0.95,
   });
@@ -100,6 +100,7 @@ class LiveMap extends StatefulWidget {
     this.onUserLocationUpdated,
     this.minZoom = 3.0,
     this.maxZoom = 19.0,
+    this.fitBounds,
   });
 
   final LatLng? initialCenter;
@@ -124,6 +125,14 @@ class LiveMap extends StatefulWidget {
 
   final double minZoom;
   final double maxZoom;
+
+  /// When provided, the camera animates to fit these two corners of a
+  /// bounding rectangle once the style has finished loading and again
+  /// whenever the bounds change. Useful for the bidding preview where
+  /// we want the whole pickup→dropoff route on screen at once.
+  /// Pair this with `followUser: false` so the GPS dot doesn't yank
+  /// the camera back.
+  final ({LatLng a, LatLng b})? fitBounds;
 
   @override
   State<LiveMap> createState() => _LiveMapState();
@@ -172,6 +181,7 @@ class _LiveMapState extends State<LiveMap> {
   Future<void> _onStyleLoaded() async {
     _styleLoaded = true;
     await _redrawAll();
+    await _maybeFitBounds();
   }
 
   @override
@@ -179,6 +189,36 @@ class _LiveMapState extends State<LiveMap> {
     super.didUpdateWidget(oldWidget);
     if (!_styleLoaded || _controller == null) return;
     unawaited(_diff(oldWidget));
+    if (widget.fitBounds != oldWidget.fitBounds && widget.fitBounds != null) {
+      unawaited(_maybeFitBounds());
+    }
+  }
+
+  Future<void> _maybeFitBounds() async {
+    final ({LatLng a, LatLng b})? b = widget.fitBounds;
+    if (b == null || _controller == null) {
+      return;
+    }
+    final double south =
+        b.a.latitude < b.b.latitude ? b.a.latitude : b.b.latitude;
+    final double north =
+        b.a.latitude > b.b.latitude ? b.a.latitude : b.b.latitude;
+    final double west =
+        b.a.longitude < b.b.longitude ? b.a.longitude : b.b.longitude;
+    final double east =
+        b.a.longitude > b.b.longitude ? b.a.longitude : b.b.longitude;
+    await _controller!.animateCamera(
+      CameraUpdate.newLatLngBounds(
+        LatLngBounds(
+          southwest: LatLng(south, west),
+          northeast: LatLng(north, east),
+        ),
+        left: 64,
+        right: 64,
+        top: 96,
+        bottom: 240,
+      ),
+    );
   }
 
   Future<void> _diff(LiveMap old) async {

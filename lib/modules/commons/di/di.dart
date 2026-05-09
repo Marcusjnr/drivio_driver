@@ -9,6 +9,9 @@ import 'package:drivio_driver/modules/commons/data/coach_tip_repository.dart';
 import 'package:drivio_driver/modules/commons/data/coach_tip_repository_impl.dart';
 import 'package:drivio_driver/modules/commons/data/dashboard_repository.dart';
 import 'package:drivio_driver/modules/commons/data/dashboard_repository_impl.dart';
+import 'package:drivio_driver/modules/commons/data/directions_repository.dart';
+import 'package:drivio_driver/modules/commons/data/directions_repository_impl.dart';
+import 'package:drivio_driver/modules/commons/network/network_client.dart';
 import 'package:drivio_driver/modules/commons/location/location_permission_service.dart';
 import 'package:drivio_driver/modules/commons/data/demand_heatmap_repository.dart';
 import 'package:drivio_driver/modules/commons/data/demand_heatmap_repository_impl.dart';
@@ -165,6 +168,10 @@ Future<void> setupServiceLocator(Flavor flavor) async {
 
   locator.registerLazySingleton<PayoutAccountRepository>(
     () => SupabasePayoutAccountRepository(locator<SupabaseModule>()),
+  );
+
+  locator.registerLazySingleton<DirectionsRepository>(
+    () => SupabaseDirectionsRepository(NetworkClient()),
   );
 
   locator.registerLazySingleton<LocationPermissionService>(
