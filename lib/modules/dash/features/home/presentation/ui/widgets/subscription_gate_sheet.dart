@@ -88,6 +88,16 @@ class SubscriptionGateSheet extends ConsumerWidget {
 
   _Copy _copyFor(SubscriptionStatus? s) {
     switch (s) {
+      case SubscriptionStatus.paused:
+        return const _Copy(
+          pill: 'PAUSED',
+          pillTone: PillTone.amber,
+          title: "You're paused.\nResume to go online.",
+          body:
+              'Your plan is paused — paid days are frozen. Resume from the subscription page to start accepting trips again.',
+          cta: 'Manage subscription',
+          tone: Color(0xFFF59E0B),
+        );
       case SubscriptionStatus.expired:
       case null:
         return const _Copy(

@@ -63,7 +63,7 @@ class BvnNinController extends StateNotifier<BvnNinState> {
     } catch (_) {
       state = state.copyWith(
         isVerifying: false,
-        error: 'Could not verify. Please try again.',
+        error: "Couldn't verify. Double-check your details and try again.",
       );
       return false;
     }

@@ -2,6 +2,7 @@ enum SubscriptionStatus {
   trialing,
   active,
   pastDue,
+  paused,
   cancelled,
   expired;
 
@@ -11,6 +12,8 @@ enum SubscriptionStatus {
         return SubscriptionStatus.active;
       case 'past_due':
         return SubscriptionStatus.pastDue;
+      case 'paused':
+        return SubscriptionStatus.paused;
       case 'cancelled':
         return SubscriptionStatus.cancelled;
       case 'expired':
@@ -22,7 +25,9 @@ enum SubscriptionStatus {
   }
 
   /// Per spec: trialing/active are fully unlocked; past_due is in 3-day
-  /// Paystack grace and still unlocks; expired/cancelled hard-block.
+  /// Paystack grace and still unlocks; paused soft-blocks (the driver
+  /// chose to step away — resume restores the prior state); expired/
+  /// cancelled hard-block.
   bool get unlocksMarketplace =>
       this == SubscriptionStatus.trialing ||
       this == SubscriptionStatus.active ||
@@ -31,6 +36,18 @@ enum SubscriptionStatus {
   bool get isHardBlocked =>
       this == SubscriptionStatus.expired ||
       this == SubscriptionStatus.cancelled;
+
+  /// True only when the driver themselves stepped away. The paywall
+  /// gate routes paused users to the manage screen (where the resume
+  /// control lives) instead of trying to sell them a fresh plan.
+  bool get isPaused => this == SubscriptionStatus.paused;
+
+  /// Pause is offered while a subscription is in a normal "running"
+  /// state. Past-due / cancelled / expired need a payment action, not
+  /// a pause.
+  bool get canPause =>
+      this == SubscriptionStatus.trialing ||
+      this == SubscriptionStatus.active;
 }
 
 enum SubscriptionInterval {
@@ -101,6 +118,7 @@ class Subscription {
     this.trialEndsAt,
     this.currentPeriodStart,
     this.currentPeriodEnd,
+    this.pausedAt,
     this.paystackSubscriptionCode,
   });
 
@@ -111,19 +129,25 @@ class Subscription {
   final DateTime? trialEndsAt;
   final DateTime? currentPeriodStart;
   final DateTime? currentPeriodEnd;
+  final DateTime? pausedAt;
   final String? paystackSubscriptionCode;
   final DateTime createdAt;
 
   /// Days remaining in the current period (or trial). Null if no period set.
+  /// Frozen at the value captured when the driver paused — the server
+  /// shifts the period endpoints forward on resume so this number is
+  /// preserved across pauses without any client-side fudge.
   int? get daysRemaining {
     final DateTime? end = currentPeriodEnd ?? trialEndsAt;
     if (end == null) return null;
-    final Duration delta = end.difference(DateTime.now());
+    final DateTime reference = pausedAt ?? DateTime.now();
+    final Duration delta = end.difference(reference);
     if (delta.isNegative) return 0;
     return delta.inHours ~/ 24;
   }
 
   bool get isTrialing => status == SubscriptionStatus.trialing;
+  bool get isPaused => status == SubscriptionStatus.paused;
 
   factory Subscription.fromJson(Map<String, dynamic> json) {
     DateTime? parse(Object? v) =>
@@ -136,6 +160,7 @@ class Subscription {
       trialEndsAt: parse(json['trial_ends_at']),
       currentPeriodStart: parse(json['current_period_start']),
       currentPeriodEnd: parse(json['current_period_end']),
+      pausedAt: parse(json['paused_at']),
       paystackSubscriptionCode:
           json['paystack_subscription_code'] as String?,
       createdAt: parse(json['created_at'])!,

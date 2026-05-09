@@ -46,7 +46,7 @@ class _ActiveTripPageState extends ConsumerState<ActiveTripPage> {
           child: Padding(
             padding: const EdgeInsets.all(24),
             child: Text(
-              'No trip selected.',
+              'No trip to show. Head back to your dashboard.',
               style: AppTextStyles.bodySm.copyWith(color: context.textDim),
             ),
           ),
@@ -416,7 +416,7 @@ class _InTripBody extends ConsumerWidget {
         title: Text('Cancel this trip?',
             style: TextStyle(color: ctx.text, fontWeight: FontWeight.w700)),
         content: Text(
-          "You're about to cancel. The rider will be notified and your cancellation rate may be affected.",
+          'The rider gets notified and your cancellation rate may take a hit.',
           style: TextStyle(color: ctx.textDim, fontSize: 13),
         ),
         actions: <Widget>[

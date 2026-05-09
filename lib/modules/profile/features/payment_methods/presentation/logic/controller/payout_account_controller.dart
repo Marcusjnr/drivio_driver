@@ -88,7 +88,7 @@ class PayoutAccountController extends StateNotifier<PayoutAccountState> {
       if (!mounted) return;
       state = state.copyWith(
         isLoading: false,
-        error: 'Could not load payment info.',
+        error: "Couldn't load your payment info. Pull down to retry.",
       );
     }
   }
@@ -117,7 +117,7 @@ class PayoutAccountController extends StateNotifier<PayoutAccountState> {
       if (!mounted) return false;
       state = state.copyWith(
         isSaving: false,
-        error: 'Could not save bank details: $e',
+        error: "Couldn't save bank details. Try again in a moment.",
       );
       return false;
     }
@@ -135,7 +135,7 @@ class PayoutAccountController extends StateNotifier<PayoutAccountState> {
       if (!mounted) return false;
       state = state.copyWith(
         isSaving: false,
-        error: 'Could not remove bank details.',
+        error: "Couldn't remove your bank details. Try again in a moment.",
       );
       return false;
     }

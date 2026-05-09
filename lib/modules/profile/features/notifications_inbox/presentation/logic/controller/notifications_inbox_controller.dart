@@ -74,7 +74,7 @@ class NotificationsInboxController
       if (!mounted) return;
       state = state.copyWith(
         isLoading: false,
-        error: 'Could not load notifications.',
+        error: "Couldn't load notifications. Pull down to retry.",
       );
     }
   }

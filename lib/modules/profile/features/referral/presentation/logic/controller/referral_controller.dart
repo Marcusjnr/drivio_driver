@@ -48,7 +48,7 @@ class ReferralController extends StateNotifier<ReferralState> {
       if (!mounted) return;
       state = state.copyWith(
         isLoading: false,
-        error: 'Could not load referral data.',
+        error: "Couldn't load your referrals. Pull down to retry.",
       );
     }
   }

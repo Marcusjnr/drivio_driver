@@ -103,7 +103,7 @@ class PaystackActivationController
     } catch (e) {
       state = state.copyWith(
         isProcessing: false,
-        error: 'Could not start checkout. Try again.',
+        error: "Couldn't start checkout. Try again in a moment.",
       );
       return false;
     }

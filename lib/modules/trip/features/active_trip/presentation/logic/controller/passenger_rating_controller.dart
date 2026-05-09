@@ -109,7 +109,7 @@ class PassengerRatingController extends StateNotifier<PassengerRatingState> {
       if (!mounted) return false;
       state = state.copyWith(
         isSubmitting: false,
-        error: 'Could not submit rating. Try again.',
+        error: "Couldn't submit your rating. Try again in a moment.",
       );
       return false;
     }

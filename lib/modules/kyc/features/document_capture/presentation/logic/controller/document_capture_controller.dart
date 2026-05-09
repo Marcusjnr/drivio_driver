@@ -135,7 +135,7 @@ class DocumentCaptureController extends StateNotifier<DocumentCaptureState> {
     } catch (_) {
       state = state.copyWith(
         isRegistering: false,
-        error: 'Could not save document. Please try again.',
+        error: "Couldn't save the document. Try again in a moment.",
       );
       return false;
     }

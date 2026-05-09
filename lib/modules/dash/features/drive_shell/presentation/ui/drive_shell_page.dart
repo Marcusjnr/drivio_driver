@@ -293,7 +293,14 @@ class _DriveShellPageState extends ConsumerState<DriveShellPage> {
               onDismiss: () => setState(() => _subGateOpen = false),
               onContinue: () {
                 setState(() => _subGateOpen = false);
-                AppNavigation.push<void>(AppRoutes.paywall);
+                // Paused users go to the manage page (where the resume
+                // control lives); everyone else is funnelled to the
+                // paywall.
+                final bool paused =
+                    subState.subscription?.isPaused ?? false;
+                AppNavigation.push<void>(
+                  paused ? AppRoutes.subscriptionManage : AppRoutes.paywall,
+                );
               },
             ),
           if (_locationGateOpen)
@@ -599,7 +606,8 @@ class _DriveShellPageState extends ConsumerState<DriveShellPage> {
                       // fix yet, network, etc.). Surface as a banner —
                       // the gate sheet wouldn't help.
                       AppNotifier.error(
-                        message: ps.error ?? 'Could not start location.',
+                        message: ps.error ??
+                            "Couldn't start location. Try again in a moment.",
                       );
                     } else {
                       setState(() {

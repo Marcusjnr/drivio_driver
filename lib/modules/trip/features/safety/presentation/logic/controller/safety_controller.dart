@@ -48,7 +48,7 @@ class SafetyController extends StateNotifier<SafetyState> {
       if (!mounted) return false;
       state = state.copyWith(
         isTriggering: false,
-        error: 'Could not raise SOS — try again.',
+        error: "Couldn't raise SOS. Try again or call emergency services.",
       );
       return false;
     }

@@ -64,7 +64,7 @@ class SubscriptionManageController
       if (!mounted) return;
       state = state.copyWith(
         isLoading: false,
-        error: 'Could not load billing history.',
+        error: "Couldn't load billing history. Pull down to retry.",
       );
     }
   }

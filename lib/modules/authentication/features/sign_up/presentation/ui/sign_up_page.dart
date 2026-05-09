@@ -158,7 +158,7 @@ class _SignUpPageState extends ConsumerState<SignUpPage> {
                     style:
                         AppTextStyles.bodySm.copyWith(color: context.textDim),
                     children: <InlineSpan>[
-                      const TextSpan(text: 'Already registered?  '),
+                      const TextSpan(text: 'Have an account?  '),
                       TextSpan(
                         text: 'Sign in',
                         style: AppTextStyles.bodySm.copyWith(

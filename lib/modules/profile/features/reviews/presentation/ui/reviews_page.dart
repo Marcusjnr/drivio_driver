@@ -326,8 +326,8 @@ class _EmptyReviewsCard extends StatelessWidget {
           const SizedBox(height: 10),
           Text(
             isError
-                ? 'Could not load your reviews.'
-                : 'Reviews from your passengers will show up here.',
+                ? "Couldn't load your reviews. Pull down to retry."
+                : 'Complete a trip to start collecting reviews here.',
             textAlign: TextAlign.center,
             style: AppTextStyles.caption.copyWith(
               color: context.textDim,

@@ -539,6 +539,10 @@ class _AccountGroup extends StatelessWidget {
           return days == null
               ? 'Payment overdue · grace period'
               : 'Payment overdue · $days days grace';
+        case SubscriptionStatus.paused:
+          return days == null
+              ? 'Paused · resume to go online'
+              : 'Paused · $days days frozen';
         case SubscriptionStatus.expired:
           return 'Expired — tap to reactivate';
         case SubscriptionStatus.cancelled:
@@ -549,6 +553,7 @@ class _AccountGroup extends StatelessWidget {
       SubscriptionStatus.trialing => ('TRIAL', PillTone.blue),
       SubscriptionStatus.active => ('ACTIVE', PillTone.accent),
       SubscriptionStatus.pastDue => ('PAST DUE', PillTone.amber),
+      SubscriptionStatus.paused => ('PAUSED', PillTone.amber),
       SubscriptionStatus.expired => ('EXPIRED', PillTone.red),
       SubscriptionStatus.cancelled => ('CANCELLED', PillTone.neutral),
     };

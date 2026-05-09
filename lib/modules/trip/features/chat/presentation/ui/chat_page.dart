@@ -53,7 +53,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
           child: Padding(
             padding: const EdgeInsets.all(24),
             child: Text(
-              'No trip context — chat needs an active trip.',
+              'Chat opens once you start a trip.',
               style: AppTextStyles.bodySm.copyWith(color: context.textDim),
               textAlign: TextAlign.center,
             ),

@@ -80,8 +80,7 @@ class _OtpPageState extends ConsumerState<OtpPage> {
             ),
             const SizedBox(height: 10),
             Text(
-              "We've sent a 6-digit code by SMS. Enter it below to "
-              'continue.',
+              'We sent a 6-digit code by SMS. Enter it below.',
               style: AppTextStyles.bodySm.copyWith(
                 color: context.textDim,
                 height: 1.5,
@@ -168,7 +167,8 @@ class _OtpPageState extends ConsumerState<OtpPage> {
                   final String? signUpError =
                       ref.read(signUpControllerProvider).error;
                   c.surfaceError(
-                    signUpError ?? 'Could not create your profile.',
+                    signUpError ??
+                        "Couldn't create your profile. Try again in a moment.",
                   );
                   return;
                 }

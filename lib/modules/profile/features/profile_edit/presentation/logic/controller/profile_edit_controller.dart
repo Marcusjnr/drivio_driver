@@ -104,7 +104,7 @@ class ProfileEditController extends StateNotifier<ProfileEditState> {
       if (!mounted) return;
       state = state.copyWith(
         isLoading: false,
-        error: 'Could not load profile.',
+        error: "Couldn't load your profile. Pull down to retry.",
       );
     }
   }
@@ -149,7 +149,7 @@ class ProfileEditController extends StateNotifier<ProfileEditState> {
       if (!mounted) return false;
       state = state.copyWith(
         isSaving: false,
-        error: 'Could not save changes. Please try again.',
+        error: "Couldn't save. Check your connection and try again.",
       );
       return false;
     }

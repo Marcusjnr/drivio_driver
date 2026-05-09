@@ -280,6 +280,16 @@ const Map<String, String> _knownCodes = <String, String>{
   'concurrent_request':
       'You already have a ride request in progress.',
 
+  // Subscription pause / resume.
+  'no_subscription':
+      'Start a plan first. Open Subscription to pick one.',
+  'already_paused':
+      "You're already paused. Resume any time from this page.",
+  'not_paused':
+      "This plan isn't paused — you're good to go online.",
+  'not_pause_eligible':
+      'Renew your plan first. Pause works on active or trial plans only.',
+
   // Wallet / payments.
   'insufficient_balance':
       'Your wallet balance is too low. Top up to continue.',

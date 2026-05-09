@@ -130,7 +130,7 @@ class ActiveTripController extends StateNotifier<ActiveTripState> {
       if (!mounted) return;
       state = state.copyWith(
         isLoading: false,
-        error: 'Could not load trip: $e',
+        error: "Couldn't load this trip. Pull down to retry.",
       );
     }
   }

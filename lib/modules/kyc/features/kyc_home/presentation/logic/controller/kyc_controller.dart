@@ -133,7 +133,7 @@ class KycController extends StateNotifier<KycState> {
     } catch (_) {
       state = state.copyWith(
         isLoading: false,
-        error: 'Could not load your KYC status. Pull to retry.',
+        error: "Couldn't load your KYC status. Pull down to retry.",
       );
     }
   }
@@ -156,7 +156,7 @@ class KycController extends StateNotifier<KycState> {
     } catch (_) {
       state = state.copyWith(
         isSubmitting: false,
-        error: 'Could not submit. Check your connection.',
+        error: "Couldn't submit. Check your connection and try again.",
       );
       return false;
     }

@@ -88,7 +88,9 @@ class PaymentMethodsPage extends ConsumerWidget {
     if (!ok) {
       final String? err =
           ref.read(payoutAccountControllerProvider).error;
-      AppNotifier.error(message: err ?? 'Could not save bank details.');
+      AppNotifier.error(
+        message: err ?? "Couldn't save bank details. Try again in a moment.",
+      );
     } else {
       AppNotifier.success(message: 'Bank details saved.');
     }
@@ -303,7 +305,8 @@ class _BillingHistory extends StatelessWidget {
         ),
         child: Center(
           child: Text(
-            'No billing activity yet.',
+            'No billing activity yet. Charges show up after each renewal.',
+            textAlign: TextAlign.center,
             style: AppTextStyles.bodySm.copyWith(color: context.textDim),
           ),
         ),

@@ -80,7 +80,7 @@ class SelfieController extends StateNotifier<SelfieState> {
     } catch (_) {
       state = state.copyWith(
         isCapturing: false,
-        error: 'Could not open camera. Check permissions.',
+        error: "Couldn't open the camera. Check permissions and try again.",
       );
     }
   }
@@ -108,7 +108,7 @@ class SelfieController extends StateNotifier<SelfieState> {
     } on DocumentAuthException {
       state = state.copyWith(
         isSubmitting: false,
-        error: 'Session expired. Please sign in again.',
+        error: 'Session expired. Sign in again.',
       );
       return false;
     } on StorageException catch (e) {
@@ -120,7 +120,7 @@ class SelfieController extends StateNotifier<SelfieState> {
     } catch (_) {
       state = state.copyWith(
         isSubmitting: false,
-        error: 'Could not submit. Please try again.',
+        error: "Couldn't submit your selfie. Try again in a moment.",
       );
       return false;
     }

@@ -31,6 +31,58 @@ class _SubscriptionManagePageState
     });
   }
 
+  Future<void> _confirmPause(BuildContext context, WidgetRef ref) async {
+    final SubscriptionState s = ref.read(subscriptionControllerProvider);
+    final int? days = s.subscription?.daysRemaining;
+    final bool? ok = await showDialog<bool>(
+      context: context,
+      builder: (BuildContext ctx) => AlertDialog(
+        backgroundColor: context.surface,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+          side: BorderSide(color: context.border),
+        ),
+        title: Text(
+          'Pause your subscription?',
+          style: AppTextStyles.h2.copyWith(color: context.text),
+        ),
+        content: Text(
+          days == null
+              ? "Your paid days will stop counting. You won't be able to "
+                    'go online until you resume.'
+              : "Your remaining $days day${days == 1 ? '' : 's'} freezes "
+                    "until you resume. You won't be able to go online "
+                    'while paused.',
+          style: AppTextStyles.bodySm.copyWith(color: context.textDim),
+        ),
+        actions: <Widget>[
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: Text(
+              'Keep active',
+              style: TextStyle(color: context.textDim),
+            ),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: Text(
+              'Pause',
+              style: TextStyle(color: context.amber),
+            ),
+          ),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    if (!context.mounted) return;
+    final bool paused = await ref
+        .read(subscriptionControllerProvider.notifier)
+        .pause();
+    if (paused && context.mounted) {
+      AppNotifier.success(message: 'Subscription paused.');
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final SubscriptionState sub = ref.watch(subscriptionControllerProvider);
@@ -72,7 +124,28 @@ class _SubscriptionManagePageState
                 )
               else
                 _PlanCard(state: sub),
-              const SizedBox(height: 14),
+              if (sub.isPaused) ...<Widget>[
+                const SizedBox(height: 12),
+                _PausedBanner(daysLeft: sub.subscription?.daysRemaining),
+              ],
+              if (sub.subscription != null) ...<Widget>[
+                const SizedBox(height: 14),
+                _PauseResumeButton(
+                  sub: sub,
+                  onPause: () => _confirmPause(context, ref),
+                  onResume: () async {
+                    final bool ok = await ref
+                        .read(subscriptionControllerProvider.notifier)
+                        .resume();
+                    if (ok && context.mounted) {
+                      AppNotifier.success(
+                        message: "You're back online-eligible.",
+                      );
+                    }
+                  },
+                ),
+              ],
+              const SizedBox(height: 10),
               DrivioButton(
                 label: 'Manage payment',
                 variant: DrivioButtonVariant.ghost,
@@ -236,6 +309,8 @@ class _PlanCard extends StatelessWidget {
         return ('TRIAL', PillTone.blue);
       case SubscriptionStatus.pastDue:
         return ('PAST DUE', PillTone.amber);
+      case SubscriptionStatus.paused:
+        return ('PAUSED', PillTone.amber);
       case SubscriptionStatus.expired:
         return ('EXPIRED', PillTone.red);
       case SubscriptionStatus.cancelled:
@@ -249,6 +324,8 @@ class _PlanCard extends StatelessWidget {
     switch (s) {
       case SubscriptionStatus.trialing:
         return 'Trial ends';
+      case SubscriptionStatus.paused:
+        return 'Paused, resumes';
       case SubscriptionStatus.cancelled:
       case SubscriptionStatus.expired:
         return 'Ended';
@@ -266,6 +343,93 @@ class _PlanCard extends StatelessWidget {
       'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
     ];
     return '${m[(t.month - 1).clamp(0, 11)]} ${t.day}';
+  }
+}
+
+// ── Pause / resume controls ────────────────────────────────────────────
+
+class _PausedBanner extends StatelessWidget {
+  const _PausedBanner({required this.daysLeft});
+
+  final int? daysLeft;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+      decoration: BoxDecoration(
+        color: context.amber.withValues(alpha: 0.12),
+        borderRadius: AppRadius.md,
+        border: Border.all(color: context.amber.withValues(alpha: 0.4)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Icon(
+            Icons.pause_circle_outline_rounded,
+            size: 18,
+            color: context.amber,
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                Text(
+                  daysLeft == null
+                      ? 'Subscription paused'
+                      : '$daysLeft day${daysLeft == 1 ? '' : 's'} '
+                            'frozen',
+                  style: AppTextStyles.bodySm.copyWith(
+                    color: context.text,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  "You can't go online or accept rides until you resume. "
+                  'Paid days resume from where they left off.',
+                  style: AppTextStyles.captionSm
+                      .copyWith(color: context.textDim, height: 1.4),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PauseResumeButton extends StatelessWidget {
+  const _PauseResumeButton({
+    required this.sub,
+    required this.onPause,
+    required this.onResume,
+  });
+
+  final SubscriptionState sub;
+  final VoidCallback onPause;
+  final VoidCallback onResume;
+
+  @override
+  Widget build(BuildContext context) {
+    if (sub.isPaused) {
+      return DrivioButton(
+        label: sub.isMutating ? 'Resuming…' : 'Resume subscription',
+        onPressed: sub.isMutating ? null : onResume,
+      );
+    }
+    if (!sub.canPause) {
+      // Past-due / cancelled / expired — no point offering pause; the
+      // paywall flow is the right action.
+      return const SizedBox.shrink();
+    }
+    return DrivioButton(
+      label: sub.isMutating ? 'Pausing…' : 'Pause subscription',
+      variant: DrivioButtonVariant.ghost,
+      onPressed: sub.isMutating ? null : onPause,
+    );
   }
 }
 
@@ -287,7 +451,8 @@ class _BillingHistory extends StatelessWidget {
         ),
         child: Center(
           child: Text(
-            'No billing activity yet.',
+            'No billing activity yet. Charges show up after each renewal.',
+            textAlign: TextAlign.center,
             style: AppTextStyles.bodySm.copyWith(color: context.textDim),
           ),
         ),

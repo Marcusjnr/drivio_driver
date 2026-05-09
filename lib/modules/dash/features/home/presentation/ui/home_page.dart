@@ -31,6 +31,7 @@ class _HomePageState extends ConsumerState<HomePage> {
   bool _kycGateOpen = false;
   bool _pendingGateOpen = false;
   bool _subGateOpen = false;
+  bool _autoOfflineInFlight = false;
 
   @override
   void initState() {
@@ -67,11 +68,33 @@ class _HomePageState extends ConsumerState<HomePage> {
       }
     });
 
-    // Force-offline if subscription flipped while online (mid-trip is exempt
-    // upstream — we never enter onTrip via the online toggle).
-    if (state.isOnline && subState.subscription != null && !subUnlocks) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) c.setStatus(DriverStatus.offline);
+    // Force-offline if the subscription flipped to a non-unlocking state
+    // while the driver was online (most commonly: they paused, but also
+    // covers expired/cancelled). Mirrors the manual offline toggle:
+    // stops the GPS stream, halts marketplace polling, and flips the
+    // local `isOnline` flag. The `_autoOfflineInFlight` guard prevents
+    // the awaited stop sequence from re-firing on subsequent builds.
+    if (state.isOnline &&
+        subState.subscription != null &&
+        !subUnlocks &&
+        !_autoOfflineInFlight) {
+      _autoOfflineInFlight = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) async {
+        if (!mounted) return;
+        try {
+          await ref.read(presenceControllerProvider.notifier).stopStreaming();
+          if (!mounted) return;
+          await ref.read(marketplaceControllerProvider.notifier).stop();
+          if (!mounted) return;
+          c.setStatus(DriverStatus.offline);
+          if (subState.subscription!.isPaused) {
+            AppNotifier.warning(
+              message: "You're offline — subscription is paused.",
+            );
+          }
+        } finally {
+          if (mounted) _autoOfflineInFlight = false;
+        }
       });
     }
     // Pull live position + open requests from their controllers so we can
@@ -166,7 +189,8 @@ class _HomePageState extends ConsumerState<HomePage> {
                         final String? err =
                             ref.read(presenceControllerProvider).error;
                         AppNotifier.error(
-                          message: err ?? 'Could not start location.',
+                          message: err ??
+                              "Couldn't start location. Try again in a moment.",
                         );
                       }
                     },

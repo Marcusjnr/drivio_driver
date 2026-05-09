@@ -54,7 +54,7 @@ class EdgeRiderCancelledPage extends ConsumerWidget {
                   ),
                   const SizedBox(height: 12),
                   Text(
-                    'The rider cancelled this trip',
+                    'Rider cancelled this trip',
                     style: AppTextStyles.h2.copyWith(color: context.text),
                   ),
                   const SizedBox(height: 6),
@@ -66,9 +66,7 @@ class EdgeRiderCancelledPage extends ConsumerWidget {
                         height: 1.5,
                       ),
                       children: <InlineSpan>[
-                        const TextSpan(
-                          text: "Because you'd started driving, you earned a ",
-                        ),
+                        const TextSpan(text: 'You earned a '),
                         TextSpan(
                           text: '${NairaFormatter.format(1200)} cancellation fee',
                           style: AppTextStyles.caption.copyWith(
@@ -76,7 +74,7 @@ class EdgeRiderCancelledPage extends ConsumerWidget {
                             fontWeight: FontWeight.w700,
                           ),
                         ),
-                        const TextSpan(text: '.'),
+                        const TextSpan(text: ' for starting the trip.'),
                       ],
                     ),
                   ),
@@ -108,7 +106,7 @@ class EdgeRiderCancelledPage extends ConsumerWidget {
                   ),
                   const SizedBox(height: 14),
                   DrivioButton(
-                    label: 'Back online · find next trip',
+                    label: 'Find next trip',
                     onPressed: () =>
                         AppNavigation.replaceAll<void>(AppRoutes.home),
                   ),

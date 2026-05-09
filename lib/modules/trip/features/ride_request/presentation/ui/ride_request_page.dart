@@ -33,7 +33,7 @@ class _RideRequestPageState extends ConsumerState<RideRequestPage> {
           child: Padding(
             padding: const EdgeInsets.all(24),
             child: Text(
-              'No request selected.',
+              'No request to show. Pick one from your feed.',
               style: AppTextStyles.bodySm.copyWith(color: context.textDim),
             ),
           ),

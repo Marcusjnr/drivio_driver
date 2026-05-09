@@ -45,8 +45,8 @@ class EdgeOfflinePage extends ConsumerWidget {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    "We can't reach Drivio right now. Your active trip "
-                    "is saved — we'll sync as soon as you're back.",
+                    "Drivio is unreachable. Your active trip is saved — "
+                    "we'll sync once you're back online.",
                     textAlign: TextAlign.center,
                     style: AppTextStyles.bodySm.copyWith(
                       color: context.textDim,
@@ -55,7 +55,7 @@ class EdgeOfflinePage extends ConsumerWidget {
                   ),
                   const SizedBox(height: 22),
                   DrivioButton(
-                    label: 'Retry connection',
+                    label: 'Try again',
                     variant: DrivioButtonVariant.primary,
                     onPressed: () =>
                         AppNavigation.replaceAll<void>(AppRoutes.home),

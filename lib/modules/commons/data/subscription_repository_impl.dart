@@ -41,4 +41,14 @@ class SupabaseSubscriptionRepository implements SubscriptionRepository {
         await _supabase.client.rpc<dynamic>('activate_subscription_dev_mode');
     return res as String?;
   }
+
+  @override
+  Future<void> pauseMine() async {
+    await _supabase.client.rpc<dynamic>('pause_my_subscription');
+  }
+
+  @override
+  Future<void> resumeMine() async {
+    await _supabase.client.rpc<dynamic>('resume_my_subscription');
+  }
 }

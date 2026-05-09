@@ -71,8 +71,8 @@ class WelcomePage extends ConsumerWidget {
                   SizedBox(
                     width: 320,
                     child: Text(
-                      'You set the fare. You pick the trips. We hand you '
-                      'the requests and the tools to grow.',
+                      'You set the fare. You pick the trips. '
+                      'We hand over the requests.',
                       style:
                           AppTextStyles.body.copyWith(color: context.textDim),
                     ),
@@ -94,7 +94,7 @@ class WelcomePage extends ConsumerWidget {
                         padding: const EdgeInsets.symmetric(vertical: 12),
                       ),
                       child: Text(
-                        'I already have an account',
+                        'I have an account',
                         style: AppTextStyles.bodySm.copyWith(
                           color: context.textDim,
                           fontWeight: FontWeight.w600,

@@ -47,7 +47,9 @@ class _PaywallPageState extends ConsumerState<PaywallPage> {
     } else {
       final String? err =
           ref.read(paystackActivationControllerProvider).error;
-      AppNotifier.error(message: err ?? 'Could not activate plan.');
+      AppNotifier.error(
+        message: err ?? "Couldn't activate your plan. Try again in a moment.",
+      );
     }
   }
 

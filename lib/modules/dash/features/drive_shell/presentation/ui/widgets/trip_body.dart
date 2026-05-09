@@ -188,7 +188,7 @@ class _InTripBody extends StatelessWidget {
               );
               if (!ok) {
                 AppNotifier.error(
-                  message: 'No maps app could open this destination.',
+                  message: "Couldn't open a maps app. Install Google Maps or Apple Maps.",
                 );
               }
             },

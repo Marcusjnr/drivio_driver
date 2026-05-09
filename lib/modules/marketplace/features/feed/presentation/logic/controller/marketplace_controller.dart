@@ -159,7 +159,7 @@ class MarketplaceController extends StateNotifier<MarketplaceState> {
     } catch (e) {
       state = state.copyWith(
         isLoading: false,
-        error: 'Could not load requests: $e',
+        error: "Couldn't load requests. Pull down to retry.",
       );
     }
   }

@@ -63,7 +63,8 @@ class _ProfileEditPageState extends ConsumerState<ProfileEditPage> {
           child: Padding(
             padding: const EdgeInsets.all(24),
             child: Text(
-              state.error ?? 'Could not load your profile.',
+              state.error ??
+                  "Couldn't load your profile. Pull down to retry.",
               style: AppTextStyles.bodySm.copyWith(color: context.red),
               textAlign: TextAlign.center,
             ),

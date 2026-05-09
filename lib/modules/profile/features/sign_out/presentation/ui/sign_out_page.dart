@@ -112,7 +112,7 @@ class _SignOutPageState extends ConsumerState<SignOutPage> {
       setState(() => _isDeleting = false);
       AppNotifier.fromError(
         e,
-        fallback: 'Could not delete your account. Please try again.',
+        fallback: "Couldn't delete your account. Try again in a moment.",
         stackTrace: s,
         logContext: 'Account deletion',
       );

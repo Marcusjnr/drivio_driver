@@ -55,7 +55,7 @@ class EdgeSubscriptionExpiredPage extends ConsumerWidget {
                 const Pill(text: 'SUBSCRIPTION EXPIRED', tone: PillTone.red),
                 const SizedBox(height: 14),
                 Text(
-                  'Reactivate to get\nback on the road.',
+                  'Renew to keep\ndriving on Drivio.',
                   textAlign: TextAlign.center,
                   style: AppTextStyles.screenTitleSm
                       .copyWith(color: context.text),
@@ -64,8 +64,8 @@ class EdgeSubscriptionExpiredPage extends ConsumerWidget {
                 SizedBox(
                   width: 300,
                   child: Text(
-                    "Your Drivio Pro plan ended 2 days ago. You won't "
-                    "receive ride requests until you renew.",
+                    "Your Drivio Pro plan ended. You won't see ride "
+                    "requests until you renew.",
                     textAlign: TextAlign.center,
                     style: AppTextStyles.bodySm.copyWith(
                       color: context.textDim,
@@ -119,7 +119,7 @@ class EdgeSubscriptionExpiredPage extends ConsumerWidget {
                 ),
                 const SizedBox(height: 14),
                 DrivioButton(
-                  label: 'Reactivate now',
+                  label: 'Renew plan',
                   onPressed: () => AppNavigation.replaceAll<void>(
                     AppRoutes.subscriptionManage,
                   ),

@@ -62,7 +62,7 @@ class DriverReviewsController extends StateNotifier<DriverReviewsState> {
       if (!mounted) return;
       state = state.copyWith(
         isLoading: false,
-        error: 'Could not load reviews.',
+        error: "Couldn't load your reviews. Pull down to retry.",
       );
     }
   }
