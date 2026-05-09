@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -17,48 +18,24 @@ class MarketplaceState {
     this.error,
   });
 
+  /// Already filtered + ordered by proximity by the server.
   final List<RideRequest> requests;
   final double? driverLat;
   final double? driverLng;
   final bool isLoading;
   final String? error;
 
-  /// Requests sorted by distance from the driver (closest first). Falls
-  /// back to creation-time order if no fix yet.
-  List<RideRequest> get sorted {
-    if (driverLat == null || driverLng == null) return requests;
-    final List<RideRequest> sorted = List<RideRequest>.from(requests);
-    sorted.sort((RideRequest a, RideRequest b) {
-      final double da = a.distanceMetersFrom(driverLat!, driverLng!);
-      final double db = b.distanceMetersFrom(driverLat!, driverLng!);
-      return da.compareTo(db);
-    });
-    return sorted;
-  }
-
-  /// Sorted, then filtered by the driver's saved preferences:
-  ///   * `max_pickup_km` — drops requests whose pickup leg from the
-  ///     driver's last GPS fix exceeds the cap. If no fix yet, the
-  ///     filter is permissive (we'd rather show too much than hide
-  ///     valid work pre-fix).
-  ///   * `trip_length` — drops trips whose `expectedDistanceM` falls
-  ///     outside the chosen short/long bucket.
+  /// Apply the driver's saved trip-length preference. The server
+  /// already enforces the expanding-radius geo filter, so this is
+  /// purely a UI-side bucket filter.
   ///
-  /// `profile` is null while pricing is hydrating — in that case fall
-  /// back to the unfiltered sort so the UI stays usable on cold start.
+  /// `profile` is null while pricing is hydrating — fall back to the
+  /// raw list so the UI stays usable on cold start.
   List<RideRequest> visibleFor(PricingProfile? profile) {
-    final List<RideRequest> base = sorted;
-    if (profile == null) return base;
-    final double? lat = driverLat;
-    final double? lng = driverLng;
-    final double maxPickupM = profile.maxPickupKm * 1000;
-    return base.where((RideRequest r) {
-      if (lat != null && lng != null) {
-        final double pickupM = r.distanceMetersFrom(lat, lng);
-        if (pickupM > maxPickupM) return false;
-      }
-      return profile.acceptsDistance(r.expectedDistanceM);
-    }).toList(growable: false);
+    if (profile == null) return requests;
+    return requests
+        .where((RideRequest r) => profile.acceptsDistance(r.expectedDistanceM))
+        .toList(growable: false);
   }
 
   MarketplaceState copyWith({
@@ -79,6 +56,19 @@ class MarketplaceState {
   }
 }
 
+/// Driver-side marketplace feed.
+///
+/// The server applies an expanding-ring geo filter (2 → 4 → 6 → 8 km
+/// over 80 s) keyed on the driver's GPS fix, so a fresh fetch is only
+/// useful once we have a position. The controller therefore:
+///
+///   * defers the first fetch until `updateDriverPosition` lands the
+///     initial fix;
+///   * refetches whenever the driver moves more than
+///     [_kRefetchOnMoveM] (so a cruising driver picks up requests that
+///     just entered range);
+///   * refetches on every realtime change event for a request the
+///     driver may now (or may no longer) see.
 class MarketplaceController extends StateNotifier<MarketplaceState> {
   MarketplaceController(this._repo) : super(const MarketplaceState());
 
@@ -86,22 +76,29 @@ class MarketplaceController extends StateNotifier<MarketplaceState> {
   StreamSubscription<RideRequestEvent>? _eventSub;
   Timer? _expiryTimer;
 
-  /// Fetch + subscribe. Idempotent — calling twice is safe.
+  /// Re-fetch when the driver has moved at least this far since the
+  /// last fetch. Cheaper than refetching on every 10 m GPS tick, dense
+  /// enough that even at the smallest 2 km ring the feed stays fresh.
+  static const double _kRefetchOnMoveM = 250;
+
+  double? _lastFetchLat;
+  double? _lastFetchLng;
+
+  /// Subscribe to realtime + (if we already have a fix) do an initial
+  /// fetch. Idempotent.
   Future<void> start() async {
-    if (_eventSub != null) {
-      await refresh();
-      return;
+    if (_eventSub == null) {
+      _eventSub = _repo.changes().listen(
+        (RideRequestEvent _) => _refetchIfPositioned(),
+        onError: (Object e) =>
+            state = state.copyWith(error: 'Realtime: $e'),
+      );
+      _expiryTimer ??= Timer.periodic(
+        const Duration(seconds: 5),
+        (_) => _pruneExpired(),
+      );
     }
-    _eventSub = _repo.changes().listen(
-      (RideRequestEvent _) => refresh(),
-      onError: (Object e) =>
-          state = state.copyWith(error: 'Realtime: $e'),
-    );
-    _expiryTimer ??= Timer.periodic(
-      const Duration(seconds: 5),
-      (_) => _pruneExpired(),
-    );
-    await refresh();
+    await _refetchIfPositioned();
   }
 
   Future<void> stop() async {
@@ -109,13 +106,55 @@ class MarketplaceController extends StateNotifier<MarketplaceState> {
     _eventSub = null;
     _expiryTimer?.cancel();
     _expiryTimer = null;
+    _lastFetchLat = null;
+    _lastFetchLng = null;
     state = state.copyWith(requests: const <RideRequest>[]);
   }
 
+  /// Manual pull-to-refresh hook. Forces a fetch even if the driver
+  /// hasn't moved.
   Future<void> refresh() async {
+    if (state.driverLat == null || state.driverLng == null) {
+      return;
+    }
+    await _fetch(state.driverLat!, state.driverLng!);
+  }
+
+  /// Push the driver's latest GPS fix in. Triggers a refetch if it's
+  /// the first fix or the driver has moved at least
+  /// [_kRefetchOnMoveM].
+  void updateDriverPosition(double lat, double lng) {
+    final bool firstFix =
+        state.driverLat == null || state.driverLng == null;
+    state = state.copyWith(driverLat: lat, driverLng: lng);
+
+    final bool moved = _lastFetchLat == null ||
+        _lastFetchLng == null ||
+        _haversineM(_lastFetchLat!, _lastFetchLng!, lat, lng) >=
+            _kRefetchOnMoveM;
+    if (_eventSub != null && (firstFix || moved)) {
+      _fetch(lat, lng);
+    }
+  }
+
+  Future<void> _refetchIfPositioned() async {
+    final double? lat = state.driverLat;
+    final double? lng = state.driverLng;
+    if (lat == null || lng == null) {
+      return;
+    }
+    await _fetch(lat, lng);
+  }
+
+  Future<void> _fetch(double lat, double lng) async {
     state = state.copyWith(isLoading: true, clearError: true);
     try {
-      final List<RideRequest> next = await _repo.listOpen();
+      final List<RideRequest> next = await _repo.listNearby(
+        driverLat: lat,
+        driverLng: lng,
+      );
+      _lastFetchLat = lat;
+      _lastFetchLng = lng;
       state = state.copyWith(requests: next, isLoading: false);
     } catch (e) {
       state = state.copyWith(
@@ -123,10 +162,6 @@ class MarketplaceController extends StateNotifier<MarketplaceState> {
         error: 'Could not load requests: $e',
       );
     }
-  }
-
-  void updateDriverPosition(double lat, double lng) {
-    state = state.copyWith(driverLat: lat, driverLng: lng);
   }
 
   void _pruneExpired() {
@@ -137,6 +172,23 @@ class MarketplaceController extends StateNotifier<MarketplaceState> {
     if (kept.length != state.requests.length) {
       state = state.copyWith(requests: kept);
     }
+  }
+
+  static double _haversineM(
+    double lat1,
+    double lng1,
+    double lat2,
+    double lng2,
+  ) {
+    const double r = 6371000;
+    final double dLat = (lat2 - lat1) * (math.pi / 180);
+    final double dLng = (lng2 - lng1) * (math.pi / 180);
+    final double a = math.sin(dLat / 2) * math.sin(dLat / 2) +
+        math.cos(lat1 * (math.pi / 180)) *
+            math.cos(lat2 * (math.pi / 180)) *
+            math.sin(dLng / 2) *
+            math.sin(dLng / 2);
+    return 2 * r * math.atan2(math.sqrt(a), math.sqrt(1 - a));
   }
 
   @override
@@ -154,8 +206,9 @@ final StateNotifierProvider<MarketplaceController, MarketplaceState>
 );
 
 /// What the marketplace UI should actually render — the open-request
-/// list filtered by the driver's saved pricing preferences and sorted
-/// by pickup distance. Recomputes whenever either source changes.
+/// list filtered by the driver's saved trip-length preference. The
+/// expanding-radius geo filter and proximity sort are already applied
+/// server-side.
 final Provider<List<RideRequest>> visibleRequestsProvider =
     Provider<List<RideRequest>>((Ref ref) {
   final MarketplaceState m = ref.watch(marketplaceControllerProvider);

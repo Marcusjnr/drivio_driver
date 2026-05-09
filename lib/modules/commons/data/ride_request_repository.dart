@@ -16,13 +16,19 @@ class RideRequestEvent {
 }
 
 abstract class RideRequestRepository {
-  /// Snapshot of currently-open ride requests, sorted by creation time
-  /// (newest first). Limited to 50.
-  Future<List<RideRequest>> listOpen();
+  /// Snapshot of currently-open ride requests visible to a driver at the
+  /// given GPS fix. The server applies an expanding-ring filter:
+  /// requests are visible inside a radius that grows from 2 km to 8 km
+  /// in 2 km steps every 20 s of the request's lifetime. Sorted by
+  /// proximity to the driver, capped at 50 rows.
+  Future<List<RideRequest>> listNearby({
+    required double driverLat,
+    required double driverLng,
+  });
 
   /// Realtime change events on the `ride_requests` table. Subscribers
-  /// should call [listOpen] to refresh the canonical list when a relevant
-  /// event arrives.
+  /// should call [listNearby] to refresh the canonical list when a
+  /// relevant event arrives.
   Stream<RideRequestEvent> changes();
 
   /// Single ride request by id.

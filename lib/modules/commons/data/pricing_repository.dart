@@ -8,10 +8,9 @@ abstract class PricingRepository {
   /// Persist a partial update. Pass only the fields the caller is
   /// changing to avoid clobbering server-side defaults.
   ///
-  /// `maxPickupKm` and `tripLength` are stored inside the `preferences`
-  /// jsonb column. When either is provided the repository merges them
-  /// into the existing jsonb so unrelated keys (added by future
-  /// features) are preserved.
+  /// `tripLength` is stored inside the `preferences` jsonb column.
+  /// When provided the repository merges it into the existing jsonb
+  /// so unrelated keys (added by future features) are preserved.
   Future<PricingProfile> updateMyProfile({
     int? baseMinor,
     int? perKmMinor,
@@ -19,7 +18,6 @@ abstract class PricingRepository {
     bool? peakEnabled,
     double? nightMultiplier,
     bool? nightEnabled,
-    double? maxPickupKm,
     TripLengthPreference? tripLength,
   });
 }

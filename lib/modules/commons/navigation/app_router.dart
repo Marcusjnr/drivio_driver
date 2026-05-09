@@ -36,7 +36,6 @@ import 'package:drivio_driver/modules/support/features/support_chat/presentation
 import 'package:drivio_driver/modules/trip/features/call/presentation/ui/call_page.dart';
 import 'package:drivio_driver/modules/trip/features/chat/presentation/ui/chat_page.dart';
 import 'package:drivio_driver/modules/trip/features/safety/presentation/ui/safety_page.dart';
-import 'package:drivio_driver/modules/vehicle/features/pickup_distance/presentation/ui/pickup_distance_page.dart';
 import 'package:drivio_driver/modules/vehicle/features/preferred_trip_length/presentation/ui/preferred_trip_length_page.dart';
 import 'package:drivio_driver/modules/vehicle/features/vehicle_change/presentation/ui/vehicle_change_page.dart';
 
@@ -119,8 +118,6 @@ class AppRouter {
         return (BuildContext _) => const ReuploadDocPage();
       case AppRoutes.vehicleChange:
         return (BuildContext _) => const VehicleChangePage();
-      case AppRoutes.pickupDistance:
-        return (BuildContext _) => const PickupDistancePage();
       case AppRoutes.preferredTripLength:
         return (BuildContext _) => const PreferredTripLengthPage();
       case AppRoutes.helpArticle:

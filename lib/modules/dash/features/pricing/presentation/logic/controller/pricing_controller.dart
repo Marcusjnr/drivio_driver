@@ -97,11 +97,6 @@ class PricingController extends StateNotifier<PricingState> {
         serverFields: <String, dynamic>{'night_enabled': v},
       );
 
-  void setMaxPickupKm(double v) => _apply(
-        next: (PricingProfile p) => p.copyWith(maxPickupKm: v),
-        serverFields: <String, dynamic>{'max_pickup_km': v},
-      );
-
   void setTripLength(TripLengthPreference v) => _apply(
         next: (PricingProfile p) => p.copyWith(tripLength: v),
         serverFields: <String, dynamic>{'trip_length': v.wire},
@@ -138,7 +133,6 @@ class PricingController extends StateNotifier<PricingState> {
         peakEnabled: patch['peak_enabled'] as bool?,
         nightMultiplier: patch['night_multiplier'] as double?,
         nightEnabled: patch['night_enabled'] as bool?,
-        maxPickupKm: patch['max_pickup_km'] as double?,
         tripLength: patch['trip_length'] == null
             ? null
             : TripLengthPreference.fromWire(patch['trip_length']),

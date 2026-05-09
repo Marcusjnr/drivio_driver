@@ -220,11 +220,6 @@ class _Body extends StatelessWidget {
             title: 'TRIP PREFERENCES',
             children: <Widget>[
               FieldRow(
-                label: 'Max pickup distance',
-                value: '${profile.maxPickupKm.toStringAsFixed(1)} km',
-                onTap: () => AppNavigation.push(AppRoutes.pickupDistance),
-              ),
-              FieldRow(
                 label: 'Preferred trip length',
                 value: profile.tripLength.label,
                 divider: false,

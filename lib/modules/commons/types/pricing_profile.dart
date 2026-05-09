@@ -57,11 +57,8 @@ class PricingProfile {
     required this.peakEnabled,
     required this.nightMultiplier,
     required this.nightEnabled,
-    this.maxPickupKm = _kDefaultMaxPickupKm,
     this.tripLength = TripLengthPreference.any,
   });
-
-  static const double _kDefaultMaxPickupKm = 5.0;
 
   // Trip-length thresholds in metres. Mirrored from the UI labels.
   static const int kShortTripMaxM = 5000;
@@ -73,11 +70,6 @@ class PricingProfile {
   final bool peakEnabled;
   final double nightMultiplier;
   final bool nightEnabled;
-
-  /// Hard ceiling on pickup-leg distance from the driver. Requests
-  /// whose pickup is farther than this are hidden client-side from the
-  /// marketplace feed. Stored in the `preferences` jsonb.
-  final double maxPickupKm;
 
   /// Driver-selected trip-length filter. `any` means no filter.
   /// Stored in the `preferences` jsonb.
@@ -171,7 +163,6 @@ class PricingProfile {
     bool? peakEnabled,
     double? nightMultiplier,
     bool? nightEnabled,
-    double? maxPickupKm,
     TripLengthPreference? tripLength,
   }) {
     return PricingProfile(
@@ -181,7 +172,6 @@ class PricingProfile {
       peakEnabled: peakEnabled ?? this.peakEnabled,
       nightMultiplier: nightMultiplier ?? this.nightMultiplier,
       nightEnabled: nightEnabled ?? this.nightEnabled,
-      maxPickupKm: maxPickupKm ?? this.maxPickupKm,
       tripLength: tripLength ?? this.tripLength,
     );
   }
@@ -197,8 +187,6 @@ class PricingProfile {
       peakEnabled: json['peak_enabled'] as bool,
       nightMultiplier: (json['night_multiplier'] as num).toDouble(),
       nightEnabled: json['night_enabled'] as bool,
-      maxPickupKm: (prefs['max_pickup_km'] as num?)?.toDouble() ??
-          _kDefaultMaxPickupKm,
       tripLength: TripLengthPreference.fromWire(prefs['trip_length']),
     );
   }
@@ -207,7 +195,6 @@ class PricingProfile {
   /// patching the `preferences` jsonb without touching the columnar
   /// fields.
   Map<String, dynamic> get preferencesJson => <String, dynamic>{
-        'max_pickup_km': maxPickupKm,
         'trip_length': tripLength.wire,
       };
 
@@ -218,7 +205,6 @@ class PricingProfile {
     peakEnabled: true,
     nightMultiplier: 1.2,
     nightEnabled: false,
-    maxPickupKm: _kDefaultMaxPickupKm,
     tripLength: TripLengthPreference.any,
   );
 }

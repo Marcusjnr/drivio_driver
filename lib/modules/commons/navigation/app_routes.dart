@@ -47,7 +47,6 @@ class AppRoutes {
   // via the paywall, not stored on our side.
   static const String reuploadDoc = '/documents/reupload';
   static const String vehicleChange = '/vehicle/change';
-  static const String pickupDistance = '/pricing/pickup-distance';
   static const String preferredTripLength = '/pricing/preferred-trip-length';
   static const String helpArticle = '/support/article';
   static const String supportChat = '/support/chat';

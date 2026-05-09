@@ -26,7 +26,6 @@ class SupabasePricingRepository implements PricingRepository {
     bool? peakEnabled,
     double? nightMultiplier,
     bool? nightEnabled,
-    double? maxPickupKm,
     TripLengthPreference? tripLength,
   }) async {
     final User? user = _supabase.auth.currentUser;
@@ -51,11 +50,10 @@ class SupabasePricingRepository implements PricingRepository {
     // doesn't expose `jsonb_set` over PostgREST cleanly). Concurrent
     // edits by the same driver are debounced upstream so a stale
     // base-merge here is unlikely.
-    if (maxPickupKm != null || tripLength != null) {
+    if (tripLength != null) {
       patch['preferences'] = <String, dynamic>{
         ...current.preferencesJson,
-        if (maxPickupKm != null) 'max_pickup_km': maxPickupKm,
-        if (tripLength != null) 'trip_length': tripLength.wire,
+        'trip_length': tripLength.wire,
       };
     }
 

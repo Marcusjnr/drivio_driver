@@ -13,9 +13,16 @@ class SupabaseRideRequestRepository implements RideRequestRepository {
   final SupabaseModule _supabase;
 
   @override
-  Future<List<RideRequest>> listOpen() async {
+  Future<List<RideRequest>> listNearby({
+    required double driverLat,
+    required double driverLng,
+  }) async {
     final List<dynamic> rows = await _supabase.client.rpc<dynamic>(
-      'list_open_ride_requests',
+      'list_nearby_ride_requests',
+      params: <String, dynamic>{
+        'p_lat': driverLat,
+        'p_lng': driverLng,
+      },
     ) as List<dynamic>;
     return rows
         .map((dynamic r) => RideRequest.fromJson(r as Map<String, dynamic>))
