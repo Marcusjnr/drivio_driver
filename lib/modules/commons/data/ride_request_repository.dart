@@ -43,6 +43,10 @@ abstract class RideRequestRepository {
   /// carries the parsed [RideBid].
   Stream<RideBid> watchBid(String bidId);
 
+  /// One-shot fetch of a bid by id. Used as a poll-fallback when the
+  /// realtime UPDATE event drops (network blip, channel desync, etc.).
+  Future<RideBid?> getBid(String bidId);
+
   /// Look up the trip created from an accepted bid (one-shot).
   Future<String?> findTripIdForBid(String bidId);
 }

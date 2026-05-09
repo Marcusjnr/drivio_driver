@@ -154,6 +154,17 @@ class RideRequestController extends StateNotifier<RideRequestState> {
 
   Timer? _ticker;
   StreamSubscription<RideBid>? _bidSub;
+
+  /// Realtime safety net. Postgres-changes UPDATE events for
+  /// `ride_bids` can drop on network blips, OS-suspended foreground
+  /// states, or stale channel auth. While in [BidPhase.waiting] we
+  /// poll the bid every [_kBidPollWindow] as a fallback so a missed
+  /// UPDATE event doesn't leave the driver stuck on the "Bid placed ·
+  /// waiting for passenger" UI after the passenger has already
+  /// accepted/rejected.
+  Timer? _bidPoll;
+  static const Duration _kBidPollWindow = Duration(seconds: 4);
+
   String? _activeVehicleId;
   PricingProfile _pricingProfile = PricingProfile.platformDefault;
 
@@ -271,31 +282,74 @@ class RideRequestController extends StateNotifier<RideRequestState> {
 
   void _watchBid(String bidId) {
     _bidSub?.cancel();
+    _bidPoll?.cancel();
+
     _bidSub = _requests.watchBid(bidId).listen((RideBid bid) async {
-      if (!mounted) return;
-      switch (bid.status) {
-        case RideBidStatus.accepted:
-          // Look up the trip created for this bid and advance.
-          final String? tripId = await _requests.findTripIdForBid(bidId);
-          if (!mounted) return;
-          state = state.copyWith(phase: BidPhase.won, tripId: tripId);
-        case RideBidStatus.rejected:
-          state = state.copyWith(
-            phase: BidPhase.lost,
-            error: 'Another driver was chosen.',
+      await _handleBidUpdate(bidId, bid);
+    });
+
+    // Realtime safety net — periodically re-fetch the bid in case
+    // postgres-changes drops the UPDATE event. The poll self-cancels as
+    // soon as we leave BidPhase.waiting (terminal phase reached).
+    _bidPoll = Timer.periodic(_kBidPollWindow, (Timer _) async {
+      if (!mounted || state.phase != BidPhase.waiting) {
+        _bidPoll?.cancel();
+        _bidPoll = null;
+        return;
+      }
+      try {
+        final RideBid? fresh = await _requests.getBid(bidId);
+        if (fresh == null || !mounted) return;
+        if (state.phase != BidPhase.waiting) return;
+        if (fresh.status != RideBidStatus.pending) {
+          AppLogger.w(
+            'bid poll caught a status realtime missed',
+            data: <String, dynamic>{
+              'bid_id': bidId,
+              'status': fresh.status.name,
+            },
           );
-        case RideBidStatus.expired:
-          state = state.copyWith(
-            phase: BidPhase.lost,
-            error: 'Your bid expired.',
-          );
-        case RideBidStatus.withdrawn:
-          state = state.copyWith(phase: BidPhase.composing);
-        case RideBidStatus.pending:
-          // No-op
-          break;
+          await _handleBidUpdate(bidId, fresh);
+        }
+      } catch (_) {
+        // Silent — the realtime stream is the primary path. Polling is
+        // best-effort.
       }
     });
+  }
+
+  Future<void> _handleBidUpdate(String bidId, RideBid bid) async {
+    if (!mounted) return;
+    switch (bid.status) {
+      case RideBidStatus.accepted:
+        // Look up the trip created for this bid and advance.
+        final String? tripId = await _requests.findTripIdForBid(bidId);
+        if (!mounted) return;
+        state = state.copyWith(phase: BidPhase.won, tripId: tripId);
+        _bidPoll?.cancel();
+        _bidPoll = null;
+      case RideBidStatus.rejected:
+        state = state.copyWith(
+          phase: BidPhase.lost,
+          error: 'Another driver was chosen.',
+        );
+        _bidPoll?.cancel();
+        _bidPoll = null;
+      case RideBidStatus.expired:
+        state = state.copyWith(
+          phase: BidPhase.lost,
+          error: 'Your bid expired.',
+        );
+        _bidPoll?.cancel();
+        _bidPoll = null;
+      case RideBidStatus.withdrawn:
+        state = state.copyWith(phase: BidPhase.composing);
+        _bidPoll?.cancel();
+        _bidPoll = null;
+      case RideBidStatus.pending:
+        // No-op
+        break;
+    }
   }
 
   Future<void> withdraw() async {
@@ -333,6 +387,7 @@ class RideRequestController extends StateNotifier<RideRequestState> {
   void dispose() {
     _ticker?.cancel();
     _bidSub?.cancel();
+    _bidPoll?.cancel();
     super.dispose();
   }
 }

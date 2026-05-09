@@ -93,6 +93,15 @@ class ActiveTripController extends StateNotifier<ActiveTripState> {
   final TripRepository _repo;
   StreamSubscription<Trip>? _sub;
 
+  /// Realtime safety net. Postgres-changes UPDATE events on the
+  /// `trips` row can drop on network blips and channel desyncs. While
+  /// the trip is in a non-terminal state we poll every
+  /// [_kTripPollWindow] as a fallback so a passenger-side cancel
+  /// (USR side calls `cancel_my_active_trip`) still surfaces on the
+  /// driver app even if realtime missed the UPDATE.
+  Timer? _poll;
+  static const Duration _kTripPollWindow = Duration(seconds: 5);
+
   Future<void> _hydrate() async {
     try {
       final Trip? t = await _repo.getTrip(state.tripId!);
@@ -109,18 +118,62 @@ class ActiveTripController extends StateNotifier<ActiveTripState> {
         (Trip fresh) {
           if (!mounted) return;
           state = state.copyWith(trip: fresh);
+          _maybeStopPoll(fresh.state);
         },
         onError: (Object e) {
           if (!mounted) return;
           state = state.copyWith(error: 'Realtime: $e');
         },
       );
+      _startPoll();
     } catch (e) {
       if (!mounted) return;
       state = state.copyWith(
         isLoading: false,
         error: 'Could not load trip: $e',
       );
+    }
+  }
+
+  void _startPoll() {
+    _poll?.cancel();
+    _poll = Timer.periodic(_kTripPollWindow, (Timer _) async {
+      if (!mounted) {
+        _poll?.cancel();
+        _poll = null;
+        return;
+      }
+      final TripState? cur = state.trip?.state;
+      if (cur == null || cur.isTerminal) {
+        _poll?.cancel();
+        _poll = null;
+        return;
+      }
+      try {
+        final Trip? fresh = await _repo.getTrip(state.tripId!);
+        if (fresh == null || !mounted) return;
+        if (fresh.state != state.trip?.state) {
+          AppLogger.w(
+            'trip poll caught a state realtime missed',
+            data: <String, dynamic>{
+              'trip_id': state.tripId!,
+              'was': cur.name,
+              'now': fresh.state.name,
+            },
+          );
+          state = state.copyWith(trip: fresh);
+          _maybeStopPoll(fresh.state);
+        }
+      } catch (_) {
+        // Silent — realtime is the primary path; poll is best-effort.
+      }
+    });
+  }
+
+  void _maybeStopPoll(TripState s) {
+    if (s.isTerminal) {
+      _poll?.cancel();
+      _poll = null;
     }
   }
 
@@ -167,6 +220,7 @@ class ActiveTripController extends StateNotifier<ActiveTripState> {
   @override
   void dispose() {
     _sub?.cancel();
+    _poll?.cancel();
     super.dispose();
   }
 }

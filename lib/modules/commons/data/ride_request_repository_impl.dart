@@ -136,6 +136,17 @@ class SupabaseRideRequestRepository implements RideRequestRepository {
   }
 
   @override
+  Future<RideBid?> getBid(String bidId) async {
+    final List<Map<String, dynamic>> rows = await _supabase
+        .db('ride_bids')
+        .select()
+        .eq('id', bidId)
+        .limit(1);
+    if (rows.isEmpty) return null;
+    return RideBid.fromJson(rows.first);
+  }
+
+  @override
   Future<String?> findTripIdForBid(String bidId) async {
     final List<Map<String, dynamic>> rows = await _supabase
         .db('trips')

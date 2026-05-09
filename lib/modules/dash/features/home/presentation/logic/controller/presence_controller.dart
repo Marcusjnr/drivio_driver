@@ -125,15 +125,19 @@ class PresenceController extends StateNotifier<PresenceState> {
 
     // 30s heartbeat per DRV-037, even if the driver is stationary.
     _heartbeat?.cancel();
-    _heartbeat = Timer.periodic(const Duration(seconds: 30), (_) {
-      if (state.lastLat != null) {
-        _repo.upsert(
+    _heartbeat = Timer.periodic(const Duration(seconds: 30), (_) async {
+      if (state.lastLat == null) return;
+      try {
+        await _repo.upsert(
           status: PresenceStatus.online,
           lat: state.lastLat,
           lng: state.lastLng,
           accuracyM: state.lastAccuracyM,
           vehicleId: vehicleId,
         );
+      } catch (_) {
+        // Network blip / connection reset — next tick (30s) retries.
+        // Heartbeat is best-effort; missing one tick is fine.
       }
     });
 

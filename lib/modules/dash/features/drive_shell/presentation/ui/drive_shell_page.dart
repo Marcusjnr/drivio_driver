@@ -156,6 +156,20 @@ class _DriveShellPageState extends ConsumerState<DriveShellPage> {
                     .setStatus(DriverStatus.offline);
               }
             } else if (newState == TripState.cancelled) {
+              // Distinguish passenger-cancelled from driver-cancelled
+              // by reading the audit-trail reason. The user app's
+              // `cancel_my_active_trip` RPC stamps the trip with
+              // `passenger_cancelled`; the driver's own
+              // `transition_trip` cancel uses `driver_cancelled` or a
+              // specific reason from the cancel-reason sheet.
+              final String? reason = next.trip?.cancellationReason;
+              final bool byPassenger =
+                  reason != null && reason.startsWith('passenger');
+              if (byPassenger) {
+                AppNotifier.warning(
+                  message: 'Passenger cancelled the ride.',
+                );
+              }
               shellC.onTripCancelled();
             }
           }

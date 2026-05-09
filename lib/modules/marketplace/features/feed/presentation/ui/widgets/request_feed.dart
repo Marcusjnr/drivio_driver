@@ -198,27 +198,31 @@ class _WaitingCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(14),
+      width: double.infinity,
+      constraints: const BoxConstraints(minHeight: 96),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 22),
       decoration: BoxDecoration(
         color: context.surface,
         borderRadius: AppRadius.md,
         border: Border.all(color: context.border),
       ),
       child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: <Widget>[
           Text(
             title,
+            textAlign: TextAlign.center,
             style: AppTextStyles.eyebrow.copyWith(color: context.textDim),
           ),
-          const SizedBox(height: 6),
+          const SizedBox(height: 8),
           Text(
             message,
-            style: TextStyle(
-              fontSize: 13,
-              color: context.text,
-              fontWeight: FontWeight.w600,
-            ),
             textAlign: TextAlign.center,
+            style: AppTextStyles.caption.copyWith(
+              color: context.text,
+              fontWeight: FontWeight.w700,
+            ),
           ),
         ],
       ),
