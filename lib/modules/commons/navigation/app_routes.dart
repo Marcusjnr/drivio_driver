@@ -7,6 +7,7 @@ class AppRoutes {
   static const String signUp = '/sign-up';
   static const String otp = '/otp';
   static const String paywall = '/paywall';
+  static const String pickPlan = '/pick-plan';
 
   static const String kycHome = '/kyc';
   static const String kycBvnNin = '/kyc/bvn-nin';

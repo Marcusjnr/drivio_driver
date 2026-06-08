@@ -33,6 +33,13 @@ class _PaywallPageState extends ConsumerState<PaywallPage> {
       AppNavigation.replaceAll<void>(AppRoutes.home);
       return;
     }
+    // Re-activation path. The 3-tier model means we never silently
+    // charge a returning driver on whichever plan the controller
+    // featured — they pick.
+    if (sub != null && sub.status.isHardBlocked) {
+      AppNavigation.replaceAll<void>(AppRoutes.pickPlan);
+      return;
+    }
     if (plan == null) return;
 
     final PaystackActivationController activator =
@@ -86,7 +93,6 @@ class _PaywallPageState extends ConsumerState<PaywallPage> {
 
     return ScreenScaffold(
       bottomBar: _BottomBar(
-        plan: plan,
         subscription: sub,
         isProcessing: activation.isProcessing,
         onActivate: () => _onActivate(context, plan, sub),
@@ -113,7 +119,7 @@ class _PaywallPageState extends ConsumerState<PaywallPage> {
             Text(
               sub != null && sub.isTrialing
                   ? 'Your trial is\nactive.'
-                  : 'Activate your plan\nto start earning.',
+                  : 'Free for\n90 days.',
               style: AppTextStyles.screenTitle.copyWith(color: context.text),
             ),
             const SizedBox(height: 10),
@@ -124,15 +130,22 @@ class _PaywallPageState extends ConsumerState<PaywallPage> {
                   height: 1.5,
                 ),
                 children: <InlineSpan>[
-                  const TextSpan(text: 'Drivio Pro is '),
                   TextSpan(
-                    text: 'flat-rate',
+                    text: sub != null && sub.isTrialing
+                        ? 'You\'re on Drivio Pro until your trial ends. '
+                            'Pick a plan when that day comes — '
+                        : 'Drive Drivio for 90 days, no card today. '
+                            'When your trial ends, pick the plan that '
+                            'fits how you actually work — ',
+                  ),
+                  TextSpan(
+                    text: 'Daily, Weekly, or Monthly.',
                     style: AppTextStyles.bodySm.copyWith(
                       color: context.text,
                       fontWeight: FontWeight.w700,
                     ),
                   ),
-                  const TextSpan(text: ' — no per-trip cut. Ever.'),
+                  const TextSpan(text: ' Switch tiers anytime; no per-trip cut, ever.'),
                 ],
               ),
             ),
@@ -143,7 +156,10 @@ class _PaywallPageState extends ConsumerState<PaywallPage> {
                 child: Center(child: CircularProgressIndicator()),
               )
             else
-              _PlanCard(plan: plan, subscription: sub),
+              _TierGlanceCard(
+                plans: state.plans,
+                subscription: sub,
+              ),
             const SizedBox(height: 22),
             Text(
               'WHAT YOU GET',
@@ -232,29 +248,45 @@ class _BenefitTile extends StatelessWidget {
   }
 }
 
-class _PlanCard extends StatelessWidget {
-  const _PlanCard({required this.plan, required this.subscription});
+/// "At a glance" card showing what the three tiers cost. Visually
+/// quiet — three rows in a single card with the cadence on the left
+/// and the per-cycle price on the right, plus a TRIAL pill at the top
+/// when the driver is currently trialing.
+///
+/// This card replaces the old single-plan price hero. The pick-a-plan
+/// flow handles the actual selection at trial end; this surface just
+/// sets expectation.
+class _TierGlanceCard extends StatelessWidget {
+  const _TierGlanceCard({
+    required this.plans,
+    required this.subscription,
+  });
 
-  final SubscriptionPlan? plan;
+  final List<SubscriptionPlan> plans;
   final Subscription? subscription;
 
   @override
   Widget build(BuildContext context) {
-    final int priceNaira = plan == null ? 0 : (plan!.priceMinor ~/ 100);
-    final String intervalLabel = plan?.interval.label ?? 'month';
-    final String name = plan?.name ?? 'Drivio Pro';
+    // Order Daily → Weekly → Monthly. We tolerate a partial catalog
+    // (e.g., one tier missing in dev) by only rendering rows we have.
+    final List<SubscriptionPlan> ordered = <SubscriptionPlan>[
+      ..._pick(plans, SubscriptionInterval.day),
+      ..._pick(plans, SubscriptionInterval.week),
+      ..._pick(plans, SubscriptionInterval.month),
+    ];
+
     final bool trialing =
         subscription?.status == SubscriptionStatus.trialing;
     final int? days = subscription?.daysRemaining;
 
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.fromLTRB(18, 16, 18, 18),
       decoration: BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: <Color>[
-            context.accent.withValues(alpha: 0.14),
+            context.accent.withValues(alpha: 0.12),
             context.accent.withValues(alpha: 0.02),
           ],
         ),
@@ -267,7 +299,7 @@ class _PlanCard extends StatelessWidget {
           Row(
             children: <Widget>[
               Text(
-                name.toUpperCase(),
+                'DRIVIO PRO',
                 style: AppTextStyles.eyebrow.copyWith(
                   color: context.accent,
                   letterSpacing: 1.4,
@@ -294,48 +326,108 @@ class _PlanCard extends StatelessWidget {
                 ),
             ],
           ),
-          const SizedBox(height: 8),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.baseline,
-            textBaseline: TextBaseline.alphabetic,
-            children: <Widget>[
-              Text(
-                NairaFormatter.format(priceNaira),
-                style: AppTextStyles.priceHero.copyWith(
-                  color: context.text,
-                  fontSize: 44,
-                  letterSpacing: -1.4,
-                ),
-              ),
-              const SizedBox(width: 6),
-              Text(
-                '/ $intervalLabel',
-                style: AppTextStyles.bodySm.copyWith(color: context.textDim),
-              ),
-            ],
-          ),
-          const SizedBox(height: 6),
+          const SizedBox(height: 10),
           Text(
             trialing && days != null
-                ? 'Trial: $days days left · cancel anytime'
-                : '90-day free trial · cancel anytime',
+                ? '$days days left · then pick a plan'
+                : 'Three plans, your call',
+            style: AppTextStyles.h2.copyWith(color: context.text),
+          ),
+          const SizedBox(height: 14),
+          for (int i = 0; i < ordered.length; i++) ...<Widget>[
+            if (i > 0)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                child: Container(
+                  height: 1,
+                  color: context.accent.withValues(alpha: 0.14),
+                ),
+              ),
+            _TierGlanceRow(plan: ordered[i]),
+          ],
+          const SizedBox(height: 12),
+          Text(
+            'Auto-renews each cycle until you cancel or switch.',
             style: AppTextStyles.captionSm.copyWith(color: context.textDim),
           ),
         ],
       ),
     );
   }
+
+  static Iterable<SubscriptionPlan> _pick(
+    List<SubscriptionPlan> plans,
+    SubscriptionInterval interval,
+  ) sync* {
+    for (final SubscriptionPlan p in plans) {
+      if (p.interval == interval) yield p;
+    }
+  }
+}
+
+class _TierGlanceRow extends StatelessWidget {
+  const _TierGlanceRow({required this.plan});
+
+  final SubscriptionPlan plan;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: <Widget>[
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              Text(
+                plan.interval.tierName,
+                style: AppTextStyles.h3.copyWith(color: context.text),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                plan.valueFraming,
+                style: AppTextStyles.captionSm.copyWith(
+                  color: context.textDim,
+                  fontStyle: FontStyle.italic,
+                ),
+              ),
+            ],
+          ),
+        ),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.baseline,
+          textBaseline: TextBaseline.alphabetic,
+          children: <Widget>[
+            Text(
+              NairaFormatter.format(plan.priceNaira),
+              style: AppTextStyles.metricVal.copyWith(
+                color: context.text,
+                fontSize: 22,
+                letterSpacing: -0.4,
+                fontFeatures: const <FontFeature>[
+                  FontFeature.tabularFigures(),
+                ],
+              ),
+            ),
+            const SizedBox(width: 4),
+            Text(
+              '/ ${plan.interval.label}',
+              style: AppTextStyles.captionSm.copyWith(color: context.textDim),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
 }
 
 class _BottomBar extends StatelessWidget {
   const _BottomBar({
-    required this.plan,
     required this.subscription,
     required this.isProcessing,
     required this.onActivate,
   });
 
-  final SubscriptionPlan? plan;
   final Subscription? subscription;
   final bool isProcessing;
   final VoidCallback onActivate;
@@ -344,28 +436,33 @@ class _BottomBar extends StatelessWidget {
   Widget build(BuildContext context) {
     final SubscriptionStatus? status = subscription?.status;
     final bool covered = status?.unlocksMarketplace ?? false;
-    final int priceNaira = plan == null ? 0 : (plan!.priceMinor ~/ 100);
-    final String intervalLabel = plan?.interval.label ?? 'month';
+    final bool hardBlocked = status?.isHardBlocked ?? false;
+    final bool trialing = status == SubscriptionStatus.trialing;
+    final int? daysLeft = subscription?.daysRemaining;
 
     final String label;
     if (isProcessing) {
-      label = 'Processing…';
+      label = 'Opening…';
     } else if (covered) {
-      label = 'Continue to home';
-    } else if (status == SubscriptionStatus.expired ||
-        status == SubscriptionStatus.cancelled) {
-      label = 'Reactivate Drivio Pro';
+      label = trialing ? 'Continue driving' : 'Continue to home';
+    } else if (hardBlocked) {
+      label = 'Pick a plan';
     } else {
-      label = 'Activate Drivio Pro';
+      label = 'Start trial — KYC next';
     }
 
-    final DateTime? billDate = subscription?.currentPeriodEnd;
-    final bool trialing = status == SubscriptionStatus.trialing;
-    final String fineprint = trialing && billDate != null
-        ? 'Then ${NairaFormatter.format(priceNaira)}/$intervalLabel · '
-            'first bill ${_fmtDate(billDate)}'
-        : '${NairaFormatter.format(priceNaira)}/$intervalLabel · '
-            'cancel anytime';
+    final String fineprint;
+    if (trialing && daysLeft != null) {
+      fineprint = '$daysLeft day${daysLeft == 1 ? '' : 's'} left of '
+          'your trial · pick a plan when it ends';
+    } else if (covered) {
+      fineprint = "You're good to drive.";
+    } else if (hardBlocked) {
+      fineprint = 'Daily ₦2,500 · Weekly ₦15,000 · Monthly ₦50,000';
+    } else {
+      fineprint = "No card today. We'll remind you 7 days "
+          'before your trial ends.';
+    }
 
     return Container(
       padding: const EdgeInsets.fromLTRB(20, 14, 20, 16),
@@ -387,18 +484,11 @@ class _BottomBar extends StatelessWidget {
               color: context.textMuted,
               letterSpacing: 0.3,
             ),
+            textAlign: TextAlign.center,
           ),
         ],
       ),
     );
-  }
-
-  static String _fmtDate(DateTime d) {
-    const List<String> months = <String>[
-      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
-    ];
-    return '${months[d.month - 1]} ${d.day}';
   }
 }
 

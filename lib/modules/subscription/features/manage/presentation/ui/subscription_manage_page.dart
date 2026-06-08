@@ -8,6 +8,7 @@ import 'package:drivio_driver/modules/commons/types/wallet.dart';
 import 'package:drivio_driver/modules/dash/features/home/presentation/ui/widgets/driver_tab_bar.dart';
 import 'package:drivio_driver/modules/subscription/features/manage/presentation/logic/controller/subscription_manage_controller.dart';
 import 'package:drivio_driver/modules/subscription/features/paywall/presentation/logic/controller/subscription_controller.dart';
+import 'package:drivio_driver/modules/subscription/features/pick_plan/presentation/logic/pick_plan_controller.dart';
 
 class SubscriptionManagePage extends ConsumerStatefulWidget {
   const SubscriptionManagePage({super.key});
@@ -83,6 +84,36 @@ class _SubscriptionManagePageState
     }
   }
 
+  /// Resolves the `pending_plan_id` against the loaded plan catalog so
+  /// the pending-switch banner can name the target tier ("Monthly")
+  /// instead of just an opaque UUID.
+  SubscriptionPlan? _pendingPlan(SubscriptionState s) {
+    final String? id = s.subscription?.pendingPlanId;
+    if (id == null) return null;
+    for (final SubscriptionPlan p in s.plans) {
+      if (p.id == id) return p;
+    }
+    return null;
+  }
+
+  /// Plan-change is offered while the subscription is in a "running"
+  /// state — trialing, active, past_due. Paused/expired/cancelled
+  /// drivers need a different action first (resume / re-activate).
+  bool _canChangePlan(SubscriptionState s) {
+    final Subscription? sub = s.subscription;
+    if (sub == null) return false;
+    switch (sub.status) {
+      case SubscriptionStatus.trialing:
+      case SubscriptionStatus.active:
+      case SubscriptionStatus.pastDue:
+        return true;
+      case SubscriptionStatus.paused:
+      case SubscriptionStatus.expired:
+      case SubscriptionStatus.cancelled:
+        return false;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final SubscriptionState sub = ref.watch(subscriptionControllerProvider);
@@ -124,6 +155,38 @@ class _SubscriptionManagePageState
                 )
               else
                 _PlanCard(state: sub),
+              if (_pendingPlan(sub) != null) ...<Widget>[
+                const SizedBox(height: 12),
+                _PendingSwitchBanner(
+                  pendingPlan: _pendingPlan(sub)!,
+                  effectiveAt: sub.subscription?.currentPeriodEnd ??
+                      sub.subscription?.trialEndsAt,
+                  isMutating:
+                      ref.watch(pickPlanControllerProvider).isSubmitting,
+                  onCancel: () async {
+                    final Subscription? s = sub.subscription;
+                    if (s == null) return;
+                    final bool ok = await ref
+                        .read(pickPlanControllerProvider.notifier)
+                        .cancelPendingSwitch(subscriptionId: s.id);
+                    if (!context.mounted) return;
+                    if (ok) {
+                      AppNotifier.success(message: 'Switch cancelled.');
+                      await ref
+                          .read(subscriptionControllerProvider.notifier)
+                          .refresh();
+                    } else {
+                      final String? err =
+                          ref.read(pickPlanControllerProvider).error;
+                      AppNotifier.error(
+                        message: err ??
+                            "Couldn't cancel that switch. Try again "
+                                'in a moment.',
+                      );
+                    }
+                  },
+                ),
+              ],
               if (sub.isPaused) ...<Widget>[
                 const SizedBox(height: 12),
                 _PausedBanner(daysLeft: sub.subscription?.daysRemaining),
@@ -146,6 +209,13 @@ class _SubscriptionManagePageState
                 ),
               ],
               const SizedBox(height: 10),
+              if (_canChangePlan(sub)) ...<Widget>[
+                DrivioButton(
+                  label: 'Change plan',
+                  onPressed: () => AppNavigation.push(AppRoutes.pickPlan),
+                ),
+                const SizedBox(height: 10),
+              ],
               DrivioButton(
                 label: 'Manage payment',
                 variant: DrivioButtonVariant.ghost,
@@ -168,7 +238,12 @@ class _SubscriptionManagePageState
                   highlight: context.surface3,
                 )
               else
-                _BillingHistory(charges: manage.charges),
+                _BillingHistory(
+                  charges: manage.charges,
+                  plansById: <String, SubscriptionPlan>{
+                    for (final SubscriptionPlan p in sub.plans) p.id: p,
+                  },
+                ),
               if (manage.error != null) ...<Widget>[
                 const SizedBox(height: 8),
                 Text(
@@ -346,6 +421,115 @@ class _PlanCard extends StatelessWidget {
   }
 }
 
+// ── Pending tier switch banner ─────────────────────────────────────────
+
+/// Shown above the pause/resume row when the driver has queued a tier
+/// switch. Visually quiet but unmissable: coral hairline, a single line
+/// of body copy with the target tier and the renewal date, and an
+/// inline "Cancel switch" text-link. No big "X" — cancelling is a
+/// considered action, not a dismissal.
+class _PendingSwitchBanner extends StatelessWidget {
+  const _PendingSwitchBanner({
+    required this.pendingPlan,
+    required this.effectiveAt,
+    required this.isMutating,
+    required this.onCancel,
+  });
+
+  final SubscriptionPlan pendingPlan;
+  final DateTime? effectiveAt;
+  final bool isMutating;
+  final VoidCallback onCancel;
+
+  @override
+  Widget build(BuildContext context) {
+    final String price = NairaFormatter.format(pendingPlan.priceNaira);
+    final String tier = pendingPlan.interval.tierName;
+    final String when =
+        effectiveAt == null ? 'at your next renewal' : 'on ${_fmtDate(effectiveAt!)}';
+    return Container(
+      padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+      decoration: BoxDecoration(
+        color: context.accent.withValues(alpha: 0.05),
+        borderRadius: AppRadius.md,
+        border: Border.all(color: context.accent.withValues(alpha: 0.32)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Container(
+            width: 24,
+            height: 24,
+            decoration: BoxDecoration(
+              color: context.accent.withValues(alpha: 0.14),
+              borderRadius: BorderRadius.circular(6),
+            ),
+            alignment: Alignment.center,
+            child: Icon(
+              Icons.schedule_send_rounded,
+              size: 14,
+              color: context.accent,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                Text(
+                  'Switch queued',
+                  style: AppTextStyles.bodySm.copyWith(
+                    color: context.text,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  "You'll move to $tier ($price / "
+                  '${pendingPlan.interval.label}) $when.',
+                  style: AppTextStyles.captionSm.copyWith(
+                    color: context.textDim,
+                    height: 1.4,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                InkWell(
+                  onTap: isMutating ? null : onCancel,
+                  borderRadius: BorderRadius.circular(4),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      vertical: 2,
+                      horizontal: 2,
+                    ),
+                    child: Text(
+                      isMutating ? 'Cancelling…' : 'Cancel switch',
+                      style: AppTextStyles.captionSm.copyWith(
+                        color: context.accent,
+                        fontWeight: FontWeight.w700,
+                        decoration: TextDecoration.underline,
+                        decorationColor:
+                            context.accent.withValues(alpha: 0.50),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  static String _fmtDate(DateTime t) {
+    const List<String> m = <String>[
+      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+    ];
+    return '${m[(t.month - 1).clamp(0, 11)]} ${t.day}';
+  }
+}
+
 // ── Pause / resume controls ────────────────────────────────────────────
 
 class _PausedBanner extends StatelessWidget {
@@ -436,8 +620,18 @@ class _PauseResumeButton extends StatelessWidget {
 // ── Billing history ────────────────────────────────────────────────────
 
 class _BillingHistory extends StatelessWidget {
-  const _BillingHistory({required this.charges});
+  const _BillingHistory({
+    required this.charges,
+    required this.plansById,
+  });
+
   final List<LedgerEntry> charges;
+
+  /// All plans loaded by [SubscriptionState], indexed by id. Lets us
+  /// resolve a ledger row's `reference_id` to its tier name without
+  /// extra round-trips, so a row reads "Drivio Pro Weekly" instead of
+  /// the generic "Subscription charge".
+  final Map<String, SubscriptionPlan> plansById;
 
   @override
   Widget build(BuildContext context) {
@@ -483,14 +677,14 @@ class _BillingHistory extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: <Widget>[
                       Text(
-                        _fmtDate(e.createdAt),
+                        _labelForCharge(e),
                         style: AppTextStyles.bodySm.copyWith(
                           color: context.text,
                           fontWeight: FontWeight.w600,
                         ),
                       ),
                       Text(
-                        e.description ?? 'Subscription charge',
+                        _fmtDate(e.createdAt),
                         style: AppTextStyles.captionSm.copyWith(
                           color: context.textDim,
                         ),
@@ -521,6 +715,26 @@ class _BillingHistory extends StatelessWidget {
         }),
       ),
     );
+  }
+
+  /// Tier-aware row label. Priority order:
+  ///
+  /// 1. If the row's `reference_id` matches a known plan id, use that
+  ///    plan's display name ("Drivio Pro Weekly"). This is the
+  ///    canonical case.
+  /// 2. If the row has a server-authored description, use it as-is.
+  ///    The backend can encode the tier name in description when the
+  ///    ledger row is written; we trust that text.
+  /// 3. Fall back to a generic "Subscription charge".
+  String _labelForCharge(LedgerEntry e) {
+    final String? refId = e.referenceId;
+    if (refId != null) {
+      final SubscriptionPlan? p = plansById[refId];
+      if (p != null) return p.name;
+    }
+    final String? desc = e.description;
+    if (desc != null && desc.trim().isNotEmpty) return desc;
+    return 'Subscription charge';
   }
 
   static String _fmtDate(DateTime t) {

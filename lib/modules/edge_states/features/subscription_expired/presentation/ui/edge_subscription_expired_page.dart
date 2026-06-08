@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:drivio_driver/modules/commons/all.dart';
+import 'package:drivio_driver/modules/commons/types/subscription.dart';
+import 'package:drivio_driver/modules/subscription/features/paywall/presentation/logic/controller/subscription_controller.dart';
 
 class EdgeSubscriptionExpiredPage extends ConsumerWidget {
   const EdgeSubscriptionExpiredPage({super.key});
@@ -13,6 +15,16 @@ class EdgeSubscriptionExpiredPage extends ConsumerWidget {
       _LockedRow(locked: true, label: 'Custom pricing & counter-offers'),
       _LockedRow(locked: false, label: 'Earnings & trip history (view only)'),
     ];
+
+    final SubscriptionState sub = ref.watch(subscriptionControllerProvider);
+    final SubscriptionPlan? lastPlan = sub.featuredPlan;
+    final String lastTierName =
+        lastPlan?.interval.tierName ?? 'Drivio Pro';
+    final String? endedAtCopy = _formatEndedAt(sub.subscription);
+    final String bodyCopy = lastPlan == null
+        ? "Your Drivio Pro plan ended. Pick a plan to get back on the marketplace."
+        : "Your $lastTierName plan ended${endedAtCopy == null ? '' : ' $endedAtCopy'}. "
+            'Pick a plan to get back on the marketplace.';
     return ScreenScaffold(
       child: Stack(
         children: <Widget>[
@@ -55,17 +67,16 @@ class EdgeSubscriptionExpiredPage extends ConsumerWidget {
                 const Pill(text: 'SUBSCRIPTION EXPIRED', tone: PillTone.red),
                 const SizedBox(height: 14),
                 Text(
-                  'Renew to keep\ndriving on Drivio.',
+                  'Subscription paused.',
                   textAlign: TextAlign.center,
                   style: AppTextStyles.screenTitleSm
                       .copyWith(color: context.text),
                 ),
                 const SizedBox(height: 10),
                 SizedBox(
-                  width: 300,
+                  width: 320,
                   child: Text(
-                    "Your Drivio Pro plan ended. You won't see ride "
-                    "requests until you renew.",
+                    bodyCopy,
                     textAlign: TextAlign.center,
                     style: AppTextStyles.bodySm.copyWith(
                       color: context.textDim,
@@ -97,31 +108,22 @@ class EdgeSubscriptionExpiredPage extends ConsumerWidget {
                             .copyWith(color: context.textDim),
                       ),
                       const SizedBox(height: 4),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        crossAxisAlignment: CrossAxisAlignment.baseline,
-                        textBaseline: TextBaseline.alphabetic,
-                        children: <Widget>[
-                          Text(
-                            '${NairaFormatter.format(15000)}/mo',
-                            style: AppTextStyles.metricVal
-                                .copyWith(color: context.text),
-                          ),
-                          Text(
-                            'Same as before',
-                            style: AppTextStyles.captionSm
-                                .copyWith(color: context.accent),
-                          ),
-                        ],
+                      Text(
+                        'Choose Daily, Weekly, or Monthly — '
+                        'whatever fits how you drive.',
+                        style: AppTextStyles.bodySm.copyWith(
+                          color: context.text,
+                          height: 1.4,
+                        ),
                       ),
                     ],
                   ),
                 ),
                 const SizedBox(height: 14),
                 DrivioButton(
-                  label: 'Renew plan',
+                  label: 'Pick a plan',
                   onPressed: () => AppNavigation.replaceAll<void>(
-                    AppRoutes.subscriptionManage,
+                    AppRoutes.pickPlan,
                   ),
                 ),
               ],
@@ -187,4 +189,23 @@ class _LockedRow {
   const _LockedRow({required this.locked, required this.label});
   final bool locked;
   final String label;
+}
+
+/// "today" for an end within the last day; "Jun 8" otherwise. Returns
+/// null when we have no period_end to anchor on (e.g., trial that
+/// silently ended with no charge attempt).
+String? _formatEndedAt(Subscription? sub) {
+  final DateTime? end = sub?.currentPeriodEnd ?? sub?.trialEndsAt;
+  if (end == null) return null;
+  final Duration ago = DateTime.now().difference(end);
+  if (ago.inHours < 24) return 'today';
+  if (ago.inDays < 7) {
+    final int d = ago.inDays;
+    return '$d day${d == 1 ? '' : 's'} ago';
+  }
+  const List<String> m = <String>[
+    'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+  ];
+  return 'on ${m[(end.month - 1).clamp(0, 11)]} ${end.day}';
 }

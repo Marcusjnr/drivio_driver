@@ -51,30 +51,73 @@ enum SubscriptionStatus {
 }
 
 enum SubscriptionInterval {
-  month,
-  quarter,
-  year;
+  day,
+  week,
+  month;
 
   static SubscriptionInterval fromWire(String wire) {
     switch (wire) {
-      case 'quarter':
-        return SubscriptionInterval.quarter;
-      case 'year':
-        return SubscriptionInterval.year;
+      case 'day':
+      case 'daily':
+        return SubscriptionInterval.day;
+      case 'week':
+      case 'weekly':
+        return SubscriptionInterval.week;
       case 'month':
+      case 'monthly':
       default:
         return SubscriptionInterval.month;
     }
   }
 
+  /// Short cadence label used inline next to the price ("/ day", "/ week").
   String get label {
     switch (this) {
+      case SubscriptionInterval.day:
+        return 'day';
+      case SubscriptionInterval.week:
+        return 'week';
       case SubscriptionInterval.month:
         return 'month';
-      case SubscriptionInterval.quarter:
-        return 'quarter';
-      case SubscriptionInterval.year:
-        return 'year';
+    }
+  }
+
+  /// Title-case tier name ("Daily", "Weekly", "Monthly") — used in pills,
+  /// card headers, and admin tools.
+  String get tierName {
+    switch (this) {
+      case SubscriptionInterval.day:
+        return 'Daily';
+      case SubscriptionInterval.week:
+        return 'Weekly';
+      case SubscriptionInterval.month:
+        return 'Monthly';
+    }
+  }
+
+  /// One-line "auto-renews every X" copy for explainers and CTAs.
+  String get renewalCopy {
+    switch (this) {
+      case SubscriptionInterval.day:
+        return 'auto-renews every 24 hours';
+      case SubscriptionInterval.week:
+        return 'auto-renews every 7 days';
+      case SubscriptionInterval.month:
+        return 'auto-renews every 30 days';
+    }
+  }
+
+  /// Approximate number of days in one billing cycle — used to compute
+  /// the "≈ ₦X/month if used N days" worst-case equivalency in the tier
+  /// comparison UI. Anniversary renewal, not calendar.
+  int get daysInCycle {
+    switch (this) {
+      case SubscriptionInterval.day:
+        return 1;
+      case SubscriptionInterval.week:
+        return 7;
+      case SubscriptionInterval.month:
+        return 30;
     }
   }
 }
@@ -87,6 +130,8 @@ class SubscriptionPlan {
     required this.priceMinor,
     required this.currency,
     required this.interval,
+    this.intervalSeconds,
+    this.graceSeconds,
   });
 
   final String id;
@@ -96,6 +141,36 @@ class SubscriptionPlan {
   final String currency;
   final SubscriptionInterval interval;
 
+  /// Length of one billing cycle in seconds. Server-side authoritative;
+  /// the client uses the [interval] enum for display but trusts this
+  /// value for computing renewal anniversaries when present.
+  final int? intervalSeconds;
+
+  /// Grace window in seconds before a past-due subscription expires.
+  /// Tier-aware: Daily ≈ 3600, Weekly ≈ 43200, Monthly ≈ 259200.
+  final int? graceSeconds;
+
+  /// Naira value of [priceMinor] (kobo / 100).
+  int get priceNaira => priceMinor ~/ 100;
+
+  /// Effective per-day naira cost in a full cycle. Kept as a helper for
+  /// future per-day display (e.g., "~₦1,667/day" callout); not currently
+  /// rendered.
+  int get pricePerDayNaira => priceNaira ~/ interval.daysInCycle;
+
+  /// One-line tagline used inside the tier card under the price.
+  /// Calm, never salesy; describes the tier's job-to-be-done.
+  String get valueFraming {
+    switch (interval) {
+      case SubscriptionInterval.day:
+        return 'Pay only when you drive';
+      case SubscriptionInterval.week:
+        return 'Save vs daily — for most drivers, most weeks';
+      case SubscriptionInterval.month:
+        return 'Cheapest per-day rate';
+    }
+  }
+
   factory SubscriptionPlan.fromJson(Map<String, dynamic> json) {
     return SubscriptionPlan(
       id: json['id'] as String,
@@ -104,6 +179,14 @@ class SubscriptionPlan {
       priceMinor: (json['price_minor'] as num).toInt(),
       currency: json['currency'] as String,
       interval: SubscriptionInterval.fromWire(json['interval'] as String),
+      intervalSeconds:
+          json['interval_seconds'] == null
+              ? null
+              : (json['interval_seconds'] as num).toInt(),
+      graceSeconds:
+          json['grace_seconds'] == null
+              ? null
+              : (json['grace_seconds'] as num).toInt(),
     );
   }
 }
@@ -115,6 +198,7 @@ class Subscription {
     required this.status,
     required this.createdAt,
     this.planId,
+    this.pendingPlanId,
     this.trialEndsAt,
     this.currentPeriodStart,
     this.currentPeriodEnd,
@@ -125,6 +209,11 @@ class Subscription {
   final String id;
   final String driverId;
   final String? planId;
+
+  /// When non-null, the driver has queued a tier switch. The new tier
+  /// activates at the next renewal anniversary. No mid-cycle proration.
+  final String? pendingPlanId;
+
   final SubscriptionStatus status;
   final DateTime? trialEndsAt;
   final DateTime? currentPeriodStart;
@@ -132,6 +221,8 @@ class Subscription {
   final DateTime? pausedAt;
   final String? paystackSubscriptionCode;
   final DateTime createdAt;
+
+  bool get hasPendingSwitch => pendingPlanId != null;
 
   /// Days remaining in the current period (or trial). Null if no period set.
   /// Frozen at the value captured when the driver paused — the server
@@ -156,6 +247,7 @@ class Subscription {
       id: json['id'] as String,
       driverId: json['driver_id'] as String,
       planId: json['plan_id'] as String?,
+      pendingPlanId: json['pending_plan_id'] as String?,
       status: SubscriptionStatus.fromWire(json['status'] as String),
       trialEndsAt: parse(json['trial_ends_at']),
       currentPeriodStart: parse(json['current_period_start']),

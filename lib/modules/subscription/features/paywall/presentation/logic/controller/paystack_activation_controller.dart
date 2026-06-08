@@ -74,7 +74,7 @@ class PaystackActivationController
 
     // Dev-mode: skip the real Paystack call entirely.
     if (!Env.hasRealPaystackKey) {
-      return _completeViaRpc();
+      return _completeViaRpc(plan);
     }
 
     // Real Paystack: open hosted checkout via plugin.
@@ -89,7 +89,7 @@ class PaystackActivationController
         amount: plan.priceMinor.toDouble(),
         callbackUrl: 'https://drivio.app/paystack/callback',
         transactionCompleted: (dynamic _) async {
-          await _completeViaRpc();
+          await _completeViaRpc(plan);
         },
         transactionNotCompleted: (String reason) {
           state = state.copyWith(
@@ -109,9 +109,12 @@ class PaystackActivationController
     }
   }
 
-  Future<bool> _completeViaRpc() async {
+  /// Server-side activation. Passes the driver's chosen [plan] through so
+  /// the dev-mode RPC honours the tier picked on the paywall (Daily, Weekly,
+  /// or Monthly) rather than silently defaulting to Monthly for 30 days.
+  Future<bool> _completeViaRpc(SubscriptionPlan plan) async {
     try {
-      await _subs.activateSubscriptionDevMode();
+      await _subs.activateSubscriptionDevMode(planCode: plan.code);
       state = state.copyWith(isProcessing: false, completed: true);
       return true;
     } catch (_) {

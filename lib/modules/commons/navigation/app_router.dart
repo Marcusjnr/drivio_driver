@@ -31,6 +31,7 @@ import 'package:drivio_driver/modules/profile/features/vehicle_details/presentat
 import 'package:drivio_driver/modules/splash/presentation/ui/splash_page.dart';
 import 'package:drivio_driver/modules/subscription/features/manage/presentation/ui/subscription_manage_page.dart';
 import 'package:drivio_driver/modules/subscription/features/paywall/presentation/ui/paywall_page.dart';
+import 'package:drivio_driver/modules/subscription/features/pick_plan/presentation/ui/pick_plan_page.dart';
 import 'package:drivio_driver/modules/support/features/help_article/presentation/ui/help_article_page.dart';
 import 'package:drivio_driver/modules/support/features/support_chat/presentation/ui/support_chat_page.dart';
 import 'package:drivio_driver/modules/trip/features/call/presentation/ui/call_page.dart';
@@ -64,6 +65,8 @@ class AppRouter {
         return (BuildContext _) => const OtpPage();
       case AppRoutes.paywall:
         return (BuildContext _) => const PaywallPage();
+      case AppRoutes.pickPlan:
+        return (BuildContext _) => const PickPlanPage();
       case AppRoutes.kycHome:
         return (BuildContext _) => const KycHomePage();
       case AppRoutes.kycBvnNin:
