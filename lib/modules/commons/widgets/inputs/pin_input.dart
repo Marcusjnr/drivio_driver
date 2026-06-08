@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:drivio_driver/modules/commons/theme/app_radius.dart';
+import 'package:drivio_driver/modules/commons/theme/app_text_styles.dart';
 import 'package:drivio_driver/modules/commons/theme/context_theme.dart';
 
 class PinInput extends ConsumerStatefulWidget {
@@ -99,31 +100,42 @@ class _PinInputState extends ConsumerState<PinInput> {
                 child: Padding(
                   padding: EdgeInsets.only(right: i == widget.length - 1 ? 0 : 10),
                   child: AspectRatio(
-                    aspectRatio: 1 / 1.1,
-                    child: Container(
+                    // 52 × 64pt cells per SCR-005 mockup. Aspect 52/64
+                    // = 0.8125 ≈ 1/1.23.
+                    aspectRatio: 1 / 1.23,
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 160),
+                      curve: Curves.easeOutQuart,
                       decoration: BoxDecoration(
                         color: context.surface,
                         borderRadius: AppRadius.md,
                         border: Border.all(
-                          color: filled || active
-                              ? context.accent
-                              : context.borderStrong,
-                          width: filled || active ? 1.5 : 1.2,
+                          color: active
+                              ? context.coral
+                              : filled
+                                  ? context.borderStrong
+                                  : context.borderStrong,
+                          width: active ? 1.5 : 1,
                         ),
                       ),
                       alignment: Alignment.center,
-                      child: Text(
-                        filled ? value[i] : (active ? '|' : '—'),
-                        style: TextStyle(
-                          fontSize: 24,
-                          fontWeight: FontWeight.w700,
-                          color: filled
-                              ? context.text
-                              : active
-                                  ? context.accent
-                                  : context.textMuted,
-                        ),
-                      ),
+                      // Empty cell: blank. Active cell: a thin coral
+                      // vertical bar reading as a cursor. Filled cell:
+                      // the digit in Albert Sans tabular bold.
+                      child: filled
+                          ? Text(
+                              value[i],
+                              style: AppTextStyles.metricVal.copyWith(
+                                color: context.text,
+                              ),
+                            )
+                          : active
+                              ? Container(
+                                  width: 1.6,
+                                  height: 24,
+                                  color: context.coral,
+                                )
+                              : const SizedBox.shrink(),
                     ),
                   ),
                 ),

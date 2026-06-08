@@ -1,0 +1,87 @@
+<h2>Pick a palette direction</h2>
+<p class="subtitle">All four are "warm premium pan-African" — they just say it differently. Click the one that feels most like Drivio.</p>
+
+<style>
+  .palette-card { padding: 0; overflow: hidden; }
+  .swatches { display: grid; grid-template-columns: 2fr 1fr 1fr 1fr 1fr; height: 120px; }
+  .swatch { display: flex; align-items: flex-end; padding: 10px; font-family: ui-monospace, monospace; font-size: 10px; letter-spacing: 0.4px; }
+  .pal-body { padding: 18px 20px 20px; }
+  .pal-name { font-size: 20px; font-weight: 700; letter-spacing: -0.3px; margin: 0 0 4px; }
+  .pal-vibe { font-size: 13px; opacity: 0.7; margin: 0 0 12px; line-height: 1.45; }
+  .pal-strap { font-size: 11px; letter-spacing: 1.2px; text-transform: uppercase; opacity: 0.55; margin: 0 0 10px; font-weight: 600; }
+  .pal-quote { font-size: 14px; font-style: italic; opacity: 0.85; line-height: 1.5; margin: 0; }
+  .rec { display: inline-block; font-size: 9px; font-weight: 700; letter-spacing: 1.4px; padding: 3px 7px; border-radius: 4px; background: #1f2937; color: #fbbf24; margin-left: 8px; vertical-align: middle; }
+</style>
+
+<div class="cards">
+
+  <div class="card palette-card" data-choice="sunlit-earth" onclick="toggleSelect(this)">
+    <div class="swatches">
+      <div class="swatch" style="background:#C95F3A;color:#FFF">#C95F3A</div>
+      <div class="swatch" style="background:#8B5A1C;color:#FFF">#8B5A1C</div>
+      <div class="swatch" style="background:#D4A24C;color:#2A1F18">#D4A24C</div>
+      <div class="swatch" style="background:#2A1F18;color:#F5EFE6">#2A1F18</div>
+      <div class="swatch" style="background:#F5EFE6;color:#2A1F18">#F5EFE6</div>
+    </div>
+    <div class="pal-body">
+      <p class="pal-strap">A · Sunlit Earth</p>
+      <p class="pal-name">Terracotta &amp; Ochre</p>
+      <p class="pal-vibe">African sun. Aesop-grade restraint. Magazine-editorial. Reads as a brand that's been here a long time, designed to age over a decade. Lets photography breathe — colors never fight people's faces.</p>
+      <p class="pal-quote">"Confident, grounded, designed to age well."</p>
+    </div>
+  </div>
+
+  <div class="card palette-card" data-choice="confident-gold" onclick="toggleSelect(this)">
+    <div class="swatches">
+      <div class="swatch" style="background:#E5A12F;color:#0F1A35">#E5A12F</div>
+      <div class="swatch" style="background:#F2C46A;color:#0F1A35">#F2C46A</div>
+      <div class="swatch" style="background:#7A2B2B;color:#FAF6EE">#7A2B2B</div>
+      <div class="swatch" style="background:#0F1A35;color:#E5A12F">#0F1A35</div>
+      <div class="swatch" style="background:#FAF6EE;color:#0F1A35">#FAF6EE</div>
+    </div>
+    <div class="pal-body">
+      <p class="pal-strap">B · Confident Gold <span class="rec">RECOMMENDED</span></p>
+      <p class="pal-name">Gold &amp; Deep Ink</p>
+      <p class="pal-vibe">Gold has centuries of African cultural resonance and reads "money product" instantly without being garish. Deep ink navy anchors the trust. Cash App's chromatic confidence, but warm. Premium fintech that handles real money seriously.</p>
+      <p class="pal-quote">"We handle your money. Seriously and warmly."</p>
+    </div>
+  </div>
+
+  <div class="card palette-card" data-choice="sun-and-sea" onclick="toggleSelect(this)">
+    <div class="swatches">
+      <div class="swatch" style="background:#F26B47;color:#FFF">#F26B47</div>
+      <div class="swatch" style="background:#F7C44E;color:#0B3D3D">#F7C44E</div>
+      <div class="swatch" style="background:#1E6B6B;color:#F8F4EE">#1E6B6B</div>
+      <div class="swatch" style="background:#0B3D3D;color:#F7C44E">#0B3D3D</div>
+      <div class="swatch" style="background:#F8F4EE;color:#0B3D3D">#F8F4EE</div>
+    </div>
+    <div class="pal-body">
+      <p class="pal-strap">C · Sun &amp; Sea</p>
+      <p class="pal-name">Coral &amp; Deep Teal</p>
+      <p class="pal-vibe">Coastal optimism. Warm coral hero balanced by a serious teal anchor. Energetic but disciplined — movement, motion, alive. Risk: stronger saturation can fight photography in busy UI moments; needs careful application.</p>
+      <p class="pal-quote">"Movement, optimism, alive."</p>
+    </div>
+  </div>
+
+  <div class="card palette-card" data-choice="modern-olive" onclick="toggleSelect(this)">
+    <div class="swatches">
+      <div class="swatch" style="background:#8E8C3D;color:#F1EDDE">#8E8C3D</div>
+      <div class="swatch" style="background:#B85742;color:#F1EDDE">#B85742</div>
+      <div class="swatch" style="background:#E3B66B;color:#1F2A1A">#E3B66B</div>
+      <div class="swatch" style="background:#1F2A1A;color:#E3B66B">#1F2A1A</div>
+      <div class="swatch" style="background:#F1EDDE;color:#1F2A1A">#F1EDDE</div>
+    </div>
+    <div class="pal-body">
+      <p class="pal-strap">D · Modern Olive</p>
+      <p class="pal-name">Olive &amp; Warm Clay</p>
+      <p class="pal-vibe">Editorial. Magazine-quality. Reads premium-design-shop, like a brand that hires real photographers and writers. Most distinctive direction — Drivio would look like nothing else in the ride-hailing space. Risk: read as too quiet for a high-energy marketplace.</p>
+      <p class="pal-quote">"Considered, premium, modern."</p>
+    </div>
+  </div>
+
+</div>
+
+<div class="section" style="margin-top: 28px;">
+  <p class="label">My read</p>
+  <p style="opacity: 0.75; font-size: 14px; line-height: 1.6;">B (Confident Gold) is the strongest fit for what we've agreed: warm + premium + pan-African + money-product. Gold carries cultural weight without country-specifics, deep ink reads serious-about-trust, ivory base supports photography. But A (Sunlit Earth) would make Drivio look unlike any other ride-hailing brand — a real differentiation play. C is louder than the "premium warm" we picked. D risks reading too quiet.</p>
+</div>

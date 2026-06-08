@@ -1,0 +1,353 @@
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Marcellus&family=Albert+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+<h2>Logo mark direction</h2>
+<p class="subtitle">All three build on Z. What represents Drivio without the wordmark — app icon, favicon, embroidered on a driver vest, alone on a billboard? Click to select.</p>
+
+<style>
+  .mark-card { padding: 0; overflow: hidden; background: #F4ECE0; color: #0E2E2E; }
+  .mark-vibe { font-size: 11px; letter-spacing: 1.6px; text-transform: uppercase; color: rgba(14,46,46,0.55); font-weight: 600; font-family: 'Albert Sans', sans-serif; margin: 0 0 8px; }
+  .mark-name { font-family: 'Marcellus', serif; font-size: 26px; color: #0E2E2E; margin: 0 0 4px; }
+  .mark-quote { font-family: 'Albert Sans', sans-serif; font-size: 13px; font-style: italic; color: rgba(14,46,46,0.7); margin: 0 0 18px; line-height: 1.5; }
+
+  .mark-hero {
+    background: #FBF7EE;
+    padding: 56px 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-bottom: 1px solid rgba(14,46,46,0.06);
+    min-height: 220px;
+  }
+
+  .mark-applications {
+    padding: 26px 28px;
+    background: rgba(14,46,46,0.04);
+  }
+  .mark-app-label {
+    font-family: 'Albert Sans', sans-serif;
+    font-size: 10px;
+    letter-spacing: 1.6px;
+    text-transform: uppercase;
+    color: rgba(14,46,46,0.45);
+    font-weight: 600;
+    margin: 0 0 18px;
+  }
+  .mark-app-row {
+    display: flex;
+    gap: 20px;
+    align-items: center;
+  }
+  .mark-app-block {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+  }
+  .mark-app-caption {
+    font-family: 'Albert Sans', sans-serif;
+    font-size: 10px;
+    letter-spacing: 0.4px;
+    color: rgba(14,46,46,0.5);
+    font-weight: 500;
+  }
+
+  .ios-icon {
+    width: 96px;
+    height: 96px;
+    border-radius: 22px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  }
+  .ios-icon-sm { width: 56px; height: 56px; border-radius: 13px; }
+  .ios-icon-xs { width: 28px; height: 28px; border-radius: 7px; }
+
+  .mark-content {
+    padding: 22px 28px 26px;
+  }
+  .mark-lockup {
+    padding: 24px 28px;
+    background: #FBF7EE;
+    border-top: 1px solid rgba(14,46,46,0.06);
+    border-bottom: 1px solid rgba(14,46,46,0.06);
+    text-align: center;
+  }
+  .mark-lockup-label {
+    font-family: 'Albert Sans', sans-serif;
+    font-size: 10px;
+    letter-spacing: 1.6px;
+    text-transform: uppercase;
+    color: rgba(14,46,46,0.45);
+    font-weight: 600;
+    margin: 0 0 16px;
+  }
+  .mark-rationale { padding: 22px 28px 28px; font-family: 'Albert Sans', sans-serif; font-size: 13px; line-height: 1.55; color: rgba(14,46,46,0.78); }
+
+  /* Direction 1: Sealed D */
+  .m1-disc {
+    width: 140px;
+    height: 140px;
+    border-radius: 50%;
+    background: #EE6F4A;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 8px 22px rgba(238,111,74,0.25);
+  }
+  .m1-d {
+    font-family: 'Marcellus', serif;
+    font-size: 82px;
+    color: #F4ECE0;
+    line-height: 1;
+    margin-bottom: -6px;
+  }
+  .m1-icon-bg { background: #EE6F4A; }
+  .m1-icon-d { font-family: 'Marcellus', serif; color: #F4ECE0; line-height: 1; }
+  .m1-lockup {
+    display: inline-flex;
+    align-items: center;
+    gap: 14px;
+  }
+  .m1-lockup .disc {
+    width: 38px;
+    height: 38px;
+    border-radius: 50%;
+    background: #EE6F4A;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .m1-lockup .disc-d {
+    font-family: 'Marcellus', serif;
+    font-size: 22px;
+    color: #F4ECE0;
+    line-height: 1;
+    margin-bottom: -2px;
+  }
+  .m1-lockup .wordmark {
+    font-family: 'Marcellus', serif;
+    font-size: 30px;
+    color: #0E2E2E;
+    letter-spacing: -0.4px;
+  }
+
+  /* Direction 2: The Pin */
+  .m2-pin {
+    position: relative;
+    width: 120px;
+  }
+  .m2-pin svg { width: 100%; height: auto; }
+  .m2-icon-bg { background: #F4ECE0; }
+  .m2-lockup {
+    display: inline-flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .m2-lockup .pin { width: 26px; height: 32px; }
+  .m2-lockup .wordmark {
+    font-family: 'Marcellus', serif;
+    font-size: 30px;
+    color: #0E2E2E;
+    letter-spacing: -0.4px;
+  }
+
+  /* Direction 3: The Dot, Period */
+  .m3-dot-hero {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .m3-dot-big {
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    background: #EE6F4A;
+  }
+  .m3-dot-context {
+    font-family: 'Marcellus', serif;
+    font-size: 48px;
+    color: rgba(14,46,46,0.25);
+    line-height: 1;
+  }
+  .m3-icon-bg { background: #0E2E2E; display: flex; align-items: center; justify-content: center; }
+  .m3-icon-dot { width: 38px; height: 38px; border-radius: 50%; background: #EE6F4A; }
+  .m3-icon-bg-sm .m3-icon-dot { width: 22px; height: 22px; }
+  .m3-icon-bg-xs .m3-icon-dot { width: 11px; height: 11px; }
+  .m3-lockup {
+    display: inline-flex;
+    align-items: baseline;
+  }
+  .m3-lockup .wordmark {
+    font-family: 'Marcellus', serif;
+    font-size: 30px;
+    color: #0E2E2E;
+    letter-spacing: -0.4px;
+  }
+  .m3-lockup .dot {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #EE6F4A;
+    margin-left: 4px;
+    margin-bottom: 4px;
+    align-self: flex-end;
+  }
+</style>
+
+<div class="cards">
+
+  <!-- Direction 1: The Sealed D -->
+  <div class="card mark-card" data-choice="sealed-d" onclick="toggleSelect(this)">
+    <div class="mark-hero">
+      <div class="m1-disc">
+        <div class="m1-d">D</div>
+      </div>
+    </div>
+    <div class="mark-content">
+      <p class="mark-vibe">1 · The Sealed D</p>
+      <h3 class="mark-name">Heritage monogram</h3>
+      <p class="mark-quote">"A wax seal that means Drivio."</p>
+    </div>
+    <div class="mark-applications">
+      <p class="mark-app-label">App icon · favicon · scaled</p>
+      <div class="mark-app-row">
+        <div class="mark-app-block">
+          <div class="ios-icon m1-icon-bg"><span class="m1-icon-d" style="font-size: 58px;">D</span></div>
+          <span class="mark-app-caption">iOS · 96px</span>
+        </div>
+        <div class="mark-app-block">
+          <div class="ios-icon ios-icon-sm m1-icon-bg"><span class="m1-icon-d" style="font-size: 36px;">D</span></div>
+          <span class="mark-app-caption">Tile · 56px</span>
+        </div>
+        <div class="mark-app-block">
+          <div class="ios-icon ios-icon-xs m1-icon-bg"><span class="m1-icon-d" style="font-size: 18px;">D</span></div>
+          <span class="mark-app-caption">Favicon</span>
+        </div>
+      </div>
+    </div>
+    <div class="mark-lockup">
+      <p class="mark-lockup-label">Horizontal lockup</p>
+      <div class="m1-lockup">
+        <div class="disc"><span class="disc-d">D</span></div>
+        <span class="wordmark">Drivio</span>
+      </div>
+    </div>
+    <div class="mark-rationale">
+      Coral disc with Marcellus "D" reversed in ivory. Reads as a wax seal — heritage, premium, deliberate. The classical D inside the coral feels signed and intentional. Best for: app icon clarity, embroidery (the D reads even at thread scale), business cards. Travels confidently across all three apps. Risk: a monogram inside a disc is a familiar move; the craft of the D specifically has to be excellent to avoid feeling generic.
+    </div>
+  </div>
+
+  <!-- Direction 2: The Pin -->
+  <div class="card mark-card" data-choice="pin" onclick="toggleSelect(this)">
+    <div class="mark-hero">
+      <div class="m2-pin">
+        <svg viewBox="0 0 120 150" fill="none">
+          <path d="M60 5c-30 0-50 22-50 49c0 36 50 91 50 91s50-55 50-91c0-27-20-49-50-49z" fill="#EE6F4A"/>
+          <circle cx="60" cy="54" r="18" fill="#F4ECE0"/>
+        </svg>
+      </div>
+    </div>
+    <div class="mark-content">
+      <p class="mark-vibe">2 · The Pin</p>
+      <h3 class="mark-name">A place, a person</h3>
+      <p class="mark-quote">"You're here. We get you there."</p>
+    </div>
+    <div class="mark-applications">
+      <p class="mark-app-label">App icon · favicon · scaled</p>
+      <div class="mark-app-row">
+        <div class="mark-app-block">
+          <div class="ios-icon m2-icon-bg">
+            <svg width="50" height="60" viewBox="0 0 120 150" fill="none">
+              <path d="M60 5c-30 0-50 22-50 49c0 36 50 91 50 91s50-55 50-91c0-27-20-49-50-49z" fill="#EE6F4A"/>
+              <circle cx="60" cy="54" r="18" fill="#F4ECE0"/>
+            </svg>
+          </div>
+          <span class="mark-app-caption">iOS · 96px</span>
+        </div>
+        <div class="mark-app-block">
+          <div class="ios-icon ios-icon-sm m2-icon-bg">
+            <svg width="28" height="34" viewBox="0 0 120 150" fill="none">
+              <path d="M60 5c-30 0-50 22-50 49c0 36 50 91 50 91s50-55 50-91c0-27-20-49-50-49z" fill="#EE6F4A"/>
+              <circle cx="60" cy="54" r="18" fill="#F4ECE0"/>
+            </svg>
+          </div>
+          <span class="mark-app-caption">Tile · 56px</span>
+        </div>
+        <div class="mark-app-block">
+          <div class="ios-icon ios-icon-xs m2-icon-bg">
+            <svg width="14" height="18" viewBox="0 0 120 150" fill="none">
+              <path d="M60 5c-30 0-50 22-50 49c0 36 50 91 50 91s50-55 50-91c0-27-20-49-50-49z" fill="#EE6F4A"/>
+              <circle cx="60" cy="54" r="18" fill="#F4ECE0"/>
+            </svg>
+          </div>
+          <span class="mark-app-caption">Favicon</span>
+        </div>
+      </div>
+    </div>
+    <div class="mark-lockup">
+      <p class="mark-lockup-label">Horizontal lockup</p>
+      <div class="m2-lockup">
+        <svg class="pin" viewBox="0 0 120 150" fill="none">
+          <path d="M60 5c-30 0-50 22-50 49c0 36 50 91 50 91s50-55 50-91c0-27-20-49-50-49z" fill="#EE6F4A"/>
+          <circle cx="60" cy="54" r="18" fill="#F4ECE0"/>
+        </svg>
+        <span class="wordmark">Drivio</span>
+      </div>
+    </div>
+    <div class="mark-rationale">
+      The dot grows into a wayfinding pin. Says ride-hailing without a single car illustration. The pin is the mark; it's also functionally honest — it's how pickup and dropoff get pinned on the map. Brand and product use the same visual language. Reads at any size, anchors any composition. Risk: pin shapes are familiar in mapping/mobility — the craft of THIS pin (proportions, the negative-space circle) has to be distinctive enough to be Drivio's, not generic.
+    </div>
+  </div>
+
+  <!-- Direction 3: The Dot, Period -->
+  <div class="card mark-card" data-choice="dot-period" onclick="toggleSelect(this)">
+    <div class="mark-hero">
+      <div class="m3-dot-hero">
+        <div class="m3-dot-big"></div>
+      </div>
+    </div>
+    <div class="mark-content">
+      <p class="mark-vibe">3 · The Dot, Period</p>
+      <h3 class="mark-name">Minimal, ownable, total</h3>
+      <p class="mark-quote">"The destination is the brand."</p>
+    </div>
+    <div class="mark-applications">
+      <p class="mark-app-label">App icon · favicon · scaled</p>
+      <div class="mark-app-row">
+        <div class="mark-app-block">
+          <div class="ios-icon m3-icon-bg"><div class="m3-icon-dot"></div></div>
+          <span class="mark-app-caption">iOS · 96px</span>
+        </div>
+        <div class="mark-app-block">
+          <div class="ios-icon ios-icon-sm m3-icon-bg m3-icon-bg-sm"><div class="m3-icon-dot"></div></div>
+          <span class="mark-app-caption">Tile · 56px</span>
+        </div>
+        <div class="mark-app-block">
+          <div class="ios-icon ios-icon-xs m3-icon-bg m3-icon-bg-xs"><div class="m3-icon-dot"></div></div>
+          <span class="mark-app-caption">Favicon</span>
+        </div>
+      </div>
+    </div>
+    <div class="mark-lockup">
+      <p class="mark-lockup-label">Horizontal lockup</p>
+      <div class="m3-lockup">
+        <span class="wordmark">Drivio</span>
+        <span class="dot"></span>
+      </div>
+    </div>
+    <div class="mark-rationale">
+      The dot from Z stays a dot — but it becomes the entire brand mark. A coral dot on charcoal-teal background as the app icon. The period at the end of "Drivio." is the same dot, scaled down. Single ownable shape. The most restrained, most confident, most pan-African-modernist of the three. Risk: minimalism only works if the dot's placement and supporting system are rigorous; without discipline it reads as "nothing." Strongest with brand mythology behind it (the dot = the destination = arrival).
+    </div>
+  </div>
+
+</div>
+
+<div class="section" style="margin-top: 28px;">
+  <p class="label">My read</p>
+  <p style="opacity: 0.75; font-size: 14px; line-height: 1.6;">3 (The Dot, Period) is the boldest and most confident choice — it commits hardest to the Z direction and gives Drivio a single ownable shape. Risk is also highest because minimalism needs unwavering discipline. 2 (The Pin) is the most functionally honest — the brand mark and the product's pickup pin are the same shape, which is unusually beautiful integration. 1 (The Sealed D) is the safest, most directly heritage-coded — works everywhere, reads premium, but the move is familiar.</p>
+</div>

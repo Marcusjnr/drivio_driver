@@ -51,7 +51,10 @@ class AppTheme {
       brightness: brightness,
       colorScheme: scheme,
       scaffoldBackgroundColor: bg,
-      fontFamily: AppTextStyles.fontFamily,
+      // No `fontFamily` here — our text tokens (AppTextStyles) load
+      // Marcellus + Albert Sans via google_fonts. Setting a bundled
+      // family at the theme level would override that for any Text
+      // widget relying on the default text theme.
       dividerColor: scheme.outlineVariant,
       splashFactory: NoSplash.splashFactory,
       highlightColor: Colors.transparent,

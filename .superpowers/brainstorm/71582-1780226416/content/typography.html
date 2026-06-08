@@ -1,0 +1,118 @@
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght,SOFT@0,9..144,300..900,0..100;1,9..144,300..900,0..100&family=Bricolage+Grotesque:opsz,wdth,wght@12..96,75..100,200..800&family=DM+Sans:opsz,wght@9..40,100..1000&family=Inter:opsz,wght@14..32,100..900&family=Plus+Jakarta+Sans:wght@200..800&family=Manrope:wght@200..800&display=swap" rel="stylesheet">
+
+<h2>Three typography directions</h2>
+<p class="subtitle">Each shown in Coastal Pulse so you can see how it lives with the palette. Click to select.</p>
+
+<style>
+  .type-card { padding: 0; overflow: hidden; background: #F4ECE0; color: #0E2E2E; }
+  .type-stage { padding: 36px 28px 32px; min-height: 220px; display: flex; flex-direction: column; justify-content: center; }
+  .type-wordmark { font-size: 64px; line-height: 1; color: #0E2E2E; margin: 0; }
+  .type-tagline { font-size: 13px; letter-spacing: 1.6px; text-transform: uppercase; color: #236767; margin: 12px 0 0; font-weight: 600; }
+  .type-divider { height: 1px; background: rgba(14,46,46,0.08); }
+  .type-ui { padding: 22px 28px 24px; background: #FBF7EE; }
+  .type-ui-eyebrow { font-size: 11px; letter-spacing: 1.4px; text-transform: uppercase; color: rgba(14,46,46,0.55); font-weight: 600; margin: 0 0 6px; }
+  .type-ui-headline { font-size: 22px; line-height: 1.2; color: #0E2E2E; margin: 0 0 8px; font-weight: 600; }
+  .type-ui-body { font-size: 14px; line-height: 1.55; color: rgba(14,46,46,0.78); margin: 0 0 14px; }
+  .type-ui-price { font-size: 36px; line-height: 1; color: #EE6F4A; font-weight: 700; font-feature-settings: "tnum" 1; margin: 0; letter-spacing: -1px; }
+  .type-meta { padding: 16px 28px 22px; background: rgba(14,46,46,0.04); border-top: 1px solid rgba(14,46,46,0.06); }
+  .type-meta p { margin: 0; font-size: 13px; line-height: 1.5; color: #0E2E2E; }
+  .type-meta .label { font-size: 10px; letter-spacing: 1.4px; text-transform: uppercase; color: rgba(14,46,46,0.55); font-weight: 600; margin-bottom: 6px; display: block; }
+  .type-fonts { font-size: 12px; color: rgba(14,46,46,0.7); margin-top: 8px !important; }
+  .rec { display: inline-block; font-size: 9px; font-weight: 700; letter-spacing: 1.4px; padding: 3px 7px; border-radius: 4px; background: #0E2E2E; color: #F1B940; margin-left: 10px; vertical-align: middle; }
+  .pal-strap { font-size: 11px; letter-spacing: 1.4px; text-transform: uppercase; color: rgba(14,46,46,0.55); margin: 0 0 14px; font-weight: 600; }
+
+  /* Direction A: All-sans modern (DM Sans / Manrope) */
+  .ta .type-wordmark { font-family: 'DM Sans', sans-serif; font-weight: 700; letter-spacing: -1.5px; }
+  .ta .type-tagline { font-family: 'DM Sans', sans-serif; }
+  .ta .type-ui-eyebrow { font-family: 'DM Sans', sans-serif; }
+  .ta .type-ui-headline { font-family: 'DM Sans', sans-serif; font-weight: 600; letter-spacing: -0.3px; }
+  .ta .type-ui-body { font-family: 'DM Sans', sans-serif; font-weight: 400; }
+  .ta .type-ui-price { font-family: 'DM Sans', sans-serif; }
+
+  /* Direction B: Editorial Serif + Workhorse Sans (Fraunces + Inter) */
+  .tb .type-wordmark { font-family: 'Fraunces', serif; font-weight: 600; font-variation-settings: "SOFT" 50, "opsz" 144; letter-spacing: -2px; font-style: italic; }
+  .tb .type-tagline { font-family: 'Inter', sans-serif; }
+  .tb .type-ui-eyebrow { font-family: 'Inter', sans-serif; }
+  .tb .type-ui-headline { font-family: 'Fraunces', serif; font-weight: 500; font-variation-settings: "SOFT" 30, "opsz" 36; letter-spacing: -0.5px; }
+  .tb .type-ui-body { font-family: 'Inter', sans-serif; font-weight: 400; }
+  .tb .type-ui-price { font-family: 'Fraunces', serif; font-weight: 600; }
+
+  /* Direction C: Distinctive Display Sans + Sans (Bricolage Grotesque + Plus Jakarta Sans) */
+  .tc .type-wordmark { font-family: 'Bricolage Grotesque', sans-serif; font-weight: 700; font-variation-settings: "wdth" 100, "opsz" 96; letter-spacing: -1.5px; }
+  .tc .type-tagline { font-family: 'Plus Jakarta Sans', sans-serif; }
+  .tc .type-ui-eyebrow { font-family: 'Plus Jakarta Sans', sans-serif; }
+  .tc .type-ui-headline { font-family: 'Bricolage Grotesque', sans-serif; font-weight: 600; font-variation-settings: "wdth" 95, "opsz" 36; letter-spacing: -0.4px; }
+  .tc .type-ui-body { font-family: 'Plus Jakarta Sans', sans-serif; font-weight: 400; }
+  .tc .type-ui-price { font-family: 'Bricolage Grotesque', sans-serif; font-weight: 700; }
+</style>
+
+<div class="cards">
+
+  <div class="card type-card ta" data-choice="humanist-sans" onclick="toggleSelect(this)">
+    <div class="type-stage">
+      <p class="pal-strap">A · Humanist Modern</p>
+      <h3 class="type-wordmark">Drivio</h3>
+      <p class="type-tagline">· The city, your way ·</p>
+    </div>
+    <div class="type-divider"></div>
+    <div class="type-ui">
+      <p class="type-ui-eyebrow">3 offers · 00:42 left</p>
+      <p class="type-ui-headline">Heading home from work.</p>
+      <p class="type-ui-body">Three drivers nearby. Pick the price that works for you.</p>
+      <p class="type-ui-price">₦2,400</p>
+    </div>
+    <div class="type-meta">
+      <span class="label">The system</span>
+      <p>Friendly geometric sans, all the way down. Modern, scalable, contemporary. Wordmark is the UI font in display weight — one family, no pairing complexity.</p>
+      <p class="type-fonts"><strong>DM Sans</strong> · weights 400 / 600 / 700 · across wordmark + UI</p>
+    </div>
+  </div>
+
+  <div class="card type-card tb" data-choice="serif-and-sans" onclick="toggleSelect(this)">
+    <div class="type-stage">
+      <p class="pal-strap">B · Editorial Serif + Sans <span class="rec">RECOMMENDED</span></p>
+      <h3 class="type-wordmark">Drivio</h3>
+      <p class="type-tagline">· The city, your way ·</p>
+    </div>
+    <div class="type-divider"></div>
+    <div class="type-ui">
+      <p class="type-ui-eyebrow">3 offers · 00:42 left</p>
+      <p class="type-ui-headline">Heading home from work.</p>
+      <p class="type-ui-body">Three drivers nearby. Pick the price that works for you.</p>
+      <p class="type-ui-price">₦2,400</p>
+    </div>
+    <div class="type-meta">
+      <span class="label">The system</span>
+      <p>Warm editorial serif for the wordmark, hero moments, and headline typography. Workhorse sans for UI body. Reads like a magazine that knows what it's doing — premium, warm, human. Most distinctive of the three.</p>
+      <p class="type-fonts"><strong>Fraunces</strong> (wordmark + headlines) · <strong>Inter</strong> (UI body) · paired system</p>
+    </div>
+  </div>
+
+  <div class="card type-card tc" data-choice="display-sans-and-sans" onclick="toggleSelect(this)">
+    <div class="type-stage">
+      <p class="pal-strap">C · Distinctive Display Sans + Sans</p>
+      <h3 class="type-wordmark">Drivio</h3>
+      <p class="type-tagline">· The city, your way ·</p>
+    </div>
+    <div class="type-divider"></div>
+    <div class="type-ui">
+      <p class="type-ui-eyebrow">3 offers · 00:42 left</p>
+      <p class="type-ui-headline">Heading home from work.</p>
+      <p class="type-ui-body">Three drivers nearby. Pick the price that works for you.</p>
+      <p class="type-ui-price">₦2,400</p>
+    </div>
+    <div class="type-meta">
+      <span class="label">The system</span>
+      <p>Variable display sans with character (wide proportions, sharp terminals) for the wordmark and hero moments. Clean humanist sans for UI. Premium without serif baggage. Fresh and modern.</p>
+      <p class="type-fonts"><strong>Bricolage Grotesque</strong> (wordmark + headlines) · <strong>Plus Jakarta Sans</strong> (UI body) · paired system</p>
+    </div>
+  </div>
+
+</div>
+
+<div class="section" style="margin-top: 28px;">
+  <p class="label">My read</p>
+  <p style="opacity: 0.75; font-size: 14px; line-height: 1.6;">B (Editorial Serif + Sans) is my recommendation. The serif gives Drivio editorial gravitas — it's the type system you'd expect from a travel magazine or a thoughtful brand, which is exactly what "warm premium people's brand" needs to differentiate from generic tech sans. Coastal Pulse is a saturated palette; a serif anchor balances that energy with restraint. The serif route is also rare in African mobility brands — real differentiation. Fraunces is variable and can dial warmth (the SOFT axis) so we control how editorial vs how friendly it reads. Inter handles UI cleanly. A is safer but blends in. C is fresh but reads techier than the personality we picked.</p>
+</div>

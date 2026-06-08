@@ -1,0 +1,189 @@
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500;1,600;1,700&family=Onest:wght@400;500;600;700&family=Anybody:wdth,wght@100,400;100,500;100,700;150,400;150,500;150,700&family=Hanken+Grotesk:wght@400;500;600;700;800&family=Marcellus&family=Yeseva+One&family=Albert+Sans:wght@400;500;600;700;800&family=Reddit+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+<h2>Less common type directions</h2>
+<p class="subtitle">Stepping away from the default kit. Each has more wordmark craft and less mainstream font choice. Click your pick.</p>
+
+<style>
+  .type-card { padding: 0; overflow: hidden; background: #F4ECE0; color: #0E2E2E; }
+  .type-stage { padding: 50px 32px 38px; min-height: 250px; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; }
+  .type-vibe-label { font-size: 11px; letter-spacing: 1.6px; text-transform: uppercase; color: rgba(14,46,46,0.55); margin: 0 0 24px; font-weight: 600; }
+  .type-mark-row { display: flex; align-items: center; gap: 14px; }
+  .brand-disc { width: 14px; height: 14px; border-radius: 50%; background: #EE6F4A; flex-shrink: 0; }
+  .brand-bar { width: 28px; height: 2px; background: #EE6F4A; flex-shrink: 0; }
+  .type-divider { height: 1px; background: rgba(14,46,46,0.08); }
+  .type-ui { padding: 24px 32px 26px; background: #FBF7EE; }
+  .type-ui-eyebrow { font-size: 11px; letter-spacing: 1.4px; text-transform: uppercase; color: rgba(14,46,46,0.55); font-weight: 600; margin: 0 0 6px; }
+  .type-ui-headline { font-size: 22px; line-height: 1.25; color: #0E2E2E; margin: 0 0 8px; }
+  .type-ui-body { font-size: 14px; line-height: 1.55; color: rgba(14,46,46,0.78); margin: 0 0 14px; }
+  .type-ui-price { font-size: 36px; line-height: 1; color: #EE6F4A; font-feature-settings: "tnum" 1; margin: 0; letter-spacing: -1px; }
+  .type-meta { padding: 18px 32px 24px; background: rgba(14,46,46,0.04); border-top: 1px solid rgba(14,46,46,0.06); }
+  .type-meta p { margin: 0; font-size: 13px; line-height: 1.5; color: #0E2E2E; font-family: 'Hanken Grotesk', sans-serif; }
+  .type-meta .label { font-size: 10px; letter-spacing: 1.4px; text-transform: uppercase; color: rgba(14,46,46,0.55); font-weight: 600; margin-bottom: 8px; display: block; font-family: 'Hanken Grotesk', sans-serif; }
+  .type-fonts { font-size: 12px; color: rgba(14,46,46,0.7); margin-top: 8px !important; }
+
+  /* X: Italic Romance — Cormorant Italic wordmark, Onest UI */
+  .tx .type-vibe-label { font-family: 'Onest', sans-serif; }
+  .tx .type-wordmark {
+    font-family: 'Cormorant', serif;
+    font-style: italic;
+    font-weight: 500;
+    font-size: 88px;
+    line-height: 1;
+    letter-spacing: -1.5px;
+    color: #0E2E2E;
+    margin: 0;
+  }
+  .tx .type-wordmark .accent-dot { color: #EE6F4A; font-style: italic; }
+  .tx .type-ui-eyebrow, .tx .type-ui-body { font-family: 'Onest', sans-serif; }
+  .tx .type-ui-headline {
+    font-family: 'Cormorant', serif;
+    font-style: italic;
+    font-weight: 500;
+    letter-spacing: -0.5px;
+  }
+  .tx .type-ui-price { font-family: 'Onest', sans-serif; font-weight: 700; }
+
+  /* Y: Architectural Confidence — Anybody wide, Hanken Grotesk UI */
+  .ty .type-vibe-label { font-family: 'Hanken Grotesk', sans-serif; }
+  .ty .type-mark-row {
+    font-family: 'Anybody', sans-serif;
+    font-weight: 700;
+    font-variation-settings: "wdth" 150;
+    font-size: 56px;
+    letter-spacing: 4px;
+    color: #0E2E2E;
+    line-height: 1;
+  }
+  .ty .type-mark-row .word { display: inline-block; }
+  .ty .type-tag {
+    font-family: 'Hanken Grotesk', sans-serif;
+    font-size: 10px;
+    letter-spacing: 2.4px;
+    text-transform: uppercase;
+    color: rgba(14,46,46,0.55);
+    margin-top: 16px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .ty .type-tag .dash { width: 16px; height: 1px; background: rgba(14,46,46,0.3); }
+  .ty .type-ui-eyebrow, .ty .type-ui-body, .ty .type-ui-price { font-family: 'Hanken Grotesk', sans-serif; }
+  .ty .type-ui-headline {
+    font-family: 'Anybody', sans-serif;
+    font-weight: 700;
+    font-variation-settings: "wdth" 125;
+    letter-spacing: -0.3px;
+  }
+  .ty .type-ui-price { font-weight: 800; }
+
+  /* Z: Classical Display — Marcellus wordmark with small caps, Albert Sans UI */
+  .tz .type-vibe-label { font-family: 'Albert Sans', sans-serif; }
+  .tz .type-wordmark {
+    font-family: 'Marcellus', serif;
+    font-size: 76px;
+    line-height: 1;
+    letter-spacing: -0.5px;
+    color: #0E2E2E;
+    margin: 0;
+    display: flex;
+    align-items: baseline;
+  }
+  .tz .type-wordmark .accent-mark {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #EE6F4A;
+    margin-left: 12px;
+    margin-bottom: 8px;
+    align-self: flex-end;
+  }
+  .tz .type-meta-line {
+    font-family: 'Albert Sans', sans-serif;
+    font-size: 10px;
+    letter-spacing: 3.2px;
+    text-transform: uppercase;
+    color: rgba(14,46,46,0.55);
+    margin: 18px 0 0;
+    font-weight: 600;
+  }
+  .tz .type-ui-eyebrow, .tz .type-ui-body { font-family: 'Albert Sans', sans-serif; }
+  .tz .type-ui-headline {
+    font-family: 'Marcellus', serif;
+    font-weight: 400;
+    letter-spacing: -0.2px;
+  }
+  .tz .type-ui-price { font-family: 'Albert Sans', sans-serif; font-weight: 700; }
+</style>
+
+<div class="cards">
+
+  <div class="card type-card tx" data-choice="italic-romance" onclick="toggleSelect(this)">
+    <div class="type-stage">
+      <p class="type-vibe-label">X · Italic Romance</p>
+      <h3 class="type-wordmark"><em>Drivio<span class="accent-dot">.</span></em></h3>
+    </div>
+    <div class="type-divider"></div>
+    <div class="type-ui">
+      <p class="type-ui-eyebrow">3 offers · 00:42 left</p>
+      <p class="type-ui-headline"><em>Heading home from work.</em></p>
+      <p class="type-ui-body">Three drivers nearby. Pick the price that works for you.</p>
+      <p class="type-ui-price">₦2,400</p>
+    </div>
+    <div class="type-meta">
+      <span class="label">The system</span>
+      <p>Italic serif wordmark leans forward — literal motion built into the type. Cormorant has Italian-Renaissance refinement and shows up almost nowhere in mobility brands. The dot is a small graphic flourish that doubles as a brand mark. UI uses Onest — a fresh humanist sans that reads modern, not 2022-trendy.</p>
+      <p class="type-fonts"><strong>Cormorant Italic</strong> (wordmark + headlines) · <strong>Onest</strong> (UI body)</p>
+    </div>
+  </div>
+
+  <div class="card type-card ty" data-choice="architectural" onclick="toggleSelect(this)">
+    <div class="type-stage">
+      <p class="type-vibe-label">Y · Architectural Confidence</p>
+      <div class="type-mark-row"><span class="word">DRIVIO</span></div>
+      <div class="type-tag"><span class="dash"></span><span>The city, your way</span><span class="dash"></span></div>
+    </div>
+    <div class="type-divider"></div>
+    <div class="type-ui">
+      <p class="type-ui-eyebrow">3 offers · 00:42 left</p>
+      <p class="type-ui-headline">Heading home from work.</p>
+      <p class="type-ui-body">Three drivers nearby. Pick the price that works for you.</p>
+      <p class="type-ui-price">₦2,400</p>
+    </div>
+    <div class="type-meta">
+      <span class="label">The system</span>
+      <p>Wide architectural sans. Anybody is a variable font designed for character — at full width it reads like building signage. The wordmark is all-caps, letter-spaced, flanked by hairlines for craft. Says "we know who we are." Hanken Grotesk handles UI cleanly with subtle character. Less ubiquitous than DM Sans / Inter, more grown-up than Manrope.</p>
+      <p class="type-fonts"><strong>Anybody Wide Bold</strong> (wordmark) · <strong>Hanken Grotesk</strong> (UI body + headlines)</p>
+    </div>
+  </div>
+
+  <div class="card type-card tz" data-choice="classical-display" onclick="toggleSelect(this)">
+    <div class="type-stage">
+      <p class="type-vibe-label">Z · Classical, with a Mark</p>
+      <h3 class="type-wordmark">Drivio<span class="accent-mark"></span></h3>
+      <p class="type-meta-line">Est. 2026 · Pan-African</p>
+    </div>
+    <div class="type-divider"></div>
+    <div class="type-ui">
+      <p class="type-ui-eyebrow">3 offers · 00:42 left</p>
+      <p class="type-ui-headline">Heading home from work.</p>
+      <p class="type-ui-body">Three drivers nearby. Pick the price that works for you.</p>
+      <p class="type-ui-price">₦2,400</p>
+    </div>
+    <div class="type-meta">
+      <span class="label">The system</span>
+      <p>Marcellus is a classical Roman-inscriptional display serif — almost no one uses it for tech brands, but it carries quiet heritage. The mint dot mark at the end of the wordmark is the brand's anchor — it can travel anywhere alone. Reads like a brand that's been here longer than it has. Albert Sans is a humanist workhorse with personality for UI.</p>
+      <p class="type-fonts"><strong>Marcellus</strong> (wordmark + headlines) · <strong>Albert Sans</strong> (UI body) · custom dot mark</p>
+    </div>
+  </div>
+
+</div>
+
+<div class="section" style="margin-top: 28px;">
+  <p class="label">Common thread</p>
+  <p style="opacity: 0.75; font-size: 14px; line-height: 1.6;">None of these are in the default kit. Each adds a small craft element to the wordmark (an accent dot, hairline-flanked all-caps, a heritage mark). The body fonts are all less ubiquitous than the first round — Onest, Hanken Grotesk, Albert Sans are real workhorses without being everywhere.</p>
+  <p style="opacity: 0.75; font-size: 14px; line-height: 1.6; margin-top: 12px;">If none of these feel right either, the next move is either (a) commissioning a custom wordmark, or (b) paid foundry fonts (PP Editorial Old, Söhne, Migra, etc) — both require deciding outside this brainstorming flow. Tell me what's still missing.</p>
+</div>

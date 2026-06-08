@@ -1,0 +1,180 @@
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Anybody:wdth,wght@100,400;100,500;100,700;100,800;150,400;150,500;150,700;150,800&family=Hanken+Grotesk:wght@400;500;600;700;800&family=Marcellus&family=Albert+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+<h2>Y and Z, applied side by side</h2>
+<p class="subtitle">Same brand, same palette, same content — different type system. Click the one that lands.</p>
+
+<style>
+  .compare-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 24px; }
+  .compare-card { background: #F4ECE0; border-radius: 14px; padding: 0; overflow: hidden; cursor: pointer; border: 2px solid transparent; transition: border 0.2s; }
+  .compare-card.selected { border-color: #EE6F4A; }
+  .compare-stage { padding: 32px 24px 20px; text-align: center; min-height: 140px; display: flex; flex-direction: column; justify-content: center; align-items: center; }
+  .compare-vibe { font-size: 10px; letter-spacing: 1.6px; text-transform: uppercase; color: rgba(14,46,46,0.55); margin: 0 0 18px; font-weight: 600; font-family: 'Hanken Grotesk', sans-serif; }
+  .compare-mark-section { padding: 24px 24px 22px; background: rgba(14,46,46,0.04); border-top: 1px solid rgba(14,46,46,0.06); border-bottom: 1px solid rgba(14,46,46,0.06); }
+  .compare-mark-label { font-size: 9px; letter-spacing: 1.6px; text-transform: uppercase; color: rgba(14,46,46,0.45); font-family: 'Hanken Grotesk', sans-serif; margin: 0 0 12px; font-weight: 600; }
+  .compare-mark-row { display: flex; gap: 24px; align-items: center; justify-content: flex-start; }
+  .compare-mockup { padding: 22px 22px 24px; background: #FBF7EE; }
+  .mock-topbar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 22px; padding-bottom: 14px; border-bottom: 1px solid rgba(14,46,46,0.06); }
+  .mock-icon-btn { width: 28px; height: 28px; background: rgba(14,46,46,0.06); border-radius: 50%; }
+  .mock-route { background: #FFF; border: 1px solid rgba(14,46,46,0.06); border-radius: 12px; padding: 14px; margin-bottom: 14px; }
+  .mock-route-row { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+  .mock-route-row:last-child { margin-bottom: 0; }
+  .mock-route-dot { width: 10px; height: 10px; border-radius: 50%; background: #EE6F4A; flex-shrink: 0; }
+  .mock-route-square { width: 9px; height: 9px; background: #236767; flex-shrink: 0; transform: rotate(45deg); }
+  .mock-route-text { font-size: 12px; color: rgba(14,46,46,0.85); }
+  .mock-cta { background: #EE6F4A; color: #FBF7EE; padding: 12px; border-radius: 10px; text-align: center; font-size: 13px; }
+
+  /* Y · Architectural */
+  .y-stage .compare-vibe { color: rgba(14,46,46,0.55); }
+  .y-wordmark {
+    font-family: 'Anybody', sans-serif;
+    font-weight: 800;
+    font-variation-settings: "wdth" 150;
+    font-size: 42px;
+    letter-spacing: 3px;
+    color: #0E2E2E;
+    line-height: 1;
+    margin: 0;
+  }
+  .y-strap {
+    font-family: 'Hanken Grotesk', sans-serif;
+    font-size: 9px;
+    letter-spacing: 2.2px;
+    text-transform: uppercase;
+    color: rgba(14,46,46,0.5);
+    margin-top: 14px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 600;
+  }
+  .y-strap .dash { width: 12px; height: 1px; background: rgba(14,46,46,0.3); }
+
+  .y-mark-h { font-family: 'Anybody', sans-serif; font-weight: 800; font-variation-settings: "wdth" 150; font-size: 36px; color: #0E2E2E; letter-spacing: 2px; }
+  .y-mark-block { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+  .y-mark-block .mini-strap { font-family: 'Hanken Grotesk'; font-size: 7px; letter-spacing: 1.8px; text-transform: uppercase; color: rgba(14,46,46,0.5); font-weight: 600; }
+  .y-mark-monogram { font-family: 'Anybody', sans-serif; font-weight: 800; font-variation-settings: "wdth" 150; font-size: 36px; color: #EE6F4A; }
+
+  .y-mock-logo { font-family: 'Anybody', sans-serif; font-weight: 800; font-variation-settings: "wdth" 150; font-size: 18px; color: #0E2E2E; letter-spacing: 1.2px; }
+  .y-mock-eyebrow { font-family: 'Hanken Grotesk', sans-serif; font-size: 9px; letter-spacing: 1.6px; text-transform: uppercase; color: rgba(14,46,46,0.5); margin: 0 0 4px; font-weight: 600; }
+  .y-mock-headline { font-family: 'Anybody', sans-serif; font-weight: 700; font-variation-settings: "wdth" 125; font-size: 16px; color: #0E2E2E; margin: 0; line-height: 1.25; letter-spacing: -0.2px; }
+  .y-mock-route-text { font-family: 'Hanken Grotesk', sans-serif; font-weight: 500; }
+  .y-mock-cta { font-family: 'Hanken Grotesk', sans-serif; font-weight: 700; letter-spacing: 0.3px; text-transform: uppercase; font-size: 11px; }
+
+  /* Z · Classical */
+  .z-stage .compare-vibe { color: rgba(14,46,46,0.55); }
+  .z-wordmark {
+    font-family: 'Marcellus', serif;
+    font-size: 52px;
+    color: #0E2E2E;
+    line-height: 1;
+    margin: 0;
+    display: flex;
+    align-items: baseline;
+    letter-spacing: -0.3px;
+  }
+  .z-wordmark .accent-mark { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: #EE6F4A; margin-left: 9px; margin-bottom: 6px; align-self: flex-end; }
+  .z-strap {
+    font-family: 'Albert Sans', sans-serif;
+    font-size: 9px;
+    letter-spacing: 2.4px;
+    text-transform: uppercase;
+    color: rgba(14,46,46,0.5);
+    margin-top: 16px;
+    font-weight: 600;
+  }
+
+  .z-mark-wordmark { font-family: 'Marcellus', serif; font-size: 28px; color: #0E2E2E; display: flex; align-items: baseline; }
+  .z-mark-wordmark .accent-mark { display: inline-block; width: 5px; height: 5px; border-radius: 50%; background: #EE6F4A; margin-left: 5px; margin-bottom: 3px; align-self: flex-end; }
+  .z-mark-mark-disc { width: 36px; height: 36px; border-radius: 50%; background: #EE6F4A; display: flex; align-items: center; justify-content: center; font-family: 'Marcellus', serif; color: #F4ECE0; font-size: 18px; }
+  .z-mark-mark-monogram { width: 36px; height: 36px; border-radius: 50%; border: 1.5px solid #0E2E2E; display: flex; align-items: center; justify-content: center; font-family: 'Marcellus', serif; color: #0E2E2E; font-size: 18px; }
+
+  .z-mock-logo { font-family: 'Marcellus', serif; font-size: 18px; color: #0E2E2E; display: inline-flex; align-items: baseline; letter-spacing: -0.1px; }
+  .z-mock-logo .accent-mark { display: inline-block; width: 4px; height: 4px; border-radius: 50%; background: #EE6F4A; margin-left: 3px; margin-bottom: 2px; align-self: flex-end; }
+  .z-mock-eyebrow { font-family: 'Albert Sans', sans-serif; font-size: 9px; letter-spacing: 1.6px; text-transform: uppercase; color: rgba(14,46,46,0.5); margin: 0 0 4px; font-weight: 600; }
+  .z-mock-headline { font-family: 'Marcellus', serif; font-size: 18px; color: #0E2E2E; margin: 0; line-height: 1.25; letter-spacing: -0.2px; }
+  .z-mock-route-text { font-family: 'Albert Sans', sans-serif; font-weight: 500; }
+  .z-mock-cta { font-family: 'Albert Sans', sans-serif; font-weight: 600; letter-spacing: 0.3px; font-size: 12px; }
+</style>
+
+<div class="compare-grid">
+
+  <div class="compare-card y-stage" data-choice="lock-y" onclick="toggleSelect(this)">
+    <div class="compare-stage">
+      <p class="compare-vibe">Y · Architectural Confidence</p>
+      <h3 class="y-wordmark">DRIVIO</h3>
+      <p class="y-strap"><span class="dash"></span>The city, your way<span class="dash"></span></p>
+    </div>
+    <div class="compare-mark-section">
+      <p class="compare-mark-label">Mark variants</p>
+      <div class="compare-mark-row">
+        <div class="y-mark-h">DRIVIO</div>
+        <div class="y-mark-monogram">D</div>
+        <div class="y-mark-block">
+          <div class="y-mark-monogram" style="font-size: 24px; color: #0E2E2E;">DV</div>
+        </div>
+      </div>
+    </div>
+    <div class="compare-mockup">
+      <div class="mock-topbar">
+        <div class="y-mock-logo">DRIVIO</div>
+        <div class="mock-icon-btn"></div>
+      </div>
+      <p class="y-mock-eyebrow">Where to?</p>
+      <p class="y-mock-headline">Heading home from work.</p>
+      <div class="mock-route" style="margin-top: 14px;">
+        <div class="mock-route-row">
+          <div class="mock-route-dot"></div>
+          <div class="mock-route-text y-mock-route-text">12 Awolowo Rd, Ikoyi</div>
+        </div>
+        <div class="mock-route-row">
+          <div class="mock-route-square"></div>
+          <div class="mock-route-text y-mock-route-text">Lekki Phase 1</div>
+        </div>
+      </div>
+      <div class="mock-cta y-mock-cta">Find a ride</div>
+    </div>
+  </div>
+
+  <div class="compare-card z-stage" data-choice="lock-z" onclick="toggleSelect(this)">
+    <div class="compare-stage">
+      <p class="compare-vibe">Z · Classical, with a Mark</p>
+      <h3 class="z-wordmark">Drivio<span class="accent-mark"></span></h3>
+      <p class="z-strap">EST. 2026 · PAN-AFRICAN</p>
+    </div>
+    <div class="compare-mark-section">
+      <p class="compare-mark-label">Mark variants</p>
+      <div class="compare-mark-row">
+        <div class="z-mark-wordmark">Drivio<span class="accent-mark"></span></div>
+        <div class="z-mark-mark-disc">D</div>
+        <div class="z-mark-mark-monogram">D</div>
+      </div>
+    </div>
+    <div class="compare-mockup">
+      <div class="mock-topbar">
+        <div class="z-mock-logo">Drivio<span class="accent-mark"></span></div>
+        <div class="mock-icon-btn"></div>
+      </div>
+      <p class="z-mock-eyebrow">Where to?</p>
+      <p class="z-mock-headline">Heading home from work.</p>
+      <div class="mock-route" style="margin-top: 14px;">
+        <div class="mock-route-row">
+          <div class="mock-route-dot"></div>
+          <div class="mock-route-text z-mock-route-text">12 Awolowo Rd, Ikoyi</div>
+        </div>
+        <div class="mock-route-row">
+          <div class="mock-route-square"></div>
+          <div class="mock-route-text z-mock-route-text">Lekki Phase 1</div>
+        </div>
+      </div>
+      <div class="mock-cta z-mock-cta">Find a ride</div>
+    </div>
+  </div>
+
+</div>
+
+<div class="section" style="margin-top: 8px;">
+  <p class="label">If neither lands fully</p>
+  <p style="opacity: 0.75; font-size: 14px; line-height: 1.6;">Tell me what feels close-but-not-quite. Common adjustments: weight of Z's mark dot (smaller / framed in circle / replaced with a chevron), case treatment of Y (caps vs headline), serif tightness, body font swap, mark monogram approach (D / DV / dot / discus). We can also blend — e.g., classical Marcellus wordmark with Y's all-caps letter-spacing for more architectural confidence.</p>
+</div>

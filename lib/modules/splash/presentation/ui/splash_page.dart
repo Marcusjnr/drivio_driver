@@ -74,15 +74,15 @@ class _SplashPageState extends ConsumerState<SplashPage> {
           // Permission card slides up from the bottom edge once the
           // brand reveal completes.
           AnimatedPositioned(
-            duration: const Duration(milliseconds: 380),
-            curve: Curves.easeOutCubic,
-            left: 16,
-            right: 16,
+            duration: AppDurations.slow,
+            curve: Curves.easeOutQuart,
+            left: 0,
+            right: 0,
             bottom: showCard
-                ? MediaQuery.of(context).padding.bottom + 16
-                : -360,
+                ? 0
+                : -480,
             child: AnimatedOpacity(
-              duration: const Duration(milliseconds: 280),
+              duration: AppDurations.base,
               opacity: showCard ? 1 : 0,
               child: _PermissionCard(
                 permission: splash.permission,
@@ -199,78 +199,49 @@ class _BrandBlockState extends State<_BrandBlock>
   }
 }
 
+/// The big centred wordmark per SCR-001: "Drivio" in Marcellus, ivory
+/// on the charcoal-teal background, with a coral dot at ~96pt. Big
+/// enough to anchor the screen and read across the radar rings behind it.
 class _Wordmark extends StatelessWidget {
   const _Wordmark();
 
   @override
   Widget build(BuildContext context) {
-    return Text(
-      'DRIVIO',
-      style: TextStyle(
-        fontFamily: AppTextStyles.fontFamily,
-        fontSize: 56,
-        fontWeight: FontWeight.w800,
-        letterSpacing: 5.5,
-        height: 1,
-        // Subtle inner highlight via shader — gives the wordmark a
-        // metallic feel without going full chrome.
-        foreground: Paint()
-          ..shader = const LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: <Color>[
-              Color(0xFFF4F5F7),
-              Color(0xFFB6BCC4),
-            ],
-          ).createShader(const Rect.fromLTWH(0, 0, 280, 70)),
-      ),
-    );
+    // Splash uses the brand-spec maximum (~96pt). BrandMark handles the
+    // Marcellus letters + coral dot composition; on the dark splash, it
+    // reads against the radar rings underneath without competing.
+    return const BrandMark(size: 96);
   }
 }
 
+/// Two-line italic Marcellus tagline overlaid below the wordmark.
+/// "Movement," in ivory, "on your terms." in coral — per SCR-001.
+/// Read as a single thought; never split with punctuation tweaks.
 class _Tagline extends StatelessWidget {
   const _Tagline();
 
   @override
   Widget build(BuildContext context) {
-    // Compact eyebrow line — used to anchor the brand without
-    // dominating. Three short tokens separated by middle dots so
-    // it reads as a deliberate badge rather than a sentence.
-    return Row(
+    final TextStyle line = AppTextStyles.h1.copyWith(
+      fontSize: 22,
+      fontStyle: FontStyle.italic,
+      height: 1.15,
+    );
+    return Column(
       mainAxisSize: MainAxisSize.min,
       children: <Widget>[
-        _TagDot(color: AppColors.accentDark),
-        const SizedBox(width: 10),
         Text(
-          'YOU SET THE FARE',
-          style: AppTextStyles.eyebrow.copyWith(
-            color: AppColors.textDimDark,
-            letterSpacing: 2.2,
-          ),
+          'Movement,',
+          textAlign: TextAlign.center,
+          style: line.copyWith(color: AppColors.ivory),
         ),
-        const SizedBox(width: 10),
-        _TagDot(color: AppColors.accentDark),
+        const SizedBox(height: 2),
+        Text(
+          'on your terms.',
+          textAlign: TextAlign.center,
+          style: line.copyWith(color: AppColors.coral),
+        ),
       ],
-    );
-  }
-}
-
-class _TagDot extends StatelessWidget {
-  const _TagDot({required this.color});
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 4,
-      height: 4,
-      decoration: BoxDecoration(
-        color: color,
-        shape: BoxShape.circle,
-        boxShadow: <BoxShadow>[
-          BoxShadow(color: color.withValues(alpha: 0.6), blurRadius: 4),
-        ],
-      ),
     );
   }
 }
@@ -301,96 +272,78 @@ class _PermissionCard extends StatelessWidget {
     final (String title, String body, String primary, VoidCallback onPrimary) =
         _copy();
 
+    // Per SCR-001 mockup the permission card is ivory-light *regardless*
+    // of the splash background — it reads as the system-sheet moment, the
+    // one part of the splash where the OS feels close. Big rounded top
+    // corners, no bottom curve so it visually anchors to the screen edge.
     return Container(
-      padding: const EdgeInsets.fromLTRB(20, 18, 20, 20),
-      decoration: BoxDecoration(
-        color: AppColors.surfaceDark,
-        borderRadius: AppRadius.lg,
-        border: Border.all(color: AppColors.borderStrongDark),
-        boxShadow: <BoxShadow>[
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.4),
-            blurRadius: 24,
-            offset: const Offset(0, 8),
-          ),
-        ],
+      padding: const EdgeInsets.fromLTRB(24, 24, 24, 24),
+      decoration: const BoxDecoration(
+        color: AppColors.ivory,
+        borderRadius: BorderRadius.only(
+          topLeft: Radius.circular(28),
+          topRight: Radius.circular(28),
+        ),
       ),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.center,
         mainAxisSize: MainAxisSize.min,
         children: <Widget>[
-          // Iconography: a tinted disc with a stylised location glyph
-          // instead of a stock pin emoji.
-          Row(
-            children: <Widget>[
-              Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: AppColors.accentDark.withValues(alpha: 0.14),
-                  border: Border.all(
-                    color: AppColors.accentDark.withValues(alpha: 0.35),
-                  ),
-                ),
-                alignment: Alignment.center,
-                child: const _LocationGlyph(color: AppColors.accentDark),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  title,
-                  style: AppTextStyles.h2.copyWith(
-                    color: AppColors.textDark,
-                  ),
-                ),
-              ),
-            ],
+          // Centered coral-tinted disc with a Drivio pin glyph inside —
+          // a quiet signal of what this card asks for.
+          Container(
+            width: 56,
+            height: 56,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: AppColors.coral.withValues(alpha: 0.14),
+            ),
+            alignment: Alignment.center,
+            child: const _LocationGlyph(color: AppColors.coral),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 18),
+          Text(
+            title,
+            textAlign: TextAlign.center,
+            style: AppTextStyles.screenTitleSm.copyWith(
+              color: AppColors.textLight,
+              fontSize: 22,
+            ),
+          ),
+          const SizedBox(height: 10),
           Text(
             body,
+            textAlign: TextAlign.center,
             style: AppTextStyles.bodySm.copyWith(
-              color: AppColors.textDimDark,
+              color: AppColors.textDimLight,
               height: 1.5,
             ),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 20),
           DrivioButton(
             label: isRequesting ? 'Asking…' : primary,
             disabled: isRequesting,
             onPressed: isRequesting ? null : onPrimary,
           ),
           const SizedBox(height: 6),
-          // Skip is always available — drivers can defer the decision
-          // and we'll re-prompt them at the moment they tap "Go online".
-          DrivioButton(
-            label: 'Not now',
-            variant: DrivioButtonVariant.ghost,
-            disabled: isRequesting,
-            onPressed: isRequesting ? null : onSkip,
-          ),
-          const SizedBox(height: 10),
-          Row(
-            children: <Widget>[
-              Container(
-                width: 6,
-                height: 6,
-                decoration: const BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: AppColors.accentDark,
+          // "Not now" is a text-only ghost per the mockup — no border,
+          // no fill, charcoal-teal dim.
+          SizedBox(
+            height: 44,
+            child: TextButton(
+              onPressed: isRequesting ? null : onSkip,
+              style: TextButton.styleFrom(
+                foregroundColor: AppColors.textLight,
+                padding: const EdgeInsets.symmetric(vertical: 12),
+              ),
+              child: Text(
+                'Not now',
+                style: AppTextStyles.bodySm.copyWith(
+                  color: AppColors.textLight,
+                  fontWeight: FontWeight.w600,
                 ),
               ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  "We never share your location while you're offline.",
-                  style: AppTextStyles.captionSm.copyWith(
-                    color: AppColors.textMutedDark,
-                  ),
-                ),
-              ),
-            ],
+            ),
           ),
         ],
       ),

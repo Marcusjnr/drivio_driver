@@ -6,6 +6,13 @@ import 'package:drivio_driver/modules/authentication/features/sign_in/presentati
 import 'package:drivio_driver/modules/authentication/features/sign_up/presentation/logic/controller/sign_up_controller.dart';
 import 'package:drivio_driver/modules/commons/all.dart';
 
+/// SCR-005 — OTP Verification.
+///
+/// Ivory canvas. Back button + eyebrow ("STEP 2 OF 2" when reached from
+/// sign-up). Marcellus "Enter the code" + body "We sent it to `<phone>`."
+/// Six pin cells, then countdown ("Resend (24s)") that converts to a
+/// coral "Resend code" link when the timer runs out. Sticky bottom CTA
+/// "Verify & continue".
 class OtpPage extends ConsumerStatefulWidget {
   const OtpPage({super.key});
 
@@ -32,6 +39,7 @@ class _OtpPageState extends ConsumerState<OtpPage> {
     _provider = otpControllerForPhone(_phone);
   }
 
+  /// "+2348123354467" → "+234 812 335 4467" per SCR-005 mockup.
   String _formatPhone(String phone) {
     final String digits = phone.replaceAll(RegExp(r'[^\d]'), '');
     if (digits.length == 13) {
@@ -39,6 +47,66 @@ class _OtpPageState extends ConsumerState<OtpPage> {
           '${digits.substring(6, 9)} ${digits.substring(9)}';
     }
     return phone;
+  }
+
+  Future<void> _onVerify() async {
+    final OtpController c = ref.read(_provider!.notifier);
+    final SignUpState signUpState = ref.read(signUpControllerProvider);
+    final bool isSignUp = signUpState.hasPendingProfile;
+
+    final String identifier;
+    final String password;
+    String? phone;
+    if (isSignUp) {
+      identifier = signUpState.email.trim();
+      password = signUpState.password;
+      phone = signUpState.normalizedPhone;
+    } else {
+      final SignInState signInState = ref.read(signInControllerProvider);
+      // For phone-based sign-in the identifier IS the normalized phone;
+      // the controller's verify() takes it through the `email` slot until
+      // we refactor the backend to use Supabase phone auth.
+      identifier = signInState.normalizedPhone;
+      password = signInState.password;
+      phone = signInState.normalizedPhone;
+    }
+
+    final bool success = await c.verify(
+      mode: isSignUp ? AuthMode.signUp : AuthMode.signIn,
+      email: identifier,
+      password: password,
+      phone: phone,
+    );
+    if (!success || !mounted) return;
+
+    if (isSignUp) {
+      final SignUpController signUpC =
+          ref.read(signUpControllerProvider.notifier);
+      final bool profileCreated = await signUpC.submitProfile();
+      if (!mounted) return;
+      if (profileCreated) {
+        signUpC.reset();
+        AppNavigation.replaceAll<void>(AppRoutes.home);
+        return;
+      }
+      final String? signUpError =
+          ref.read(signUpControllerProvider).error;
+      c.surfaceError(
+        signUpError ??
+            "Couldn't create your profile. Try again in a moment.",
+      );
+      return;
+    }
+
+    final BootstrapController bootstrap =
+        ref.read(bootstrapControllerProvider.notifier);
+    await bootstrap.resolve();
+    if (mounted) {
+      AppNavigation.replaceAll<void>(
+        bootstrap.initialRoute,
+        arguments: bootstrap.initialArguments,
+      );
+    }
   }
 
   @override
@@ -50,140 +118,89 @@ class _OtpPageState extends ConsumerState<OtpPage> {
     final bool isSignUp = ref.watch(signUpControllerProvider).hasPendingProfile;
 
     return ScreenScaffold(
+      bottomBar: _BottomBar(
+        canVerify: state.isComplete && !state.isVerifying,
+        isVerifying: state.isVerifying,
+        onPressed: _onVerify,
+      ),
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(24, 4, 24, 24),
+        padding: const EdgeInsets.fromLTRB(24, 4, 24, 16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
+            // Top row — back button only. Progress bar omitted per
+            // SCR-005 mockup; the eyebrow below indicates step state.
             Row(
               children: <Widget>[
                 BackButtonBox(onTap: () => AppNavigation.pop()),
-                if (isSignUp) ...<Widget>[
-                  const SizedBox(width: 12),
-                  Text(
-                    'STEP 2 OF 2',
-                    style: AppTextStyles.mono.copyWith(
-                      color: context.textDim,
-                      letterSpacing: 1.8,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  const Expanded(child: ProgressSteps(total: 2, completed: 2)),
-                ],
               ],
             ),
             const SizedBox(height: 28),
+
+            // Eyebrow only when reached from sign-up — for sign-in
+            // the OTP is a one-step verify with no "STEP X OF Y" frame.
+            if (isSignUp) ...<Widget>[
+              Text(
+                'STEP 2 OF 2',
+                style: AppTextStyles.eyebrow.copyWith(color: context.textDim),
+              ),
+              const SizedBox(height: 14),
+            ],
+
             Text(
-              'Verify your number.',
-              style:
-                  AppTextStyles.screenTitleSm.copyWith(color: context.text),
+              'Enter the code',
+              style: AppTextStyles.screenTitle.copyWith(color: context.text),
             ),
-            const SizedBox(height: 10),
+            const SizedBox(height: 8),
             Text(
-              'We sent a 6-digit code by SMS. Enter it below.',
+              _displayPhone.isEmpty
+                  ? 'We sent it to your phone.'
+                  : 'We sent it to $_displayPhone.',
               style: AppTextStyles.bodySm.copyWith(
                 color: context.textDim,
                 height: 1.5,
               ),
             ),
-            const SizedBox(height: 18),
-            _PhoneCard(displayPhone: _displayPhone),
-            const SizedBox(height: 22),
+            const SizedBox(height: 28),
+
             PinInput(
               length: state.length,
               initial: state.value,
               onChanged: c.setValue,
             ),
+
             if (state.error != null) ...<Widget>[
-              const SizedBox(height: 12),
+              const SizedBox(height: 14),
               _ErrorRow(message: state.error!),
             ],
+
             const SizedBox(height: 18),
+
+            // Resend — center-aligned. Countdown copy mirrors the
+            // mockup's "Resend (24s)" form. When the timer hits zero
+            // the label flips to a tappable "Resend code" in coral.
             Center(
               child: GestureDetector(
                 onTap: state.canResend ? () => c.resend() : null,
-                child: RichText(
-                  text: TextSpan(
-                    style:
-                        AppTextStyles.caption.copyWith(color: context.textDim),
-                    children: <InlineSpan>[
-                      const TextSpan(text: "Didn't get it?  "),
-                      TextSpan(
-                        text: state.canResend
-                            ? 'Resend now'
-                            : 'Resend in 0:${state.resendSeconds.toString().padLeft(2, '0')}',
-                        style: AppTextStyles.caption.copyWith(
-                          color: state.canResend
-                              ? context.accent
-                              : context.textMuted,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    ],
+                behavior: HitTestBehavior.opaque,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 8,
+                  ),
+                  child: Text(
+                    state.canResend
+                        ? 'Resend code'
+                        : 'Resend (${state.resendSeconds}s)',
+                    style: AppTextStyles.bodySm.copyWith(
+                      color: state.canResend
+                          ? context.coral
+                          : context.textDim,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                 ),
               ),
-            ),
-            const Spacer(),
-            DrivioButton(
-              label: state.isVerifying ? 'Verifying…' : 'Verify & continue',
-              onPressed: () async {
-                final SignUpState signUpState =
-                    ref.read(signUpControllerProvider);
-                final bool isSignUp = signUpState.hasPendingProfile;
-
-                final String email;
-                final String password;
-                String? phone;
-                if (isSignUp) {
-                  email = signUpState.email.trim();
-                  password = signUpState.password;
-                  phone = signUpState.normalizedPhone;
-                } else {
-                  final SignInState signInState =
-                      ref.read(signInControllerProvider);
-                  email = signInState.email.trim();
-                  password = signInState.password;
-                }
-
-                final bool success = await c.verify(
-                  mode: isSignUp ? AuthMode.signUp : AuthMode.signIn,
-                  email: email,
-                  password: password,
-                  phone: phone,
-                );
-                if (!success || !mounted) return;
-
-                if (isSignUp) {
-                  final SignUpController signUpC =
-                      ref.read(signUpControllerProvider.notifier);
-                  final bool profileCreated = await signUpC.submitProfile();
-                  if (!mounted) return;
-                  if (profileCreated) {
-                    signUpC.reset();
-                    AppNavigation.replaceAll<void>(AppRoutes.home);
-                    return;
-                  }
-                  final String? signUpError =
-                      ref.read(signUpControllerProvider).error;
-                  c.surfaceError(
-                    signUpError ??
-                        "Couldn't create your profile. Try again in a moment.",
-                  );
-                  return;
-                }
-
-                final BootstrapController bootstrap =
-                    ref.read(bootstrapControllerProvider.notifier);
-                await bootstrap.resolve();
-                if (mounted) {
-                  AppNavigation.replaceAll<void>(
-                    bootstrap.initialRoute,
-                    arguments: bootstrap.initialArguments,
-                  );
-                }
-              },
-              disabled: !state.isComplete || state.isVerifying,
             ),
           ],
         ),
@@ -192,57 +209,31 @@ class _OtpPageState extends ConsumerState<OtpPage> {
   }
 }
 
-class _PhoneCard extends StatelessWidget {
-  const _PhoneCard({required this.displayPhone});
+/// Sticky bottom CTA — "Verify & continue" per SCR-005, disabled
+/// until 6 digits are entered.
+class _BottomBar extends StatelessWidget {
+  const _BottomBar({
+    required this.canVerify,
+    required this.isVerifying,
+    required this.onPressed,
+  });
 
-  final String displayPhone;
+  final bool canVerify;
+  final bool isVerifying;
+  final VoidCallback onPressed;
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-      decoration: BoxDecoration(
-        color: context.surface,
-        borderRadius: AppRadius.md,
-        border: Border.all(color: context.border),
-      ),
-      child: Row(
-        children: <Widget>[
-          Container(
-            width: 32,
-            height: 32,
-            decoration: BoxDecoration(
-              color: context.accent.withValues(alpha: 0.14),
-              borderRadius: AppRadius.sm,
-            ),
-            alignment: Alignment.center,
-            child: Icon(
-              Icons.sms_rounded,
-              size: 16,
-              color: context.accent,
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: <Widget>[
-                Text(
-                  'CODE SENT TO',
-                  style: AppTextStyles.micro.copyWith(
-                    color: context.textDim,
-                    letterSpacing: 1.4,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  displayPhone.isEmpty ? 'Your phone' : displayPhone,
-                  style: AppTextStyles.h3.copyWith(color: context.text),
-                ),
-              ],
-            ),
-          ),
-        ],
+      padding: const EdgeInsets.fromLTRB(24, 14, 24, 18),
+      decoration: BoxDecoration(color: context.bg),
+      child: SafeArea(
+        top: false,
+        child: DrivioButton(
+          label: isVerifying ? 'Verifying…' : 'Verify & continue',
+          disabled: !canVerify,
+          onPressed: canVerify ? onPressed : null,
+        ),
       ),
     );
   }
