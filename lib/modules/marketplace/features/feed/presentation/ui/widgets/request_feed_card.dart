@@ -47,19 +47,27 @@ class _RequestFeedCardState extends ConsumerState<RequestFeedCard> {
   @override
   Widget build(BuildContext context) {
     final RideRequest r = widget.request;
-    final double? distM = (widget.driverLat != null && widget.driverLng != null)
-        ? r.distanceMetersFrom(widget.driverLat!, widget.driverLng!)
-        : null;
     final bool urgent = _secondsLeft <= 15;
-    final Color tone = urgent ? context.red : context.amber;
+    // The expiry colour stays coral until the last 15s, then flips to
+    // red as a genuine warning — coral is "live", red is "about to lapse".
+    final Color timerColor = urgent ? context.red : context.coral;
+
+    final String? tripKm = r.expectedDistanceM != null
+        ? _fmtKm(r.expectedDistanceM!.toDouble())
+        : null;
+    final String? tripMin = r.expectedDurationS != null
+        ? '~${r.expectedDurationS! ~/ 60} min'
+        : null;
+    final String meta =
+        <String?>[tripKm, tripMin].whereType<String>().join(' · ');
 
     return InkWell(
       onTap: _secondsLeft <= 0 ? null : widget.onTap,
-      borderRadius: BorderRadius.circular(14),
+      borderRadius: AppRadius.md,
       child: Opacity(
         opacity: _secondsLeft <= 0 ? 0.5 : 1,
         child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+          padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
           decoration: BoxDecoration(
             color: context.surface,
             borderRadius: AppRadius.md,
@@ -69,96 +77,72 @@ class _RequestFeedCardState extends ConsumerState<RequestFeedCard> {
                   : context.borderStrong,
             ),
           ),
-          child: Row(
+          child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: <Widget>[
-              Container(
-                width: 36,
-                height: 36,
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  color: tone.withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Text(
-                  _secondsLeft > 0 ? _secondsLeft.toString() : '0',
-                  style: TextStyle(
-                    color: tone,
-                    fontWeight: FontWeight.w700,
-                    fontSize: 14,
+              // Pickup row + expiry pill, top-right.
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  _PinDot(color: context.coral, square: false),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: _AddressLine(
+                      label: 'Pickup',
+                      value: r.pickupAddress ?? 'Pickup',
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    _fmtClock(_secondsLeft),
+                    style: AppTextStyles.mono.copyWith(
+                      color: timerColor,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              // Drop-off row.
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  _PinDot(color: context.teal, square: true),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: _AddressLine(
+                      label: 'Drop-off',
+                      value: r.dropoffAddress ?? 'Dropoff',
+                    ),
+                  ),
+                ],
+              ),
+              if (meta.isNotEmpty) ...<Widget>[
+                const SizedBox(height: 8),
+                Padding(
+                  padding: const EdgeInsets.only(left: 20),
+                  child: Text(
+                    meta,
+                    style: AppTextStyles.captionSm.copyWith(
+                      color: context.textMuted,
+                    ),
                   ),
                 ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: <Widget>[
-                    Row(
-                      children: <Widget>[
-                        Expanded(
-                          child: Text(
-                            r.pickupAddress ?? 'Pickup',
-                            style: TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w600,
-                              color: context.text,
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                        if (distM != null) ...<Widget>[
-                          const SizedBox(width: 8),
-                          Text(
-                            _fmtKm(distM),
-                            style: TextStyle(
-                              fontSize: 11,
-                              color: context.textDim,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ],
-                      ],
-                    ),
-                    const SizedBox(height: 4),
-                    Row(
-                      children: <Widget>[
-                        Icon(DrivioIcons.chevron,
-                            size: 12, color: context.textMuted),
-                        const SizedBox(width: 4),
-                        Expanded(
-                          child: Text(
-                            r.dropoffAddress ?? 'Dropoff',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: context.textDim,
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 6),
-                    Row(
-                      children: <Widget>[
-                        if (r.expectedDistanceM != null) ...<Widget>[
-                          _Tag(label: '${_fmtKm(r.expectedDistanceM!.toDouble())} trip'),
-                          const SizedBox(width: 6),
-                        ],
-                        if (r.expectedDurationS != null)
-                          _Tag(label: '${(r.expectedDurationS! ~/ 60)} min'),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
+              ],
             ],
           ),
         ),
       ),
     );
+  }
+
+  /// "00:42" mm:ss expiry clock per the SCR-018 mockup.
+  static String _fmtClock(int seconds) {
+    if (seconds <= 0) return '00:00';
+    final int m = seconds ~/ 60;
+    final int s = seconds % 60;
+    return '${m.toString().padLeft(2, '0')}:${s.toString().padLeft(2, '0')}';
   }
 
   static String _fmtKm(double meters) {
@@ -167,22 +151,55 @@ class _RequestFeedCardState extends ConsumerState<RequestFeedCard> {
   }
 }
 
-class _Tag extends StatelessWidget {
-  const _Tag({required this.label});
-  final String label;
+/// Coral pickup disc / teal drop-off square — the map-pin language
+/// echoed in the list (brand §4.4: coral = pickup, teal = the other end).
+class _PinDot extends StatelessWidget {
+  const _PinDot({required this.color, required this.square});
+
+  final Color color;
+  final bool square;
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      width: 10,
+      height: 10,
+      margin: const EdgeInsets.only(top: 4),
       decoration: BoxDecoration(
-        color: context.surface2,
-        borderRadius: BorderRadius.circular(4),
-        border: Border.all(color: context.border),
+        color: color,
+        shape: square ? BoxShape.rectangle : BoxShape.circle,
+        borderRadius: square ? BorderRadius.circular(2) : null,
       ),
-      child: Text(
-        label,
-        style: TextStyle(fontSize: 10, color: context.textDim),
+    );
+  }
+}
+
+class _AddressLine extends StatelessWidget {
+  const _AddressLine({required this.label, required this.value});
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return RichText(
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+      text: TextSpan(
+        style: AppTextStyles.bodySm.copyWith(color: context.text),
+        children: <InlineSpan>[
+          TextSpan(
+            text: '$label: ',
+            style: AppTextStyles.bodySm.copyWith(color: context.textDim),
+          ),
+          TextSpan(
+            text: value,
+            style: AppTextStyles.bodySm.copyWith(
+              color: context.text,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
       ),
     );
   }

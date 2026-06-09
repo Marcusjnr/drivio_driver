@@ -55,6 +55,9 @@ class _DriveShellPageState extends ConsumerState<DriveShellPage> {
   bool _pendingGateOpen = false;
   bool _subGateOpen = false;
   bool _autoOfflineInFlight = false;
+  // Drives the sheet's "Going online…" / "Going offline…" label while
+  // the presence + marketplace start/stop sequence is in flight.
+  bool _togglingOnline = false;
   // True when the driver tried to go online without a usable location
   // permission. Holds the snapshot of the failure state so the gate
   // sheet can render the right copy + CTA (re-prompt vs Open Settings).
@@ -257,7 +260,7 @@ class _DriveShellPageState extends ConsumerState<DriveShellPage> {
 
     // ── Top overlays + banners ──────────────────────────────────────────
 
-    final Widget topOverlay = _buildTopOverlay(shell, home, kycComplete, subUnlocks, homeC);
+    final Widget topOverlay = _buildTopOverlay(shell, home);
     final Widget? banner = _buildBanner(shell, home, kycComplete, kycStatus);
     final Widget? subTop = _buildSubTopArea(shell);
     final Widget? priceBubble = shell.isIdle
@@ -401,6 +404,87 @@ class _DriveShellPageState extends ConsumerState<DriveShellPage> {
   }
 
   // ── Helpers ─────────────────────────────────────────────────────────────
+
+  /// Go online / go offline — invoked from the home sheet's button
+  /// (SCR-016/017/018). All the gating (KYC, subscription, vehicle,
+  /// location permission) runs here; the sheet just calls it. Mirrors
+  /// the behaviour the top-overlay toggle used to own.
+  Future<void> _handleToggleOnline() async {
+    if (_togglingOnline) return;
+
+    final HomeController homeC = ref.read(homeControllerProvider.notifier);
+    final HomeState home = ref.read(homeControllerProvider);
+    final PresenceController presence =
+        ref.read(presenceControllerProvider.notifier);
+
+    // Going offline is unconditional.
+    if (home.isOnline) {
+      setState(() => _togglingOnline = true);
+      try {
+        await presence.stopStreaming();
+        await ref.read(marketplaceControllerProvider.notifier).stop();
+        if (!mounted) return;
+        homeC.toggleOnline();
+      } finally {
+        if (mounted) setState(() => _togglingOnline = false);
+      }
+      return;
+    }
+
+    // Going online runs the gate checks first.
+    final bool kycComplete =
+        ref.read(kycControllerProvider).overall == KycOverallStatus.approved;
+    final bool subUnlocks =
+        ref.read(subscriptionControllerProvider).unlocksMarketplace;
+
+    if (!kycComplete) {
+      setState(() => _kycGateOpen = true);
+      return;
+    }
+    if (!subUnlocks) {
+      setState(() => _subGateOpen = true);
+      return;
+    }
+    if (!home.hasVehicle) {
+      setState(() {
+        if (home.hasAnyVehicle) {
+          _pendingGateOpen = true;
+        } else {
+          _gateOpen = true;
+        }
+      });
+      return;
+    }
+
+    setState(() => _togglingOnline = true);
+    try {
+      final bool ok = await presence.startStreaming();
+      if (!mounted) return;
+      if (ok) {
+        homeC.toggleOnline();
+        unawaited(
+            ref.read(marketplaceControllerProvider.notifier).start());
+        unawaited(
+            ref.read(dashboardControllerProvider.notifier).refresh());
+      } else {
+        final PresenceState ps = ref.read(presenceControllerProvider);
+        final LocationPermState reason = _toGateReason(ps.permission);
+        if (reason == LocationPermState.granted) {
+          AppNotifier.error(
+            message: ps.error ??
+                "Couldn't start location. Try again in a moment.",
+          );
+        } else {
+          setState(() {
+            _locationGateReason = reason;
+            _locationGateOpen = true;
+          });
+        }
+      }
+    } finally {
+      if (mounted) setState(() => _togglingOnline = false);
+    }
+  }
 
   _MapProps _computeMapProps(
     DriveShellState shell,
@@ -663,98 +747,19 @@ class _DriveShellPageState extends ConsumerState<DriveShellPage> {
   Widget _buildTopOverlay(
     DriveShellState shell,
     HomeState home,
-    bool kycComplete,
-    bool subUnlocks,
-    HomeController homeC,
   ) {
     switch (shell.mode) {
       case ShellMode.idle:
+        // The go-online/offline control now lives in the home sheet
+        // (SCR-016/017/018). The overlay carries the wordmark, a
+        // non-interactive ONLINE status pill (only while live, per the
+        // mockups), the heatmap toggle, and the bell.
         return Row(
           children: <Widget>[
-            Expanded(
-              child: OnlineToggle(
-                online: home.isOnline,
-                onTap: () async {
-                  final PresenceController presence =
-                      ref.read(presenceControllerProvider.notifier);
-
-                  if (home.isOnline) {
-                    await presence.stopStreaming();
-                    await ref
-                        .read(marketplaceControllerProvider.notifier)
-                        .stop();
-                    if (!mounted) return;
-                    homeC.toggleOnline();
-                    return;
-                  }
-                  if (!kycComplete) {
-                    setState(() => _kycGateOpen = true);
-                    return;
-                  }
-                  if (!subUnlocks) {
-                    setState(() => _subGateOpen = true);
-                    return;
-                  }
-                  if (!home.hasVehicle) {
-                    setState(() {
-                      if (home.hasAnyVehicle) {
-                        _pendingGateOpen = true;
-                      } else {
-                        _gateOpen = true;
-                      }
-                    });
-                    return;
-                  }
-                  final bool ok = await presence.startStreaming();
-                  if (!mounted) return;
-                  if (ok) {
-                    homeC.toggleOnline();
-                    unawaited(ref
-                        .read(marketplaceControllerProvider.notifier)
-                        .start());
-                    // Going online is a definite "show me today's
-                    // numbers" moment — refresh the home tile in case
-                    // it stalled at zeros during cold start.
-                    unawaited(ref
-                        .read(dashboardControllerProvider.notifier)
-                        .refresh());
-                  } else {
-                    // startStreaming sets a `permission` field on the
-                    // presence state when it bailed for permission/
-                    // service reasons. Open the dedicated location
-                    // gate sheet so the driver gets a clear path
-                    // forward (re-prompt or Open Settings) instead
-                    // of just a snackbar.
-                    final PresenceState ps =
-                        ref.read(presenceControllerProvider);
-                    final LocationPermState reason =
-                        _toGateReason(ps.permission);
-                    if (reason == LocationPermState.granted) {
-                      // Permission was OK but something else failed (no
-                      // fix yet, network, etc.). Surface as a banner —
-                      // the gate sheet wouldn't help.
-                      AppNotifier.error(
-                        message: ps.error ??
-                            "Couldn't start location. Try again in a moment.",
-                      );
-                    } else {
-                      setState(() {
-                        _locationGateReason = reason;
-                        _locationGateOpen = true;
-                      });
-                    }
-                  }
-                },
-                label: home.isOnline
-                    ? 'Online'
-                    : home.isOnTrip
-                        ? 'On trip'
-                        : 'Offline',
-              ),
-            ),
+            const BrandMark(size: 20),
             const SizedBox(width: 10),
-            // DRV-075: heatmap toggle. Square button styled like the
-            // bell so they stack visually.
+            if (home.isOnline) const _OnlineStatusPill(),
+            const Spacer(),
             _HeatmapToggle(
               active: ref.watch(demandHeatmapControllerProvider).visible,
               onTap: () => ref
@@ -807,9 +812,11 @@ class _DriveShellPageState extends ConsumerState<DriveShellPage> {
             : ref.watch(activeTripControllerProvider(shell.activeTripId!)
                 .select((ActiveTripState s) => s.trip));
         final TripState state = trip?.state ?? TripState.assigned;
+        final String? riderName =
+            (trip?.hasRiderName ?? false) ? trip!.riderFirstName : null;
         return Row(
           children: <Widget>[
-            _StagePill(state: state),
+            _StagePill(state: state, riderName: riderName),
             const Spacer(),
             IconCircleButton(
               icon: DrivioIcons.shield,
@@ -856,7 +863,10 @@ class _DriveShellPageState extends ConsumerState<DriveShellPage> {
   Widget _buildBody(DriveShellState shell) {
     switch (shell.mode) {
       case ShellMode.idle:
-        return const HomeBody();
+        return HomeBody(
+          onToggleOnline: _handleToggleOnline,
+          isToggling: _togglingOnline,
+        );
       case ShellMode.bidding:
         if (shell.activeRequestId == null) return const SizedBox.shrink();
         return BiddingBody(requestId: shell.activeRequestId!);
@@ -946,38 +956,74 @@ class _MapProps {
 
 // ── Small overlay widgets re-implemented to live with the shell ────────
 
+/// Top-overlay stage pill — coral fill, ivory text, no emoji. Mirrors
+/// the mockups' "GOT IT · KEMI" / "EN ROUTE TO KEMI" / "WAITING FOR
+/// KEMI" / "ON TRIP" pills (we lack the rider name, so a generic verb).
 class _StagePill extends StatelessWidget {
-  const _StagePill({required this.state});
+  const _StagePill({required this.state, this.riderName});
   final TripState state;
+  final String? riderName;
 
   @override
   Widget build(BuildContext context) {
-    final (String label, String emoji, Color color) = switch (state) {
-      TripState.assigned => ('Trip assigned', '🎯', context.blue),
-      TripState.enRoute => ('En route to pickup', '🚗', context.blue),
-      TripState.arrived => ('Arrived — waiting', '⏱️', context.amber),
-      TripState.inProgress => ('Trip in progress', '✅', context.accent),
-      TripState.completed => ('Trip complete', '🎉', context.accent),
-      TripState.cancelled => ('Trip cancelled', '🚫', context.red),
+    // "GOT IT · KEMI" / "EN ROUTE TO KEMI" / "WAITING FOR KEMI" when we
+    // know the rider; generic forms otherwise.
+    final String? name = riderName?.toUpperCase();
+    final (String label, Color fill, Color ink) = switch (state) {
+      TripState.assigned => (
+          name == null ? 'TRIP ASSIGNED' : 'GOT IT · $name',
+          context.coral,
+          context.coralInk,
+        ),
+      TripState.enRoute => (
+          name == null ? 'EN ROUTE' : 'EN ROUTE TO $name',
+          context.coral,
+          context.coralInk,
+        ),
+      TripState.arrived => (
+          name == null ? 'WAITING FOR RIDER' : 'WAITING FOR $name',
+          context.coral,
+          context.coralInk,
+        ),
+      TripState.inProgress => ('ON TRIP', context.coral, context.coralInk),
+      TripState.completed => ('TRIP COMPLETE', context.coral, context.coralInk),
+      TripState.cancelled => ('TRIP CANCELLED', context.red, context.ivory),
     };
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
       decoration: BoxDecoration(
-        color: context.surface.withValues(alpha: 0.9),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: color.withValues(alpha: 0.3)),
+        color: fill,
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Text(
+        label,
+        style: AppTextStyles.eyebrow.copyWith(color: ink),
+      ),
+    );
+  }
+}
+
+/// Non-interactive ONLINE pill shown in the idle overlay while live —
+/// the toggle itself now lives in the home sheet (SCR-017/018).
+class _OnlineStatusPill extends StatelessWidget {
+  const _OnlineStatusPill();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+      decoration: BoxDecoration(
+        color: context.coral,
+        borderRadius: BorderRadius.circular(20),
       ),
       child: Row(
+        mainAxisSize: MainAxisSize.min,
         children: <Widget>[
-          Text(emoji, style: const TextStyle(fontSize: 14)),
+          LiveDot(color: context.coralInk),
           const SizedBox(width: 8),
           Text(
-            label,
-            style: TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-              color: color,
-            ),
+            'ONLINE',
+            style: AppTextStyles.eyebrow.copyWith(color: context.coralInk),
           ),
         ],
       ),
@@ -1066,7 +1112,7 @@ class _DemandBanner extends StatelessWidget {
       ),
       child: Row(
         children: <Widget>[
-          const Text('🔥', style: TextStyle(fontSize: 14)),
+          Icon(DrivioIcons.trendingUp, size: 16, color: context.amber),
           const SizedBox(width: 10),
           Expanded(
             child: RichText(
@@ -1114,7 +1160,11 @@ class _KycBanner extends StatelessWidget {
       ),
       child: Row(
         children: <Widget>[
-          const Text('🪪', style: TextStyle(fontSize: 16)),
+          Icon(
+            inReview ? DrivioIcons.verified : DrivioIcons.document,
+            size: 16,
+            color: tone,
+          ),
           const SizedBox(width: 10),
           Expanded(
             child: Column(
@@ -1174,7 +1224,7 @@ class _AddVehicleBanner extends StatelessWidget {
       ),
       child: Row(
         children: <Widget>[
-          const Text('🚘', style: TextStyle(fontSize: 16)),
+          Icon(DrivioIcons.car, size: 16, color: context.amber),
           const SizedBox(width: 10),
           Expanded(
             child: RichText(
@@ -1400,7 +1450,7 @@ class _PriceBubble extends StatelessWidget {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: <Widget>[
-              const Text('💸', style: TextStyle(fontSize: 14)),
+              Icon(DrivioIcons.wallet, size: 14, color: context.coral),
               const SizedBox(width: 8),
               Text(
                 'Price: ${NairaFormatter.format(price)}/trip',

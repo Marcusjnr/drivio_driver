@@ -27,31 +27,12 @@ class RequestFeed extends ConsumerWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
-        Row(
-          children: <Widget>[
-            Text(
-              'INCOMING REQUESTS',
-              style: AppTextStyles.eyebrow.copyWith(color: context.textDim),
-            ),
-            const SizedBox(width: 8),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-              decoration: BoxDecoration(
-                color: context.accent.withValues(alpha: 0.18),
-                borderRadius: BorderRadius.circular(99),
-              ),
-              child: Text(
-                '${requests.length}',
-                style: TextStyle(
-                  fontSize: 10,
-                  color: context.accent,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ),
-          ],
+        // SCR-018 header — "REQUESTS NEARBY · N" in coral.
+        Text(
+          'REQUESTS NEARBY · ${requests.length}',
+          style: AppTextStyles.eyebrow.copyWith(color: context.coral),
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: 10),
         ...requests.take(4).map(
               (RideRequest r) => Padding(
                 padding: const EdgeInsets.only(bottom: 8),
@@ -75,11 +56,11 @@ class RequestFeed extends ConsumerWidget {
 const Duration _kQuietPeriodBeforeTips = Duration(seconds: 60);
 const Duration _kTipRotateInterval = Duration(seconds: 6);
 const List<_NoRequestsTip> _kNoRequestsTips = <_NoRequestsTip>[
-  _NoRequestsTip(emoji: '🌆', text: "Demand picks up at 6–9 PM. Stick around."),
-  _NoRequestsTip(emoji: '🗺️', text: 'Drift toward Victoria Island for higher fares.'),
-  _NoRequestsTip(emoji: '💸', text: 'Lower your suggested price for more bites.'),
-  _NoRequestsTip(emoji: '⛽️', text: 'Fuel costs eat margins — short trips compound.'),
-  _NoRequestsTip(emoji: '🌧️', text: 'Rain spikes demand. Stay online when the sky turns grey.'),
+  _NoRequestsTip(text: 'Demand picks up at 6–9 PM. Stick around.'),
+  _NoRequestsTip(text: 'Drift toward Victoria Island for higher fares.'),
+  _NoRequestsTip(text: 'Lower your suggested price for more bites.'),
+  _NoRequestsTip(text: 'Fuel costs eat margins — short trips compound.'),
+  _NoRequestsTip(text: 'Rain spikes demand. Stay online when the sky turns grey.'),
 ];
 
 class _EmptyState extends StatefulWidget {
@@ -155,20 +136,11 @@ class _EmptyStateState extends State<_EmptyState> {
           const SizedBox(height: 10),
           AnimatedSwitcher(
             duration: const Duration(milliseconds: 250),
-            child: Row(
+            child: Text(
+              tip.text,
               key: ValueKey<int>(_tipIdx),
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: <Widget>[
-                Text(tip.emoji, style: const TextStyle(fontSize: 16)),
-                const SizedBox(width: 8),
-                Flexible(
-                  child: Text(
-                    tip.text,
-                    style: TextStyle(fontSize: 12, color: context.textDim),
-                    textAlign: TextAlign.center,
-                  ),
-                ),
-              ],
+              style: TextStyle(fontSize: 12, color: context.textDim),
+              textAlign: TextAlign.center,
             ),
           ),
         ],
@@ -184,8 +156,7 @@ class _EmptyStateState extends State<_EmptyState> {
 }
 
 class _NoRequestsTip {
-  const _NoRequestsTip({required this.emoji, required this.text});
-  final String emoji;
+  const _NoRequestsTip({required this.text});
   final String text;
 }
 

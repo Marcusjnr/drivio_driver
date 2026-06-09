@@ -37,7 +37,9 @@ class BottomSheetCard extends ConsumerWidget {
                 height: 5,
                 margin: const EdgeInsets.only(bottom: 14),
                 decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.15),
+                  // Charcoal-teal handle reads on the ivory sheet; the
+                  // old white@15% was invisible in light mode.
+                  color: context.text.withValues(alpha: 0.22),
                   borderRadius: BorderRadius.circular(5),
                 ),
               ),

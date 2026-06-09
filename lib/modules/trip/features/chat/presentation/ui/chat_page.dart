@@ -143,7 +143,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
                         child: Padding(
                           padding: const EdgeInsets.all(32),
                           child: Text(
-                            'No messages yet — say hi 👋',
+                            'No messages yet — say hello.',
                             style: AppTextStyles.bodySm
                                 .copyWith(color: context.textDim),
                             textAlign: TextAlign.center,

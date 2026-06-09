@@ -54,28 +54,34 @@ class _OtpPageState extends ConsumerState<OtpPage> {
     final SignUpState signUpState = ref.read(signUpControllerProvider);
     final bool isSignUp = signUpState.hasPendingProfile;
 
-    final String identifier;
+    final String phone;
     final String password;
-    String? phone;
+    Map<String, dynamic>? signUpData;
+
     if (isSignUp) {
-      identifier = signUpState.email.trim();
-      password = signUpState.password;
       phone = signUpState.normalizedPhone;
+      password = signUpState.password;
+      // Real email + name + referral travel into Supabase's
+      // `raw_user_meta_data` so the post-OTP profile insert can
+      // resolve them when needed.
+      signUpData = <String, dynamic>{
+        'full_name': signUpState.fullName.trim(),
+        'email': signUpState.email.trim(),
+        'referred_by': signUpState.referralCode.trim().isEmpty
+            ? null
+            : signUpState.referralCode.trim(),
+      };
     } else {
       final SignInState signInState = ref.read(signInControllerProvider);
-      // For phone-based sign-in the identifier IS the normalized phone;
-      // the controller's verify() takes it through the `email` slot until
-      // we refactor the backend to use Supabase phone auth.
-      identifier = signInState.normalizedPhone;
-      password = signInState.password;
       phone = signInState.normalizedPhone;
+      password = signInState.password;
     }
 
     final bool success = await c.verify(
       mode: isSignUp ? AuthMode.signUp : AuthMode.signIn,
-      email: identifier,
-      password: password,
       phone: phone,
+      password: password,
+      signUpData: signUpData,
     );
     if (!success || !mounted) return;
 

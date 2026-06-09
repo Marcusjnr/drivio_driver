@@ -25,8 +25,9 @@ class SignInState {
 
   bool get canSubmit => hasValidPhone && hasValidPassword;
 
-  /// E.164-style phone string sent through to the auth/OTP layer.
-  /// Strips non-digits and drops a leading "0" before prepending +234.
+  /// E.164-style phone string. Surface identifier shown to the driver;
+  /// the actual Supabase auth call (in OtpController) uses a phone-
+  /// derived synthetic email so no SMS goes out in dev.
   String get normalizedPhone {
     String digits = phone.replaceAll(RegExp(r'\D'), '');
     if (digits.startsWith('234')) {
@@ -37,12 +38,6 @@ class SignInState {
     }
     return '+234$digits';
   }
-
-  /// Legacy alias — old callers (OTP page) read `signInState.email` as the
-  /// identifier. For phone-based sign-in the identifier is the normalized
-  /// phone; keep this getter so old call sites keep compiling without an
-  /// API shift.
-  String get email => normalizedPhone;
 
   SignInState copyWith({
     String? phone,
@@ -69,11 +64,13 @@ class SignInController extends StateNotifier<SignInState> {
   void onPasswordChanged(String value) =>
       state = state.copyWith(password: value, clearError: true);
 
-  // TODO: Replace with real OTP provider (Termii, etc.)
+  /// Dev stub — no SMS goes out. The OTP screen accepts the hardcoded
+  /// code, which then triggers `signInWithPassword` via the phone-
+  /// derived synthetic email. Replace with a real send call when a
+  /// production SMS provider is wired (Termii / Supabase phone auth).
   Future<bool> requestOtp() async {
     if (!state.canSubmit) return false;
     state = state.copyWith(isLoading: true, clearError: true);
-    // Skip actual OTP sending — will be wired to a real provider later.
     await Future<void>.delayed(const Duration(milliseconds: 300));
     state = state.copyWith(isLoading: false);
     return true;

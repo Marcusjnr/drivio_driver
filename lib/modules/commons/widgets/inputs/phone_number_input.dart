@@ -94,9 +94,13 @@ class _PhoneNumberInputState extends ConsumerState<PhoneNumberInput> {
         hintStyle: AppTextStyles.body.copyWith(color: context.textMuted),
         filled: true,
         fillColor: context.surface,
-        contentPadding: const EdgeInsets.fromLTRB(0, 26, 16, 14),
-        prefixIcon: Padding(
-          padding: const EdgeInsets.fromLTRB(14, 14, 10, 0),
+        contentPadding: const EdgeInsets.fromLTRB(16, 26, 16, 14),
+        // `prefix` (not `prefixIcon`) renders inline on the input's text
+        // baseline, so the flag, +234, the hint, and the typed digits all
+        // sit on one line. `prefixIcon` would vertically-center against the
+        // whole field height and float above the (label-offset) text.
+        prefix: Padding(
+          padding: const EdgeInsets.only(right: 10),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: <Widget>[
@@ -112,8 +116,6 @@ class _PhoneNumberInputState extends ConsumerState<PhoneNumberInput> {
             ],
           ),
         ),
-        prefixIconConstraints:
-            const BoxConstraints(minWidth: 0, minHeight: 0),
         border: enabled,
         enabledBorder: enabled,
         focusedBorder: focused,

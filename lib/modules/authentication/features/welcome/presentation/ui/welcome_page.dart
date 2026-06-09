@@ -75,6 +75,7 @@ class WelcomePage extends ConsumerWidget {
                     ),
                     const SizedBox(height: 6),
                     SizedBox(
+                      width: double.infinity,
                       height: 44,
                       child: TextButton(
                         onPressed: () =>
