@@ -3,7 +3,6 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:drivio_driver/modules/commons/all.dart';
-import 'package:drivio_driver/modules/commons/types/pricing_profile.dart';
 import 'package:drivio_driver/modules/dash/features/drive_shell/presentation/logic/controller/drive_shell_controller.dart';
 import 'package:drivio_driver/modules/trip/features/ride_request/presentation/logic/controller/ride_request_controller.dart';
 
@@ -471,24 +470,10 @@ class _FareCardState extends State<_FareCard> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
-        // YOUR PRICE eyebrow + optional peak/night pill.
-        Row(
-          children: <Widget>[
-            Text(
-              'YOUR PRICE',
-              style: AppTextStyles.eyebrow.copyWith(color: context.coral),
-            ),
-            const Spacer(),
-            if (state.suggestedWindow != null)
-              Pill(
-                text: state.suggestedWindow == PricingWindow.peak
-                    ? 'PEAK · ${state.suggestedMultiplier.toStringAsFixed(1)}×'
-                    : 'NIGHT · ${state.suggestedMultiplier.toStringAsFixed(1)}×',
-                tone: state.suggestedWindow == PricingWindow.peak
-                    ? PillTone.amber
-                    : PillTone.blue,
-              ),
-          ],
+        // YOUR PRICE eyebrow. (Surcharges removed — no peak/night pill.)
+        Text(
+          'YOUR PRICE',
+          style: AppTextStyles.eyebrow.copyWith(color: context.coral),
         ),
         const SizedBox(height: 8),
         Center(

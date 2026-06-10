@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'package:drivio_driver/modules/commons/notifications/app_notification_controller.dart';
 import 'package:drivio_driver/modules/commons/notifications/app_notification_data.dart';
+import 'package:drivio_driver/modules/commons/theme/app_text_styles.dart';
 import 'package:drivio_driver/modules/commons/theme/context_theme.dart';
 
 /// Wraps the entire app and renders the active notification banner
@@ -107,7 +108,7 @@ class _AppNotificationHostState extends State<AppNotificationHost>
                     opacity: _fade,
                     child: Center(
                       child: ConstrainedBox(
-                        constraints: const BoxConstraints(maxWidth: 480),
+                        constraints: const BoxConstraints(maxWidth: 360),
                         child: _NotificationBanner(
                           data: data,
                           onDismiss: widget.controller.hide,
@@ -136,10 +137,10 @@ class _NotificationBanner extends StatelessWidget {
     return Material(
       color: Colors.transparent,
       child: Container(
-        padding: const EdgeInsets.fromLTRB(14, 12, 10, 12),
+        padding: const EdgeInsets.fromLTRB(16, 12, 12, 12),
         decoration: BoxDecoration(
           color: p.bg,
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(12),
           border: Border.all(color: p.border, width: 1),
           boxShadow: <BoxShadow>[
             BoxShadow(
@@ -154,9 +155,9 @@ class _NotificationBanner extends StatelessWidget {
           children: <Widget>[
             Padding(
               padding: const EdgeInsets.only(top: 1),
-              child: Icon(p.icon, color: p.iconColor, size: 18),
+              child: Icon(p.icon, color: p.iconColor, size: 16),
             ),
-            const SizedBox(width: 10),
+            const SizedBox(width: 12),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -165,9 +166,8 @@ class _NotificationBanner extends StatelessWidget {
                   if (data.title != null && data.title!.trim().isNotEmpty) ...<Widget>[
                     Text(
                       data.title!,
-                      style: TextStyle(
+                      style: AppTextStyles.bodySm.copyWith(
                         color: p.textColor,
-                        fontSize: 13,
                         fontWeight: FontWeight.w700,
                         height: 1.3,
                       ),
@@ -178,9 +178,8 @@ class _NotificationBanner extends StatelessWidget {
                   ],
                   Text(
                     data.message,
-                    style: TextStyle(
+                    style: AppTextStyles.bodySm.copyWith(
                       color: p.textColor,
-                      fontSize: 13,
                       fontWeight: FontWeight.w500,
                       height: 1.4,
                     ),
@@ -190,13 +189,13 @@ class _NotificationBanner extends StatelessWidget {
                 ],
               ),
             ),
-            const SizedBox(width: 8),
+            const SizedBox(width: 12),
             InkResponse(
               onTap: onDismiss,
               radius: 18,
               child: Padding(
                 padding: const EdgeInsets.all(4),
-                child: Icon(Icons.close_rounded, size: 16, color: p.dimColor),
+                child: Icon(Icons.close_rounded, size: 14, color: p.dimColor),
               ),
             ),
           ],

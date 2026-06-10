@@ -57,7 +57,6 @@ class HomeBody extends ConsumerWidget {
             const SizedBox(height: 16),
             _StatStrip(
               summary: summary,
-              fallbackRating: state.rating,
               notReady: tileNotReady,
               error: dash.error,
               onRetry: () =>
@@ -143,14 +142,12 @@ class _StatusHeader extends StatelessWidget {
 class _StatStrip extends StatelessWidget {
   const _StatStrip({
     required this.summary,
-    required this.fallbackRating,
     required this.notReady,
     required this.error,
     required this.onRetry,
   });
 
   final DashboardSummary summary;
-  final double fallbackRating;
   final bool notReady;
   final String? error;
   final VoidCallback onRetry;
@@ -161,11 +158,19 @@ class _StatStrip extends StatelessWidget {
         notReady ? '—' : NairaFormatter.format(summary.earningsNaira);
     final String trips =
         notReady ? '—' : summary.tripsCompleted.toString();
+
+    // Real driver rating from `driver_ratings` (avg, via the dashboard
+    // RPC). Until the driver has any ratings, show an honest "New"
+    // rather than a fabricated number — and drop the star, since there's
+    // nothing to score yet.
+    final bool hasRating = !notReady && summary.rating != null;
     final String rating = notReady
         ? '—'
-        : (summary.rating ?? fallbackRating)
-            .toStringAsFixed(1)
-            .replaceAll(RegExp(r'\.0$'), '');
+        : hasRating
+            ? summary.rating!
+                .toStringAsFixed(1)
+                .replaceAll(RegExp(r'\.0$'), '')
+            : 'New';
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -177,7 +182,11 @@ class _StatStrip extends StatelessWidget {
             Expanded(child: _Stat(label: 'TRIPS', value: trips)),
             _StatDivider(),
             Expanded(
-              child: _Stat(label: 'RATING', value: rating, showStar: true),
+              child: _Stat(
+                label: 'RATING',
+                value: rating,
+                showStar: hasRating,
+              ),
             ),
           ],
         ),

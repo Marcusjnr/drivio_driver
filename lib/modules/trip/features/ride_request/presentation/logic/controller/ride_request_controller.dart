@@ -196,20 +196,16 @@ class RideRequestController extends StateNotifier<RideRequestState> {
       _pricingProfile = r[2] as PricingProfile;
 
       final int suggested = _suggestedForRequest(req);
-      final PricingWindow? window =
-          _pricingProfile.activeWindow(req.createdAt);
-      final double mult = window == PricingWindow.peak
-          ? _pricingProfile.peakMultiplier
-          : window == PricingWindow.night
-              ? _pricingProfile.nightMultiplier
-              : 1.0;
+      // Surcharges were removed from the pricing model — the suggested
+      // fare is base + per-km only, identical at every hour. No
+      // peak/night window is ever active, so the bid composer shows no
+      // surcharge pill.
       state = state.copyWith(
         request: req,
         suggestedMinor: suggested,
         priceMinor: suggested,
-        suggestedWindow: window,
-        clearSuggestedWindow: window == null,
-        suggestedMultiplier: mult,
+        clearSuggestedWindow: true,
+        suggestedMultiplier: 1.0,
         secondsLeft: req.secondsRemaining(),
         isLoading: false,
       );
@@ -368,16 +364,14 @@ class RideRequestController extends StateNotifier<RideRequestState> {
     }
   }
 
-  /// Driver's saved pricing profile drives this — base + per-km, plus
-  /// peak/night multiplier if the toggle is enabled and the request's
-  /// local hour falls in the corresponding window. Rounds to the nearest
-  /// ₦100 (via the shared helper on [PricingProfile] so the pricing-tab
-  /// preview and the bid composer never drift apart) and clamps to the
-  /// absolute floor / ceiling.
+  /// Driver's saved pricing profile drives this — base + per-km only.
+  /// Rounds to the nearest ₦100 (via the shared helper on
+  /// [PricingProfile] so the pricing-tab preview and the bid composer
+  /// never drift apart) and clamps to the absolute floor / ceiling.
+  /// No time-of-day surcharge is applied (surcharges were removed).
   int _suggestedForRequest(RideRequest req) {
-    final int raw = _pricingProfile.suggestFor(
+    final int raw = _pricingProfile.suggestForDistance(
       req.expectedDistanceM ?? 0,
-      req.createdAt,
     );
     return PricingProfile.roundToNearestNaira100(raw)
         .clamp(_kAbsoluteMinMinor, _kAbsoluteMaxMinor);

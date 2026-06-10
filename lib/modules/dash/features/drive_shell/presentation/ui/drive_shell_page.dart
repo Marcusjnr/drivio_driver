@@ -753,20 +753,24 @@ class _DriveShellPageState extends ConsumerState<DriveShellPage> {
         // The go-online/offline control now lives in the home sheet
         // (SCR-016/017/018). The overlay carries the wordmark, a
         // non-interactive ONLINE status pill (only while live, per the
-        // mockups), the heatmap toggle, and the bell.
+        // mockups), and the bell.
         return Row(
           children: <Widget>[
             const BrandMark(size: 20),
             const SizedBox(width: 10),
             if (home.isOnline) const _OnlineStatusPill(),
             const Spacer(),
-            _HeatmapToggle(
-              active: ref.watch(demandHeatmapControllerProvider).visible,
-              onTap: () => ref
-                  .read(demandHeatmapControllerProvider.notifier)
-                  .toggle(),
-            ),
-            const SizedBox(width: 10),
+            // Hotspots (demand-heatmap) toggle hidden for now. The logic
+            // stays wired — the controller and the map polygons in
+            // `_computeMapProps` are untouched — so restoring the icon is
+            // just uncommenting this block.
+            // _HeatmapToggle(
+            //   active: ref.watch(demandHeatmapControllerProvider).visible,
+            //   onTap: () => ref
+            //       .read(demandHeatmapControllerProvider.notifier)
+            //       .toggle(),
+            // ),
+            // const SizedBox(width: 10),
             _NotificationBell(
               onTap: () =>
                   AppNavigation.push(AppRoutes.notificationsInbox),
@@ -1269,6 +1273,10 @@ class _AddVehicleBanner extends StatelessWidget {
 /// DRV-075: square button mirroring the notification bell. The icon
 /// is theme-tinted when the overlay is showing so the toggle state
 /// is unambiguous at a glance.
+///
+/// Currently not rendered — the hotspots icon is commented out in the
+/// idle top overlay. Kept here (logic intact) so it can be restored.
+// ignore: unused_element
 class _HeatmapToggle extends StatelessWidget {
   const _HeatmapToggle({required this.active, required this.onTap});
 
