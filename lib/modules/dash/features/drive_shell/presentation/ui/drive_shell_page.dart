@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:maplibre_gl/maplibre_gl.dart';
 
 import 'package:drivio_driver/modules/commons/all.dart';
+import 'package:drivio_driver/modules/commons/data/trip_repository.dart';
 import 'package:drivio_driver/modules/commons/location/location_permission_service.dart';
 import 'package:drivio_driver/modules/commons/types/demand_cell.dart';
 import 'package:drivio_driver/modules/commons/types/ride_request.dart';
@@ -48,8 +49,10 @@ class DriveShellPage extends ConsumerStatefulWidget {
   ConsumerState<DriveShellPage> createState() => _DriveShellPageState();
 }
 
-class _DriveShellPageState extends ConsumerState<DriveShellPage> {
+class _DriveShellPageState extends ConsumerState<DriveShellPage>
+    with WidgetsBindingObserver {
   bool _consumedInitialTrip = false;
+  bool _tripReconcileInFlight = false;
   bool _gateOpen = false;
   bool _kycGateOpen = false;
   bool _pendingGateOpen = false;
@@ -67,12 +70,50 @@ class _DriveShellPageState extends ConsumerState<DriveShellPage> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       ref.read(homeControllerProvider.notifier).refreshVehicleStatus();
       ref.read(kycControllerProvider.notifier).refresh();
       ref.read(subscriptionControllerProvider.notifier).refresh();
+      unawaited(_reconcileActiveTrip());
     });
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      unawaited(_reconcileActiveTrip());
+    }
+  }
+
+  /// The server is the source of truth for "this driver is on a trip".
+  /// If a live trip exists while the shell sits in idle/bidding — a
+  /// missed `bid won` realtime event, a hot restart mid-flow — flip the
+  /// shell into trip mode so the UI represents the DB state. Runs on
+  /// mount and whenever the app returns to the foreground.
+  Future<void> _reconcileActiveTrip() async {
+    if (_tripReconcileInFlight || !mounted) return;
+    if (ref.read(driveShellControllerProvider).isTripLike) return;
+    _tripReconcileInFlight = true;
+    try {
+      final String? tripId = await locator<TripRepository>()
+          .getMyActiveTripId();
+      if (!mounted || tripId == null) return;
+      if (ref.read(driveShellControllerProvider).isTripLike) return;
+      AppNotifier.info(message: 'You have a trip in progress. Resuming it.');
+      ref.read(driveShellControllerProvider.notifier).enterTrip(tripId);
+    } catch (_) {
+      // Best-effort — bootstrap and realtime remain the primary paths.
+    } finally {
+      _tripReconcileInFlight = false;
+    }
   }
 
   @override
@@ -94,11 +135,13 @@ class _DriveShellPageState extends ConsumerState<DriveShellPage> {
     final DriveShellState shell = ref.watch(driveShellControllerProvider);
     final HomeState home = ref.watch(homeControllerProvider);
     final HomeController homeC = ref.read(homeControllerProvider.notifier);
-    final KycOverallStatus kycStatus =
-        ref.watch(kycControllerProvider.select((KycState s) => s.overall));
+    final KycOverallStatus kycStatus = ref.watch(
+      kycControllerProvider.select((KycState s) => s.overall),
+    );
     final bool kycComplete = kycStatus == KycOverallStatus.approved;
-    final SubscriptionState subState =
-        ref.watch(subscriptionControllerProvider);
+    final SubscriptionState subState = ref.watch(
+      subscriptionControllerProvider,
+    );
     final bool subUnlocks = subState.unlocksMarketplace;
     final PresenceState presenceState = ref.watch(presenceControllerProvider);
 
@@ -109,18 +152,18 @@ class _DriveShellPageState extends ConsumerState<DriveShellPage> {
     // stays null. This bridge lives on the shell rather than HomePage
     // because DriveShellPage is the actual mounted route — the legacy
     // HomePage in dash/features/home isn't wired into the router.
-    ref.listen<PresenceState>(
-      presenceControllerProvider,
-      (PresenceState? prev, PresenceState next) {
-        if (next.lastLat != null &&
-            next.lastLng != null &&
-            (prev?.lastLat != next.lastLat || prev?.lastLng != next.lastLng)) {
-          ref
-              .read(marketplaceControllerProvider.notifier)
-              .updateDriverPosition(next.lastLat!, next.lastLng!);
-        }
-      },
-    );
+    ref.listen<PresenceState>(presenceControllerProvider, (
+      PresenceState? prev,
+      PresenceState next,
+    ) {
+      if (next.lastLat != null &&
+          next.lastLng != null &&
+          (prev?.lastLat != next.lastLat || prev?.lastLng != next.lastLng)) {
+        ref
+            .read(marketplaceControllerProvider.notifier)
+            .updateDriverPosition(next.lastLat!, next.lastLng!);
+      }
+    });
 
     // Force-offline if the subscription flipped to a non-unlocking state
     // while the driver was online (commonly: paused, also covers
@@ -167,14 +210,11 @@ class _DriveShellPageState extends ConsumerState<DriveShellPage> {
                 .enterTrip(next.tripId!);
           } else if (next.phase == BidPhase.lost) {
             AppNotifier.warning(
-              message:
-                  next.error ?? 'Another driver was picked for this trip.',
+              message: next.error ?? 'Another driver was picked for this trip.',
             );
             Future<void>.delayed(const Duration(milliseconds: 700), () {
               if (mounted) {
-                ref
-                    .read(driveShellControllerProvider.notifier)
-                    .exitBidding();
+                ref.read(driveShellControllerProvider.notifier).exitBidding();
               }
             });
           }
@@ -191,11 +231,14 @@ class _DriveShellPageState extends ConsumerState<DriveShellPage> {
           final TripState? newState = next.state;
           if (newState != null && prev?.state != newState) {
             ref
-                .read(tripLocationRecorderProvider(shell.activeTripId!).notifier)
+                .read(
+                  tripLocationRecorderProvider(shell.activeTripId!).notifier,
+                )
                 .onTripStateChanged(newState);
 
-            final DriveShellController shellC =
-                ref.read(driveShellControllerProvider.notifier);
+            final DriveShellController shellC = ref.read(
+              driveShellControllerProvider.notifier,
+            );
             if (newState == TripState.completed) {
               shellC.onTripCompleted();
               // Bump the home tile so the just-finished fare shows up
@@ -204,8 +247,9 @@ class _DriveShellPageState extends ConsumerState<DriveShellPage> {
               // DRV-032: if the subscription went hard-blocked while
               // this trip was in flight (we refused to offline mid-trip),
               // honour the gate now that the trip is closed.
-              final SubscriptionState s =
-                  ref.read(subscriptionControllerProvider);
+              final SubscriptionState s = ref.read(
+                subscriptionControllerProvider,
+              );
               if (s.subscription?.status.isHardBlocked ?? false) {
                 ref
                     .read(homeControllerProvider.notifier)
@@ -222,9 +266,7 @@ class _DriveShellPageState extends ConsumerState<DriveShellPage> {
               final bool byPassenger =
                   reason != null && reason.startsWith('passenger');
               if (byPassenger) {
-                AppNotifier.warning(
-                  message: 'Passenger cancelled the ride.',
-                );
+                AppNotifier.warning(message: 'Passenger cancelled the ride.');
               }
               shellC.onTripCancelled();
             }
@@ -255,8 +297,12 @@ class _DriveShellPageState extends ConsumerState<DriveShellPage> {
 
     // ── Map props derived from shell mode ───────────────────────────────
 
-    final _MapProps mapProps =
-        _computeMapProps(shell, home, presenceState, ref);
+    final _MapProps mapProps = _computeMapProps(
+      shell,
+      home,
+      presenceState,
+      ref,
+    );
 
     // ── Top overlays + banners ──────────────────────────────────────────
 
@@ -272,8 +318,9 @@ class _DriveShellPageState extends ConsumerState<DriveShellPage> {
     final Widget body = _buildBody(shell);
 
     return ScreenScaffold(
-      bottomBar:
-          shell.isIdle ? const DriverTabBar(active: DriverTab.drive) : null,
+      bottomBar: shell.isIdle
+          ? const DriverTabBar(active: DriverTab.drive)
+          : null,
       child: Stack(
         fit: StackFit.expand,
         children: <Widget>[
@@ -289,12 +336,7 @@ class _DriveShellPageState extends ConsumerState<DriveShellPage> {
               fitBounds: mapProps.fitBounds,
             ),
           ),
-          Positioned(
-            top: 12,
-            left: 16,
-            right: 16,
-            child: topOverlay,
-          ),
+          Positioned(top: 12, left: 16, right: 16, child: topOverlay),
           if (banner != null)
             Positioned(top: 76, left: 16, right: 16, child: banner),
           if (subTop != null)
@@ -305,19 +347,21 @@ class _DriveShellPageState extends ConsumerState<DriveShellPage> {
             duration: const Duration(milliseconds: 240),
             transitionBuilder: (Widget child, Animation<double> a) {
               return SlideTransition(
-                position: Tween<Offset>(
-                  begin: const Offset(0, 0.15),
-                  end: Offset.zero,
-                ).animate(CurvedAnimation(
-                  parent: a,
-                  curve: Curves.easeOutCubic,
-                )),
+                position:
+                    Tween<Offset>(
+                      begin: const Offset(0, 0.15),
+                      end: Offset.zero,
+                    ).animate(
+                      CurvedAnimation(parent: a, curve: Curves.easeOutCubic),
+                    ),
                 child: FadeTransition(opacity: a, child: child),
               );
             },
             child: Align(
-              key: ValueKey<String>('body_${shell.mode.name}_'
-                  '${shell.activeRequestId ?? shell.activeTripId ?? ''}'),
+              key: ValueKey<String>(
+                'body_${shell.mode.name}_'
+                '${shell.activeRequestId ?? shell.activeTripId ?? ''}',
+              ),
               alignment: Alignment.bottomCenter,
               child: body,
             ),
@@ -353,8 +397,7 @@ class _DriveShellPageState extends ConsumerState<DriveShellPage> {
                 // Paused users go to the manage page (where the resume
                 // control lives); everyone else is funnelled to the
                 // paywall.
-                final bool paused =
-                    subState.subscription?.isPaused ?? false;
+                final bool paused = subState.subscription?.isPaused ?? false;
                 AppNavigation.push<void>(
                   paused ? AppRoutes.subscriptionManage : AppRoutes.paywall,
                 );
@@ -369,20 +412,22 @@ class _DriveShellPageState extends ConsumerState<DriveShellPage> {
                 // again. The presence controller already does both —
                 // we just close the sheet and let it run.
                 setState(() => _locationGateOpen = false);
-                final PresenceController p =
-                    ref.read(presenceControllerProvider.notifier);
-                final HomeController h =
-                    ref.read(homeControllerProvider.notifier);
+                final PresenceController p = ref.read(
+                  presenceControllerProvider.notifier,
+                );
+                final HomeController h = ref.read(
+                  homeControllerProvider.notifier,
+                );
                 final bool ok = await p.startStreaming();
                 if (!mounted) return;
                 if (ok) {
                   h.toggleOnline();
-                  unawaited(ref
-                      .read(marketplaceControllerProvider.notifier)
-                      .start());
-                  unawaited(ref
-                      .read(dashboardControllerProvider.notifier)
-                      .refresh());
+                  unawaited(
+                    ref.read(marketplaceControllerProvider.notifier).start(),
+                  );
+                  unawaited(
+                    ref.read(dashboardControllerProvider.notifier).refresh(),
+                  );
                 }
               },
               onOpenSettings: () async {
@@ -414,8 +459,9 @@ class _DriveShellPageState extends ConsumerState<DriveShellPage> {
 
     final HomeController homeC = ref.read(homeControllerProvider.notifier);
     final HomeState home = ref.read(homeControllerProvider);
-    final PresenceController presence =
-        ref.read(presenceControllerProvider.notifier);
+    final PresenceController presence = ref.read(
+      presenceControllerProvider.notifier,
+    );
 
     // Going offline is unconditional.
     if (home.isOnline) {
@@ -434,8 +480,9 @@ class _DriveShellPageState extends ConsumerState<DriveShellPage> {
     // Going online runs the gate checks first.
     final bool kycComplete =
         ref.read(kycControllerProvider).overall == KycOverallStatus.approved;
-    final bool subUnlocks =
-        ref.read(subscriptionControllerProvider).unlocksMarketplace;
+    final bool subUnlocks = ref
+        .read(subscriptionControllerProvider)
+        .unlocksMarketplace;
 
     if (!kycComplete) {
       setState(() => _kycGateOpen = true);
@@ -462,17 +509,15 @@ class _DriveShellPageState extends ConsumerState<DriveShellPage> {
       if (!mounted) return;
       if (ok) {
         homeC.toggleOnline();
-        unawaited(
-            ref.read(marketplaceControllerProvider.notifier).start());
-        unawaited(
-            ref.read(dashboardControllerProvider.notifier).refresh());
+        unawaited(ref.read(marketplaceControllerProvider.notifier).start());
+        unawaited(ref.read(dashboardControllerProvider.notifier).refresh());
       } else {
         final PresenceState ps = ref.read(presenceControllerProvider);
         final LocationPermState reason = _toGateReason(ps.permission);
         if (reason == LocationPermState.granted) {
           AppNotifier.error(
-            message: ps.error ??
-                "Couldn't start location. Try again in a moment.",
+            message:
+                ps.error ?? "Couldn't start location. Try again in a moment.",
           );
         } else {
           setState(() {
@@ -494,20 +539,22 @@ class _DriveShellPageState extends ConsumerState<DriveShellPage> {
   ) {
     final LatLng? driverFix =
         (presence.lastLat != null && presence.lastLng != null)
-            ? LatLng(presence.lastLat!, presence.lastLng!)
-            : null;
+        ? LatLng(presence.lastLat!, presence.lastLng!)
+        : null;
 
     switch (shell.mode) {
       case ShellMode.idle:
         // Match the feed's filter — pin only what the driver would
         // actually see in the request list.
-        final List<RideRequest> openRequests =
-            ref.watch(visibleRequestsProvider);
+        final List<RideRequest> openRequests = ref.watch(
+          visibleRequestsProvider,
+        );
         // DRV-075: render the demand heatmap polygons when the driver
         // has the overlay toggled on. Each cell becomes a square
         // polygon coloured by intensity relative to the hottest cell.
-        final DemandHeatmapState heatmap =
-            ref.watch(demandHeatmapControllerProvider);
+        final DemandHeatmapState heatmap = ref.watch(
+          demandHeatmapControllerProvider,
+        );
         return _MapProps(
           initialCenter: driverFix,
           initialZoom: 14,
@@ -530,8 +577,9 @@ class _DriveShellPageState extends ConsumerState<DriveShellPage> {
           return _MapProps(initialCenter: driverFix, initialZoom: 13);
         }
         final RideRequest? req = ref.watch(
-          rideRequestControllerProvider(shell.activeRequestId!)
-              .select((RideRequestState s) => s.request),
+          rideRequestControllerProvider(
+            shell.activeRequestId!,
+          ).select((RideRequestState s) => s.request),
         );
         if (req == null) {
           return _MapProps(initialCenter: driverFix, initialZoom: 13);
@@ -553,7 +601,7 @@ class _DriveShellPageState extends ConsumerState<DriveShellPage> {
         );
         final List<LatLng> directionsShape =
             ref.watch(routeAheadShapeProvider(biddingKey)).asData?.value ??
-                const <LatLng>[];
+            const <LatLng>[];
         final List<LatLng> previewPoints = directionsShape.length >= 2
             ? directionsShape
             : <LatLng>[pickupLatLng, dropoffLatLng];
@@ -562,7 +610,7 @@ class _DriveShellPageState extends ConsumerState<DriveShellPage> {
         // to the actual polyline; until then we frame the straight A-B.
         final ({LatLng a, LatLng b}) bidBounds =
             boundsForPoints(previewPoints) ??
-                (a: pickupLatLng, b: dropoffLatLng);
+            (a: pickupLatLng, b: dropoffLatLng);
         return _MapProps(
           initialCenter: centre,
           initialZoom: 13,
@@ -598,8 +646,9 @@ class _DriveShellPageState extends ConsumerState<DriveShellPage> {
           return _MapProps(initialCenter: driverFix, initialZoom: 14);
         }
         final Trip? trip = ref.watch(
-          activeTripControllerProvider(shell.activeTripId!)
-              .select((ActiveTripState s) => s.trip),
+          activeTripControllerProvider(
+            shell.activeTripId!,
+          ).select((ActiveTripState s) => s.trip),
         );
         if (trip == null) {
           return _MapProps(initialCenter: driverFix, initialZoom: 14);
@@ -607,11 +656,15 @@ class _DriveShellPageState extends ConsumerState<DriveShellPage> {
         // Recorder mutates `samples` by creating a new list each tick, so
         // a select on it correctly fires on each new breadcrumb.
         final List<LatLng> breadcrumb = ref
-            .watch(tripLocationRecorderProvider(shell.activeTripId!)
-                .select((TripLocationRecorderState s) => s.samples))
+            .watch(
+              tripLocationRecorderProvider(
+                shell.activeTripId!,
+              ).select((TripLocationRecorderState s) => s.samples),
+            )
             .map((dynamic s) => LatLng(s.lat as double, s.lng as double))
             .toList(growable: false);
-        final bool isLive = shell.mode == ShellMode.trip &&
+        final bool isLive =
+            shell.mode == ShellMode.trip &&
             (trip.state == TripState.enRoute ||
                 trip.state == TripState.arrived ||
                 trip.state == TripState.inProgress);
@@ -626,13 +679,15 @@ class _DriveShellPageState extends ConsumerState<DriveShellPage> {
         // via DRV-053 — this line is just the at-a-glance preview.
         final List<LiveMapPolyline> lines = <LiveMapPolyline>[];
         if (breadcrumb.length >= 2) {
-          lines.add(LiveMapPolyline(
-            id: 'breadcrumb',
-            points: breadcrumb,
-            color: '#34D399', // accent green = where we've been
-            width: 5,
-            opacity: 0.95,
-          ));
+          lines.add(
+            LiveMapPolyline(
+              id: 'breadcrumb',
+              points: breadcrumb,
+              color: '#34D399', // accent green = where we've been
+              width: 5,
+              opacity: 0.95,
+            ),
+          );
         }
         ({LatLng a, LatLng b})? tripBounds;
         if (driverFix != null && isLive) {
@@ -648,7 +703,7 @@ class _DriveShellPageState extends ConsumerState<DriveShellPage> {
             );
             final List<LatLng> directionsShape =
                 ref.watch(routeAheadShapeProvider(key)).asData?.value ??
-                    const <LatLng>[];
+                const <LatLng>[];
             // Stitch the EXACT driver position onto the front of the
             // polyline. The directions endpoint was queried with the
             // snapped coords, so its first point can sit ~100 m away
@@ -657,15 +712,17 @@ class _DriveShellPageState extends ConsumerState<DriveShellPage> {
             final List<LatLng> points = directionsShape.length >= 2
                 ? <LatLng>[driverFix, ...directionsShape]
                 : <LatLng>[driverFix, aheadTarget];
-            lines.add(LiveMapPolyline(
-              id: 'route_ahead',
-              points: points,
-              color: '#0B7F52', // darker brand-green = where we're heading
-              width: 4,
-              opacity: 0.85,
-            ));
-            tripBounds = boundsForPoints(points) ??
-                (a: driverFix, b: aheadTarget);
+            lines.add(
+              LiveMapPolyline(
+                id: 'route_ahead',
+                points: points,
+                color: '#0B7F52', // darker brand-green = where we're heading
+                width: 4,
+                opacity: 0.85,
+              ),
+            );
+            tripBounds =
+                boundsForPoints(points) ?? (a: driverFix, b: aheadTarget);
           }
         }
 
@@ -680,8 +737,7 @@ class _DriveShellPageState extends ConsumerState<DriveShellPage> {
         //     navigation happens in Google/Apple Maps via DRV-053; this
         //     just keeps the in-app map context useful.
         final bool followDuringTrip =
-            shell.mode == ShellMode.trip &&
-            trip.state == TripState.inProgress;
+            shell.mode == ShellMode.trip && trip.state == TripState.inProgress;
         return _MapProps(
           initialCenter: LatLng(trip.pickupLat, trip.pickupLng),
           initialZoom: 15,
@@ -744,10 +800,7 @@ class _DriveShellPageState extends ConsumerState<DriveShellPage> {
     }
   }
 
-  Widget _buildTopOverlay(
-    DriveShellState shell,
-    HomeState home,
-  ) {
+  Widget _buildTopOverlay(DriveShellState shell, HomeState home) {
     switch (shell.mode) {
       case ShellMode.idle:
         // The go-online/offline control now lives in the home sheet
@@ -772,20 +825,20 @@ class _DriveShellPageState extends ConsumerState<DriveShellPage> {
             // ),
             // const SizedBox(width: 10),
             _NotificationBell(
-              onTap: () =>
-                  AppNavigation.push(AppRoutes.notificationsInbox),
+              onTap: () => AppNavigation.push(AppRoutes.notificationsInbox),
             ),
           ],
         );
       case ShellMode.bidding:
         if (shell.activeRequestId == null) return const SizedBox.shrink();
         final RideRequestState bid = ref.watch(
-            rideRequestControllerProvider(shell.activeRequestId!));
+          rideRequestControllerProvider(shell.activeRequestId!),
+        );
         final Color timerColor = bid.secondsLeft <= 5
             ? context.red
             : bid.secondsLeft <= 15
-                ? context.amber
-                : context.accent;
+            ? context.amber
+            : context.accent;
         return Row(
           children: <Widget>[
             Expanded(
@@ -797,8 +850,7 @@ class _DriveShellPageState extends ConsumerState<DriveShellPage> {
             ),
             const SizedBox(width: 10),
             Container(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
               decoration: BoxDecoration(
                 color: context.surface.withValues(alpha: 0.9),
                 borderRadius: BorderRadius.circular(20),
@@ -813,11 +865,15 @@ class _DriveShellPageState extends ConsumerState<DriveShellPage> {
       case ShellMode.tripCancelled:
         final Trip? trip = shell.activeTripId == null
             ? null
-            : ref.watch(activeTripControllerProvider(shell.activeTripId!)
-                .select((ActiveTripState s) => s.trip));
+            : ref.watch(
+                activeTripControllerProvider(
+                  shell.activeTripId!,
+                ).select((ActiveTripState s) => s.trip),
+              );
         final TripState state = trip?.state ?? TripState.assigned;
-        final String? riderName =
-            (trip?.hasRiderName ?? false) ? trip!.riderFirstName : null;
+        final String? riderName = (trip?.hasRiderName ?? false)
+            ? trip!.riderFirstName
+            : null;
         return Row(
           children: <Widget>[
             _StagePill(state: state, riderName: riderName),
@@ -844,9 +900,7 @@ class _DriveShellPageState extends ConsumerState<DriveShellPage> {
     if (home.isOnline) return _DemandBanner();
     if (!kycComplete) return _KycBanner(status: kycStatus);
     if (!home.hasVehicle) {
-      return _AddVehicleBanner(
-        onAdd: () => setState(() => _gateOpen = true),
-      );
+      return _AddVehicleBanner(onAdd: () => setState(() => _gateOpen = true));
     }
     return null;
   }
@@ -857,8 +911,9 @@ class _DriveShellPageState extends ConsumerState<DriveShellPage> {
   Widget? _buildSubTopArea(DriveShellState shell) {
     if (!shell.isTripLike || shell.activeTripId == null) return null;
     final Trip? trip = ref.watch(
-      activeTripControllerProvider(shell.activeTripId!)
-          .select((ActiveTripState s) => s.trip),
+      activeTripControllerProvider(
+        shell.activeTripId!,
+      ).select((ActiveTripState s) => s.trip),
     );
     if (trip == null) return null;
     return _TripRouteCard(trip: trip);
@@ -895,26 +950,11 @@ List<LiveMapPolygon> _heatmapPolygons(DemandHeatmapState heatmap) {
         id: 'heatmap_${c.cellId}',
         rings: <List<LatLng>>[
           <LatLng>[
-            LatLng(
-              c.centerLat - c.latSpan / 2,
-              c.centerLng - c.lngSpan / 2,
-            ),
-            LatLng(
-              c.centerLat - c.latSpan / 2,
-              c.centerLng + c.lngSpan / 2,
-            ),
-            LatLng(
-              c.centerLat + c.latSpan / 2,
-              c.centerLng + c.lngSpan / 2,
-            ),
-            LatLng(
-              c.centerLat + c.latSpan / 2,
-              c.centerLng - c.lngSpan / 2,
-            ),
-            LatLng(
-              c.centerLat - c.latSpan / 2,
-              c.centerLng - c.lngSpan / 2,
-            ),
+            LatLng(c.centerLat - c.latSpan / 2, c.centerLng - c.lngSpan / 2),
+            LatLng(c.centerLat - c.latSpan / 2, c.centerLng + c.lngSpan / 2),
+            LatLng(c.centerLat + c.latSpan / 2, c.centerLng + c.lngSpan / 2),
+            LatLng(c.centerLat + c.latSpan / 2, c.centerLng - c.lngSpan / 2),
+            LatLng(c.centerLat - c.latSpan / 2, c.centerLng - c.lngSpan / 2),
           ],
         ],
         fillColor: _heatmapFill(c.requestCount, max),
@@ -929,11 +969,11 @@ List<LiveMapPolygon> _heatmapPolygons(DemandHeatmapState heatmap) {
 /// Five-step ramp: cool teal → amber → red as cell intensity rises.
 String _heatmapFill(int count, int max) {
   final double t = (count / max).clamp(0.0, 1.0);
-  if (t < 0.2) return '#34D399';   // teal
-  if (t < 0.45) return '#FCD34D';  // light amber
-  if (t < 0.7) return '#F59E0B';   // amber
-  if (t < 0.9) return '#F97316';   // orange
-  return '#EF4444';                // red — peak demand
+  if (t < 0.2) return '#34D399'; // teal
+  if (t < 0.45) return '#FCD34D'; // light amber
+  if (t < 0.7) return '#F59E0B'; // amber
+  if (t < 0.9) return '#F97316'; // orange
+  return '#EF4444'; // red — peak demand
 }
 
 class _MapProps {
@@ -975,20 +1015,20 @@ class _StagePill extends StatelessWidget {
     final String? name = riderName?.toUpperCase();
     final (String label, Color fill, Color ink) = switch (state) {
       TripState.assigned => (
-          name == null ? 'TRIP ASSIGNED' : 'GOT IT · $name',
-          context.coral,
-          context.coralInk,
-        ),
+        name == null ? 'TRIP ASSIGNED' : 'GOT IT · $name',
+        context.coral,
+        context.coralInk,
+      ),
       TripState.enRoute => (
-          name == null ? 'EN ROUTE' : 'EN ROUTE TO $name',
-          context.coral,
-          context.coralInk,
-        ),
+        name == null ? 'EN ROUTE' : 'EN ROUTE TO $name',
+        context.coral,
+        context.coralInk,
+      ),
       TripState.arrived => (
-          name == null ? 'WAITING FOR RIDER' : 'WAITING FOR $name',
-          context.coral,
-          context.coralInk,
-        ),
+        name == null ? 'WAITING FOR RIDER' : 'WAITING FOR $name',
+        context.coral,
+        context.coralInk,
+      ),
       TripState.inProgress => ('ON TRIP', context.coral, context.coralInk),
       TripState.completed => ('TRIP COMPLETE', context.coral, context.coralInk),
       TripState.cancelled => ('TRIP CANCELLED', context.red, context.ivory),
@@ -999,10 +1039,7 @@ class _StagePill extends StatelessWidget {
         color: fill,
         borderRadius: BorderRadius.circular(20),
       ),
-      child: Text(
-        label,
-        style: AppTextStyles.eyebrow.copyWith(color: ink),
-      ),
+      child: Text(label, style: AppTextStyles.eyebrow.copyWith(color: ink)),
     );
   }
 }
@@ -1126,10 +1163,13 @@ class _DemandBanner extends StatelessWidget {
                   TextSpan(
                     text: 'High demand',
                     style: TextStyle(
-                        color: context.amber, fontWeight: FontWeight.w700),
+                      color: context.amber,
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
                   const TextSpan(
-                    text: ' near Victoria Island — great time to raise your rate.',
+                    text:
+                        ' near Victoria Island — great time to raise your rate.',
                   ),
                 ],
               ),
@@ -1148,8 +1188,9 @@ class _KycBanner extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final bool inReview = status == KycOverallStatus.pendingReview;
-    final String headline =
-        inReview ? 'Verification under review' : 'Complete verification';
+    final String headline = inReview
+        ? 'Verification under review'
+        : 'Complete verification';
     final String subline = inReview
         ? "We'll notify you when it's approved."
         : 'Upload your docs to start accepting trips.';
@@ -1195,16 +1236,15 @@ class _KycBanner extends StatelessWidget {
             style: ElevatedButton.styleFrom(
               backgroundColor: tone,
               foregroundColor: inReview ? context.bg : context.amberInk,
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
               minimumSize: const Size(0, 30),
               shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8)),
+                borderRadius: BorderRadius.circular(8),
+              ),
             ),
             child: Text(
               cta,
-              style:
-                  const TextStyle(fontSize: 11, fontWeight: FontWeight.w700),
+              style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700),
             ),
           ),
         ],
@@ -1238,7 +1278,9 @@ class _AddVehicleBanner extends StatelessWidget {
                   TextSpan(
                     text: 'Add your vehicle',
                     style: TextStyle(
-                        color: context.amber, fontWeight: FontWeight.w700),
+                      color: context.amber,
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
                   const TextSpan(text: ' to start accepting trips.'),
                 ],
@@ -1251,11 +1293,11 @@ class _AddVehicleBanner extends StatelessWidget {
             style: ElevatedButton.styleFrom(
               backgroundColor: context.amber,
               foregroundColor: context.amberInk,
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
               minimumSize: const Size(0, 30),
               shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8)),
+                borderRadius: BorderRadius.circular(8),
+              ),
             ),
             child: const Text(
               'Add now',
@@ -1301,24 +1343,23 @@ class _NotificationBell extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final int unread = ref.watch(notificationsInboxControllerProvider
-        .select((NotificationsInboxState s) => s.unreadCount));
+    final int unread = ref.watch(
+      notificationsInboxControllerProvider.select(
+        (NotificationsInboxState s) => s.unreadCount,
+      ),
+    );
 
     return Stack(
       clipBehavior: Clip.none,
       children: <Widget>[
-        IconCircleButton(
-          icon: DrivioIcons.notification,
-          onTap: onTap,
-        ),
+        IconCircleButton(icon: DrivioIcons.notification, onTap: onTap),
         if (unread > 0)
           Positioned(
             top: -2,
             right: -2,
             child: Container(
               constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
               alignment: Alignment.center,
               decoration: BoxDecoration(
                 color: context.red,
@@ -1397,8 +1438,7 @@ class _TripRouteCard extends StatelessWidget {
               children: <Widget>[
                 Text(
                   'PICKUP',
-                  style: AppTextStyles.eyebrow
-                      .copyWith(color: context.textDim),
+                  style: AppTextStyles.eyebrow.copyWith(color: context.textDim),
                 ),
                 Text(
                   trip.pickupAddress ?? 'Pickup',
@@ -1413,8 +1453,7 @@ class _TripRouteCard extends StatelessWidget {
                 const SizedBox(height: 6),
                 Text(
                   'DROP-OFF · ${trip.distanceKm.toStringAsFixed(1)} KM · ${trip.durationMin} MIN',
-                  style: AppTextStyles.eyebrow
-                      .copyWith(color: context.textDim),
+                  style: AppTextStyles.eyebrow.copyWith(color: context.textDim),
                 ),
                 Text(
                   trip.dropoffAddress ?? 'Dropoff',

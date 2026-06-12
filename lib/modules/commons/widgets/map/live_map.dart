@@ -1,7 +1,11 @@
 import 'dart:async';
 import 'dart:math' show Point;
+import 'dart:typed_data';
+import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show rootBundle;
+import 'package:geolocator/geolocator.dart';
 import 'package:maplibre_gl/maplibre_gl.dart';
 
 /// OpenFreeMap "liberty" style — free vector tiles, no API key, no quota.
@@ -109,7 +113,8 @@ class LiveMap extends StatefulWidget {
   /// When true, the camera follows the user's location (GPS-tracked).
   final bool followUser;
 
-  /// When true, renders the platform's user location indicator (blue dot).
+  /// When true, renders the driver's own position as the brand car
+  /// symbol (replaces the old platform blue dot).
   final bool showUserLocation;
 
   final List<LiveMapMarker> markers;
@@ -121,6 +126,9 @@ class LiveMap extends StatefulWidget {
   final List<LiveMapPolygon> polygons;
 
   final void Function(LatLng tappedPoint)? onTap;
+
+  /// Unused since the platform location layer was replaced by the brand
+  /// car symbol; kept for API compatibility.
   final void Function(UserLocation location)? onUserLocationUpdated;
 
   final double minZoom;
@@ -147,6 +155,21 @@ class _LiveMapState extends State<LiveMap> {
   final Map<String, Fill> _fillsById = <String, Fill>{};
   final Map<String, Line> _linesById = <String, Line>{};
 
+  static const String _kCarImageName = 'drivio-car-marker';
+  bool _carImageRegistered = false;
+
+  // Own-position car: replaces the platform blue puck so the driver
+  // sees themselves as the brand car. Polled via getCurrentPosition —
+  // NOT getPositionStream, because geolocator supports only one
+  // platform position stream and the presence controller owns it; a
+  // second stream subscription dies with "already listening". The
+  // camera-follow the native tracking mode used to provide is
+  // re-implemented in [_onOwnPosition].
+  Timer? _ownPositionTimer;
+  bool _ownPollInFlight = false;
+  Symbol? _ownCarSymbol;
+  double _lastHeadingDeg = 0;
+
   @override
   Widget build(BuildContext context) {
     final LatLng centre = widget.initialCenter ?? _kDefaultCentre;
@@ -156,22 +179,20 @@ class _LiveMapState extends State<LiveMap> {
         target: centre,
         zoom: widget.initialZoom,
       ),
-      minMaxZoomPreference: MinMaxZoomPreference(widget.minZoom, widget.maxZoom),
-      myLocationEnabled: widget.showUserLocation,
-      myLocationTrackingMode: widget.followUser
-          ? MyLocationTrackingMode.trackingGps
-          : MyLocationTrackingMode.none,
-      // Render mode requires myLocationEnabled=true. Fall back to `normal`
-      // (no heading indicator) when the dot itself is off.
-      myLocationRenderMode: widget.showUserLocation
-          ? MyLocationRenderMode.gps
-          : MyLocationRenderMode.normal,
+      minMaxZoomPreference: MinMaxZoomPreference(
+        widget.minZoom,
+        widget.maxZoom,
+      ),
+      // The platform location layer stays off — the brand car symbol is
+      // the driver's own-position indicator (see _maybeStartOwnLocation).
+      myLocationEnabled: false,
+      myLocationTrackingMode: MyLocationTrackingMode.none,
+      myLocationRenderMode: MyLocationRenderMode.normal,
       trackCameraPosition: true,
       compassEnabled: true,
       attributionButtonPosition: AttributionButtonPosition.bottomRight,
       onMapCreated: (MapLibreMapController c) => _controller = c,
       onStyleLoadedCallback: _onStyleLoaded,
-      onUserLocationUpdated: widget.onUserLocationUpdated,
       onMapClick: widget.onTap == null
           ? null
           : (Point<double> _, LatLng coord) => widget.onTap!(coord),
@@ -180,8 +201,10 @@ class _LiveMapState extends State<LiveMap> {
 
   Future<void> _onStyleLoaded() async {
     _styleLoaded = true;
+    await _registerCarImageIfNeeded();
     await _redrawAll();
     await _maybeFitBounds();
+    unawaited(_maybeStartOwnLocation());
   }
 
   @override
@@ -192,6 +215,130 @@ class _LiveMapState extends State<LiveMap> {
     if (widget.fitBounds != oldWidget.fitBounds && widget.fitBounds != null) {
       unawaited(_maybeFitBounds());
     }
+    // Re-evaluated on every parent rebuild so the car appears as soon
+    // as location permission lands (pages request it when going online).
+    unawaited(_maybeStartOwnLocation());
+  }
+
+  @override
+  void dispose() {
+    _ownPositionTimer?.cancel();
+    super.dispose();
+  }
+
+  /// The illustrated top-down brand car (assets/images/car_marker.png),
+  /// downscaled to ~44 logical px tall at 3x.
+  Future<void> _registerCarImageIfNeeded() async {
+    if (_carImageRegistered || _controller == null) return;
+    try {
+      final ByteData data = await rootBundle.load(
+        'assets/images/car_marker.png',
+      );
+      final ui.Codec codec = await ui.instantiateImageCodec(
+        data.buffer.asUint8List(),
+        targetHeight: 132,
+      );
+      final ui.FrameInfo frame = await codec.getNextFrame();
+      final ByteData? png = await frame.image.toByteData(
+        format: ui.ImageByteFormat.png,
+      );
+      if (png == null) return;
+      await _controller!.addImage(_kCarImageName, png.buffer.asUint8List());
+      _carImageRegistered = true;
+    } catch (_) {
+      // Best-effort — without the image the own-position car simply
+      // doesn't render; markers/polylines stay intact.
+    }
+  }
+
+  Future<void> _maybeStartOwnLocation() async {
+    if (!widget.showUserLocation) {
+      await _stopOwnLocation();
+      return;
+    }
+    if (_ownPositionTimer != null) return;
+    try {
+      if (!await Geolocator.isLocationServiceEnabled()) return;
+      final LocationPermission perm = await Geolocator.checkPermission();
+      if (perm != LocationPermission.whileInUse &&
+          perm != LocationPermission.always) {
+        return;
+      }
+    } catch (_) {
+      return;
+    }
+    if (!mounted || _ownPositionTimer != null) return;
+    _ownPositionTimer = Timer.periodic(
+      const Duration(seconds: 3),
+      (_) => unawaited(_pollOwnPosition()),
+    );
+    unawaited(_pollOwnPosition());
+  }
+
+  Future<void> _pollOwnPosition() async {
+    if (_ownPollInFlight || !mounted) return;
+    _ownPollInFlight = true;
+    try {
+      final Position p = await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.high,
+          timeLimit: Duration(seconds: 8),
+        ),
+      );
+      await _onOwnPosition(p);
+    } catch (_) {
+      // No fix this round (timeout, emulator without a location, etc.)
+      // — the next tick retries.
+    } finally {
+      _ownPollInFlight = false;
+    }
+  }
+
+  Future<void> _stopOwnLocation() async {
+    _ownPositionTimer?.cancel();
+    _ownPositionTimer = null;
+    final Symbol? s = _ownCarSymbol;
+    _ownCarSymbol = null;
+    if (s != null && _controller != null) {
+      try {
+        await _controller!.removeSymbol(s);
+      } catch (_) {}
+    }
+  }
+
+  Future<void> _onOwnPosition(Position p) async {
+    if (!mounted || _controller == null || !_styleLoaded) return;
+    final LatLng pos = LatLng(p.latitude, p.longitude);
+    // GPS course is noise when stationary — keep the last good heading
+    // so the car doesn't snap back to north at every stop.
+    if (p.heading >= 0 && p.speed >= 1.0) {
+      _lastHeadingDeg = p.heading;
+    }
+    if (_carImageRegistered) {
+      try {
+        if (_ownCarSymbol == null) {
+          _ownCarSymbol = await _controller!.addSymbol(
+            SymbolOptions(
+              geometry: pos,
+              iconImage: _kCarImageName,
+              iconSize: 1,
+              iconRotate: _lastHeadingDeg,
+              iconAnchor: 'center',
+            ),
+          );
+        } else {
+          await _controller!.updateSymbol(
+            _ownCarSymbol!,
+            SymbolOptions(geometry: pos, iconRotate: _lastHeadingDeg),
+          );
+        }
+      } catch (_) {}
+    }
+    if (widget.followUser) {
+      try {
+        await _controller!.animateCamera(CameraUpdate.newLatLng(pos));
+      } catch (_) {}
+    }
   }
 
   Future<void> _maybeFitBounds() async {
@@ -199,14 +346,18 @@ class _LiveMapState extends State<LiveMap> {
     if (b == null || _controller == null) {
       return;
     }
-    final double south =
-        b.a.latitude < b.b.latitude ? b.a.latitude : b.b.latitude;
-    final double north =
-        b.a.latitude > b.b.latitude ? b.a.latitude : b.b.latitude;
-    final double west =
-        b.a.longitude < b.b.longitude ? b.a.longitude : b.b.longitude;
-    final double east =
-        b.a.longitude > b.b.longitude ? b.a.longitude : b.b.longitude;
+    final double south = b.a.latitude < b.b.latitude
+        ? b.a.latitude
+        : b.b.latitude;
+    final double north = b.a.latitude > b.b.latitude
+        ? b.a.latitude
+        : b.b.latitude;
+    final double west = b.a.longitude < b.b.longitude
+        ? b.a.longitude
+        : b.b.longitude;
+    final double east = b.a.longitude > b.b.longitude
+        ? b.a.longitude
+        : b.b.longitude;
     await _controller!.animateCamera(
       CameraUpdate.newLatLngBounds(
         LatLngBounds(
@@ -242,8 +393,9 @@ class _LiveMapState extends State<LiveMap> {
       final LiveMapMarker m = entry.value;
       final Circle? existing = _circlesById[entry.key];
       if (existing == null) {
-        _circlesById[entry.key] =
-            await _controller!.addCircle(_circleOptionsFor(m));
+        _circlesById[entry.key] = await _controller!.addCircle(
+          _circleOptionsFor(m),
+        );
       } else {
         // Update geometry / colour in place.
         await _controller!.updateCircle(existing, _circleOptionsFor(m));
@@ -251,12 +403,10 @@ class _LiveMapState extends State<LiveMap> {
     }
 
     // Polylines: diff by id. Skip lines with <2 points.
-    final Map<String, LiveMapPolyline> nextLineById =
-        <String, LiveMapPolyline>{
+    final Map<String, LiveMapPolyline> nextLineById = <String, LiveMapPolyline>{
       for (final LiveMapPolyline p in widget.polylines) p.id: p,
     };
-    final Map<String, LiveMapPolyline> prevLineById =
-        <String, LiveMapPolyline>{
+    final Map<String, LiveMapPolyline> prevLineById = <String, LiveMapPolyline>{
       for (final LiveMapPolyline p in old.polylines) p.id: p,
     };
 
@@ -291,10 +441,12 @@ class _LiveMapState extends State<LiveMap> {
     }
 
     // Polygons: diff by id.
-    final Map<String, LiveMapPolygon> nextPolyById =
-        <String, LiveMapPolygon>{for (final p in widget.polygons) p.id: p};
-    final Map<String, LiveMapPolygon> prevPolyById =
-        <String, LiveMapPolygon>{for (final p in old.polygons) p.id: p};
+    final Map<String, LiveMapPolygon> nextPolyById = <String, LiveMapPolygon>{
+      for (final p in widget.polygons) p.id: p,
+    };
+    final Map<String, LiveMapPolygon> prevPolyById = <String, LiveMapPolygon>{
+      for (final p in old.polygons) p.id: p,
+    };
 
     for (final String id in prevPolyById.keys.toList()) {
       if (!nextPolyById.containsKey(id)) {
@@ -304,13 +456,11 @@ class _LiveMapState extends State<LiveMap> {
         }
       }
     }
-    for (final MapEntry<String, LiveMapPolygon> entry
-        in nextPolyById.entries) {
+    for (final MapEntry<String, LiveMapPolygon> entry in nextPolyById.entries) {
       final LiveMapPolygon p = entry.value;
       final Fill? existing = _fillsById[entry.key];
       if (existing == null) {
-        _fillsById[entry.key] =
-            await _controller!.addFill(_fillOptionsFor(p));
+        _fillsById[entry.key] = await _controller!.addFill(_fillOptionsFor(p));
       } else {
         await _controller!.updateFill(existing, _fillOptionsFor(p));
       }
@@ -320,12 +470,14 @@ class _LiveMapState extends State<LiveMap> {
   Future<void> _redrawAll() async {
     if (_controller == null) return;
     // First paint: draw everything against current props (treat old as empty).
-    await _diff(LiveMap(
-      initialCenter: widget.initialCenter,
-      initialZoom: widget.initialZoom,
-      followUser: widget.followUser,
-      showUserLocation: widget.showUserLocation,
-    ));
+    await _diff(
+      LiveMap(
+        initialCenter: widget.initialCenter,
+        initialZoom: widget.initialZoom,
+        followUser: widget.followUser,
+        showUserLocation: widget.showUserLocation,
+      ),
+    );
   }
 
   CircleOptions _circleOptionsFor(LiveMapMarker m) {
@@ -402,5 +554,4 @@ class _LiveMapState extends State<LiveMap> {
     }
     return true;
   }
-
 }

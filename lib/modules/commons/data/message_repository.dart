@@ -15,5 +15,9 @@ abstract class MessageRepository {
 
   /// Realtime stream of new messages for a trip. Only new inserts are
   /// emitted; the caller hydrates the initial list via [listForTrip].
-  Stream<Message> watchForTrip(String tripId);
+  ///
+  /// [channelKey] namespaces the realtime topic — Phoenix allows one
+  /// channel per topic per socket, so the chat page and the unread
+  /// badge each need their own.
+  Stream<Message> watchForTrip(String tripId, {String channelKey = 'messages'});
 }

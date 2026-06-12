@@ -60,8 +60,8 @@ class TripLocationRecorder extends StateNotifier<TripLocationRecorderState> {
     required this.tripId,
     required TripLocationRepository repo,
     required this.readPresence,
-  })  : _repo = repo,
-        super(const TripLocationRecorderState());
+  }) : _repo = repo,
+       super(const TripLocationRecorderState());
 
   final String tripId;
   final TripLocationRepository _repo;
@@ -80,7 +80,12 @@ class TripLocationRecorder extends StateNotifier<TripLocationRecorderState> {
   void onTripStateChanged(TripState newState) {
     if (newState == _lastSeenState) return;
     _lastSeenState = newState;
-    final bool isLive = newState == TripState.enRoute ||
+    // `assigned` counts as live so the passenger's confirm page can show
+    // the car from the moment of acceptance, not only after "I'm on my
+    // way".
+    final bool isLive =
+        newState == TripState.assigned ||
+        newState == TripState.enRoute ||
         newState == TripState.arrived ||
         newState == TripState.inProgress;
     if (isLive && !state.isRecording) {
@@ -93,7 +98,10 @@ class TripLocationRecorder extends StateNotifier<TripLocationRecorderState> {
   void _start() {
     _broadcastTicker?.cancel();
     _persistTicker?.cancel();
-    _broadcastTicker = Timer.periodic(_kBroadcastInterval, (_) => _tickBroadcast());
+    _broadcastTicker = Timer.periodic(
+      _kBroadcastInterval,
+      (_) => _tickBroadcast(),
+    );
     _persistTicker = Timer.periodic(_kPersistInterval, (_) => _tickPersist());
     state = state.copyWith(isRecording: true, clearError: true);
     // Hydrate previously-recorded breadcrumbs (covers cold-start resume
@@ -104,12 +112,14 @@ class TripLocationRecorder extends StateNotifier<TripLocationRecorderState> {
 
   Future<void> _hydrateExistingSamples() async {
     try {
-      final List<TripLocationSample> rows =
-          await _repo.listSamples(tripId: tripId);
+      final List<TripLocationSample> rows = await _repo.listSamples(
+        tripId: tripId,
+      );
       if (!mounted) return;
       // Server returns newest-first; reverse for chronological order.
-      final List<TripLocationSample> chrono =
-          rows.reversed.toList(growable: true);
+      final List<TripLocationSample> chrono = rows.reversed.toList(
+        growable: true,
+      );
       state = state.copyWith(samples: chrono);
     } catch (_) {
       // Best effort; leave samples as-is.
@@ -128,11 +138,7 @@ class TripLocationRecorder extends StateNotifier<TripLocationRecorderState> {
     final PresenceState p = readPresence();
     if (p.lastLat == null || p.lastLng == null) return;
     try {
-      await _repo.broadcast(
-        tripId: tripId,
-        lat: p.lastLat!,
-        lng: p.lastLng!,
-      );
+      await _repo.broadcast(tripId: tripId, lat: p.lastLat!, lng: p.lastLng!);
       if (!mounted) return;
       state = state.copyWith(lastBroadcastAt: DateTime.now());
     } catch (_) {
@@ -178,12 +184,13 @@ class TripLocationRecorder extends StateNotifier<TripLocationRecorderState> {
 }
 
 final tripLocationRecorderProvider = StateNotifierProvider.autoDispose
-    .family<TripLocationRecorder, TripLocationRecorderState, String>(
-  (Ref ref, String tripId) {
-    return TripLocationRecorder(
-      tripId: tripId,
-      repo: locator<TripLocationRepository>(),
-      readPresence: () => ref.read(presenceControllerProvider),
-    );
-  },
-);
+    .family<TripLocationRecorder, TripLocationRecorderState, String>((
+      Ref ref,
+      String tripId,
+    ) {
+      return TripLocationRecorder(
+        tripId: tripId,
+        repo: locator<TripLocationRepository>(),
+        readPresence: () => ref.read(presenceControllerProvider),
+      );
+    });

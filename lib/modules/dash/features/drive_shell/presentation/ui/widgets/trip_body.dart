@@ -8,6 +8,7 @@ import 'package:drivio_driver/modules/commons/utils/navigation_launcher.dart';
 import 'package:drivio_driver/modules/dash/features/drive_shell/presentation/logic/controller/drive_shell_controller.dart';
 import 'package:drivio_driver/modules/trip/features/active_trip/presentation/logic/controller/active_trip_controller.dart';
 import 'package:drivio_driver/modules/trip/features/active_trip/presentation/logic/controller/passenger_rating_controller.dart';
+import 'package:drivio_driver/modules/trip/features/chat/presentation/logic/controller/unread_chat_controller.dart';
 
 /// Bottom-sheet body shown in any trip-like shell mode — SCR-023 through
 /// SCR-027.
@@ -23,10 +24,12 @@ class TripBody extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final ActiveTripState state =
-        ref.watch(activeTripControllerProvider(tripId));
-    final ActiveTripController c =
-        ref.read(activeTripControllerProvider(tripId).notifier);
+    final ActiveTripState state = ref.watch(
+      activeTripControllerProvider(tripId),
+    );
+    final ActiveTripController c = ref.read(
+      activeTripControllerProvider(tripId).notifier,
+    );
 
     if (state.isLoading) {
       return const SizedBox(
@@ -49,9 +52,8 @@ class TripBody extends ConsumerWidget {
               const SizedBox(height: 10),
               DrivioButton(
                 label: 'Close',
-                onPressed: () => ref
-                    .read(driveShellControllerProvider.notifier)
-                    .exitTrip(),
+                onPressed: () =>
+                    ref.read(driveShellControllerProvider.notifier).exitTrip(),
               ),
             ],
           ),
@@ -66,59 +68,44 @@ class TripBody extends ConsumerWidget {
       child: isCompleted
           ? _CompletedBody(
               trip: trip,
-              onContinue: () => ref
-                  .read(driveShellControllerProvider.notifier)
-                  .exitTrip(),
+              onContinue: () =>
+                  ref.read(driveShellControllerProvider.notifier).exitTrip(),
             )
           : isCancelled
-              ? _CancelledBody(
-                  trip: trip,
-                  onContinue: () => ref
-                      .read(driveShellControllerProvider.notifier)
-                      .exitTrip(),
-                )
-              : _InTripBody(state: state, controller: c),
+          ? _CancelledBody(
+              trip: trip,
+              onContinue: () =>
+                  ref.read(driveShellControllerProvider.notifier).exitTrip(),
+            )
+          : _InTripBody(
+              state: state,
+              controller: c,
+              unreadChats: ref.watch(unreadChatControllerProvider(trip.id)),
+            ),
     );
   }
 }
 
 class _InTripBody extends StatelessWidget {
-  const _InTripBody({required this.state, required this.controller});
+  const _InTripBody({
+    required this.state,
+    required this.controller,
+    required this.unreadChats,
+  });
 
   final ActiveTripState state;
   final ActiveTripController controller;
+  final int unreadChats;
 
   @override
   Widget build(BuildContext context) {
     final Trip trip = state.trip!;
     final TripState s = trip.state;
     final _NavTarget? navTarget = _navTargetFor(trip);
-    final double? progress = _inProgressFraction(trip);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: <Widget>[
-        // SCR-026 — a slim live progress bar sits at the very top of the
-        // in-progress sheet. Computed from elapsed vs expected duration.
-        if (s == TripState.inProgress && progress != null) ...<Widget>[
-          ClipRRect(
-            borderRadius: BorderRadius.circular(99),
-            child: SizedBox(
-              height: 4,
-              child: Stack(
-                children: <Widget>[
-                  Container(color: context.surface3),
-                  FractionallySizedBox(
-                    widthFactor: progress,
-                    child: Container(color: context.coral),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(height: 16),
-        ],
-
         // Eyebrow.
         Text(
           _eyebrow(s),
@@ -163,13 +150,17 @@ class _InTripBody extends StatelessWidget {
         const SizedBox(height: 18),
 
         // Primary action row — matches the mockup's button layout.
-        _PrimaryActions(state: state, controller: controller),
+        _PrimaryActions(
+          state: state,
+          controller: controller,
+          unreadChats: unreadChats,
+        ),
 
         // Quiet utility row — Call, Chat (where not already primary),
         // Navigate. Keeps the actions the mockup hides out of the hero
         // without losing them.
         const SizedBox(height: 12),
-        _UtilityRow(trip: trip, navTarget: navTarget),
+        _UtilityRow(trip: trip, navTarget: navTarget, unreadChats: unreadChats),
 
         // Cancel — a low-emphasis link, last.
         const SizedBox(height: 4),
@@ -255,18 +246,10 @@ class _InTripBody extends StatelessWidget {
   static String _cap(String s) =>
       s.isEmpty ? s : '${s[0].toUpperCase()}${s.substring(1)}';
 
-  /// Elapsed/expected fraction for the in-progress bar; null when we
-  /// can't compute it honestly (no start time or no expected duration).
-  static double? _inProgressFraction(Trip trip) {
-    final DateTime? started = trip.startedAt;
-    final int? expected = trip.expectedDurationS;
-    if (started == null || expected == null || expected <= 0) return null;
-    final int elapsed = DateTime.now().difference(started).inSeconds;
-    return (elapsed / expected).clamp(0.0, 1.0);
-  }
-
   Future<void> _showCancelReasonSheet(
-      BuildContext context, ActiveTripController c) async {
+    BuildContext context,
+    ActiveTripController c,
+  ) async {
     final String? reason = await showModalBottomSheet<String>(
       context: context,
       isScrollControlled: true,
@@ -311,16 +294,20 @@ class _InTripBody extends StatelessWidget {
 /// drives `advance()`; the ghost slot carries Chat (assigned/arrived)
 /// or Safety (in-progress). En-route is a single full-width primary.
 class _PrimaryActions extends StatelessWidget {
-  const _PrimaryActions({required this.state, required this.controller});
+  const _PrimaryActions({
+    required this.state,
+    required this.controller,
+    required this.unreadChats,
+  });
 
   final ActiveTripState state;
   final ActiveTripController controller;
+  final int unreadChats;
 
   @override
   Widget build(BuildContext context) {
     final Trip trip = state.trip!;
-    final String cta =
-        state.isAdvancing ? 'Updating…' : _ctaLabel(trip.state);
+    final String cta = state.isAdvancing ? 'Updating…' : _ctaLabel(trip.state);
     final DrivioButton primary = DrivioButton(
       label: cta,
       disabled: state.isAdvancing,
@@ -335,11 +322,14 @@ class _PrimaryActions extends StatelessWidget {
         return Row(
           children: <Widget>[
             Expanded(
-              child: DrivioButton(
-                label: 'Chat',
-                variant: DrivioButtonVariant.ghost,
-                onPressed: () =>
-                    AppNavigation.push(AppRoutes.chat, arguments: trip.id),
+              child: _UnreadBadge(
+                count: unreadChats,
+                child: DrivioButton(
+                  label: 'Chat',
+                  variant: DrivioButtonVariant.ghost,
+                  onPressed: () =>
+                      AppNavigation.push(AppRoutes.chat, arguments: trip.id),
+                ),
               ),
             ),
             const SizedBox(width: 10),
@@ -391,17 +381,22 @@ class _PrimaryActions extends StatelessWidget {
 /// Quiet row of secondary actions kept out of the hero: Call, Chat
 /// (only when it isn't already a primary button), and Navigate.
 class _UtilityRow extends StatelessWidget {
-  const _UtilityRow({required this.trip, required this.navTarget});
+  const _UtilityRow({
+    required this.trip,
+    required this.navTarget,
+    required this.unreadChats,
+  });
 
   final Trip trip;
   final _NavTarget? navTarget;
+  final int unreadChats;
 
   @override
   Widget build(BuildContext context) {
     // Chat is a primary button on assigned/arrived — only surface it
     // here on en-route / in-progress so it's always reachable.
-    final bool chatInUtility = trip.state == TripState.enRoute ||
-        trip.state == TripState.inProgress;
+    final bool chatInUtility =
+        trip.state == TripState.enRoute || trip.state == TripState.inProgress;
 
     final List<Widget> actions = <Widget>[
       _UtilityAction(
@@ -413,6 +408,7 @@ class _UtilityRow extends StatelessWidget {
         _UtilityAction(
           icon: DrivioIcons.chat,
           label: 'Chat',
+          badgeCount: unreadChats,
           onTap: () => AppNavigation.push(AppRoutes.chat, arguments: trip.id),
         ),
       if (navTarget != null)
@@ -439,8 +435,7 @@ class _UtilityRow extends StatelessWidget {
       mainAxisAlignment: MainAxisAlignment.spaceEvenly,
       children: <Widget>[
         for (int i = 0; i < actions.length; i++) ...<Widget>[
-          if (i > 0)
-            Container(width: 1, height: 22, color: context.border),
+          if (i > 0) Container(width: 1, height: 22, color: context.border),
           Expanded(child: actions[i]),
         ],
       ],
@@ -453,11 +448,13 @@ class _UtilityAction extends StatelessWidget {
     required this.icon,
     required this.label,
     required this.onTap,
+    this.badgeCount = 0,
   });
 
   final IconData icon;
   final String label;
   final VoidCallback onTap;
+  final int badgeCount;
 
   @override
   Widget build(BuildContext context) {
@@ -469,7 +466,12 @@ class _UtilityAction extends StatelessWidget {
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: <Widget>[
-            Icon(icon, size: 18, color: context.text),
+            _UnreadBadge(
+              count: badgeCount,
+              top: -7,
+              right: -9,
+              child: Icon(icon, size: 18, color: context.text),
+            ),
             const SizedBox(width: 6),
             Text(
               label,
@@ -481,6 +483,57 @@ class _UtilityAction extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+/// Coral count bubble pinned to the top-right of [child]. Renders the
+/// bare child when [count] is zero.
+class _UnreadBadge extends StatelessWidget {
+  const _UnreadBadge({
+    required this.count,
+    required this.child,
+    this.top = -6,
+    this.right = -4,
+  });
+
+  final int count;
+  final Widget child;
+  final double top;
+  final double right;
+
+  @override
+  Widget build(BuildContext context) {
+    if (count <= 0) return child;
+    return Stack(
+      clipBehavior: Clip.none,
+      children: <Widget>[
+        child,
+        Positioned(
+          top: top,
+          right: right,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+            constraints: const BoxConstraints(minWidth: 18),
+            decoration: BoxDecoration(
+              color: context.coral,
+              borderRadius: BorderRadius.circular(99),
+              border: Border.all(color: context.bg, width: 1.5),
+            ),
+            alignment: Alignment.center,
+            child: Text(
+              count > 9 ? '9+' : '$count',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 10,
+                height: 1.1,
+                fontWeight: FontWeight.w800,
+                color: context.coralInk,
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
@@ -548,11 +601,7 @@ class _LockedFareRow extends StatelessWidget {
 }
 
 class _NavTarget {
-  const _NavTarget({
-    required this.label,
-    required this.lat,
-    required this.lng,
-  });
+  const _NavTarget({required this.label, required this.lat, required this.lng});
   final String label;
   final double lat;
   final double lng;
@@ -630,7 +679,9 @@ class _CancelReasonSheetState extends State<_CancelReasonSheet> {
                   onTap: () => setState(() => _selected = r.wire),
                   child: Container(
                     padding: const EdgeInsets.symmetric(
-                        horizontal: 14, vertical: 12),
+                      horizontal: 14,
+                      vertical: 12,
+                    ),
                     decoration: BoxDecoration(
                       color: context.surface,
                       borderRadius: AppRadius.md,
@@ -647,16 +698,20 @@ class _CancelReasonSheetState extends State<_CancelReasonSheet> {
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
                             border: Border.all(
-                              color:
-                                  active ? context.red : context.borderStrong,
+                              color: active
+                                  ? context.red
+                                  : context.borderStrong,
                               width: 2,
                             ),
                             color: active ? context.red : Colors.transparent,
                           ),
                           alignment: Alignment.center,
                           child: active
-                              ? Icon(DrivioIcons.check,
-                                  size: 11, color: context.ivory)
+                              ? Icon(
+                                  DrivioIcons.check,
+                                  size: 11,
+                                  color: context.ivory,
+                                )
                               : null,
                         ),
                         const SizedBox(width: 12),
@@ -730,10 +785,12 @@ class _CompletedBody extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final PassengerRatingState rating =
-        ref.watch(passengerRatingControllerProvider(trip.id));
-    final PassengerRatingController rc =
-        ref.read(passengerRatingControllerProvider(trip.id).notifier);
+    final PassengerRatingState rating = ref.watch(
+      passengerRatingControllerProvider(trip.id),
+    );
+    final PassengerRatingController rc = ref.read(
+      passengerRatingControllerProvider(trip.id).notifier,
+    );
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -802,8 +859,9 @@ class _RecapCard extends StatelessWidget {
     final String distance = trip.distanceKm > 0
         ? '${trip.distanceKm.toStringAsFixed(1)} km'
         : '—';
-    final String duration =
-        trip.durationMin > 0 ? '${trip.durationMin} min' : '—';
+    final String duration = trip.durationMin > 0
+        ? '${trip.durationMin} min'
+        : '—';
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       decoration: BoxDecoration(
@@ -847,9 +905,7 @@ class _RecapRow extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 12),
       decoration: BoxDecoration(
-        border: last
-            ? null
-            : Border(bottom: BorderSide(color: context.border)),
+        border: last ? null : Border(bottom: BorderSide(color: context.border)),
       ),
       child: Row(
         children: <Widget>[
@@ -929,8 +985,10 @@ class _RatingPanel extends StatelessWidget {
             return GestureDetector(
               onTap: state.submitted ? null : () => controller.toggleTag(tag),
               child: Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 7,
+                ),
                 decoration: BoxDecoration(
                   color: selected ? context.coral : context.surface2,
                   borderRadius: BorderRadius.circular(99),
@@ -983,11 +1041,7 @@ class _CancelledBody extends StatelessWidget {
                   shape: BoxShape.circle,
                 ),
                 alignment: Alignment.center,
-                child: Icon(
-                  Icons.close_rounded,
-                  size: 30,
-                  color: context.red,
-                ),
+                child: Icon(Icons.close_rounded, size: 30, color: context.red),
               ),
               const SizedBox(height: 14),
               Text(
@@ -998,8 +1052,7 @@ class _CancelledBody extends StatelessWidget {
                 const SizedBox(height: 4),
                 Text(
                   trip.cancellationReason!.replaceAll('_', ' '),
-                  style:
-                      AppTextStyles.bodySm.copyWith(color: context.textDim),
+                  style: AppTextStyles.bodySm.copyWith(color: context.textDim),
                 ),
               ],
             ],
