@@ -52,10 +52,14 @@
 		<string>comgooglemaps</string>
 		<string>googlemaps</string>
 	</array>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>location</string>
+	</array>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>Drivio uses your location to surface nearby ride requests while you're online.</string>
 	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
-	<string>Drivio keeps tracking your location during an active trip so the rider can see your live position.</string>
+	<string>Drivio keeps your location up to date while you're online so riders can be matched to you and see you on the map, even when the app is in the background.</string>
 	<key>NSCameraUsageDescription</key>
 	<string>Drivio needs camera access so you can take photos of your vehicle documents.</string>
 	<key>NSPhotoLibraryUsageDescription</key>

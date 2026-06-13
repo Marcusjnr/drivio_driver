@@ -6,6 +6,7 @@ import 'package:maplibre_gl/maplibre_gl.dart';
 
 import 'package:drivio_driver/modules/commons/all.dart';
 import 'package:drivio_driver/modules/commons/data/trip_repository.dart';
+import 'package:drivio_driver/modules/commons/location/always_location_nudge.dart';
 import 'package:drivio_driver/modules/commons/location/location_permission_service.dart';
 import 'package:drivio_driver/modules/commons/types/demand_cell.dart';
 import 'package:drivio_driver/modules/commons/types/ride_request.dart';
@@ -21,6 +22,7 @@ import 'package:drivio_driver/modules/dash/features/home/presentation/logic/cont
 import 'package:drivio_driver/modules/dash/features/home/presentation/logic/controller/demand_heatmap_controller.dart';
 import 'package:drivio_driver/modules/dash/features/home/presentation/logic/controller/home_controller.dart';
 import 'package:drivio_driver/modules/dash/features/home/presentation/logic/controller/presence_controller.dart';
+import 'package:drivio_driver/modules/dash/features/home/presentation/ui/widgets/always_location_nudge_sheet.dart';
 import 'package:drivio_driver/modules/dash/features/home/presentation/ui/widgets/driver_tab_bar.dart';
 import 'package:drivio_driver/modules/dash/features/home/presentation/ui/widgets/kyc_gate_sheet.dart';
 import 'package:drivio_driver/modules/dash/features/home/presentation/ui/widgets/location_gate_sheet.dart';
@@ -53,6 +55,7 @@ class _DriveShellPageState extends ConsumerState<DriveShellPage>
     with WidgetsBindingObserver {
   bool _consumedInitialTrip = false;
   bool _tripReconcileInFlight = false;
+  bool _onlineReconcileInFlight = false;
   bool _gateOpen = false;
   bool _kycGateOpen = false;
   bool _pendingGateOpen = false;
@@ -66,6 +69,9 @@ class _DriveShellPageState extends ConsumerState<DriveShellPage>
   // sheet can render the right copy + CTA (re-prompt vs Open Settings).
   bool _locationGateOpen = false;
   LocationPermState _locationGateReason = LocationPermState.unknown;
+  // One-time post-online nudge toward "Allow all the time" background
+  // location (Android can't prompt for it in-app; see AlwaysLocationNudge).
+  bool _alwaysNudgeOpen = false;
 
   @override
   void initState() {
@@ -77,6 +83,7 @@ class _DriveShellPageState extends ConsumerState<DriveShellPage>
       ref.read(kycControllerProvider.notifier).refresh();
       ref.read(subscriptionControllerProvider.notifier).refresh();
       unawaited(_reconcileActiveTrip());
+      unawaited(_reconcileOnlineState());
     });
   }
 
@@ -90,6 +97,33 @@ class _DriveShellPageState extends ConsumerState<DriveShellPage>
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
       unawaited(_reconcileActiveTrip());
+      unawaited(_reconcileOnlineState());
+    }
+  }
+
+  /// The foreground service is the source of truth for "this driver is
+  /// online". The UI process can be destroyed (swiped away) while the
+  /// service keeps streaming, so on reopen / resume the in-memory
+  /// `isOnline` starts false and must be reconciled: if the driver
+  /// intended to be online and tracking is still live (or can resume),
+  /// flip the shell back online and re-arm the marketplace feed.
+  Future<void> _reconcileOnlineState() async {
+    if (_onlineReconcileInFlight || !mounted) return;
+    if (ref.read(homeControllerProvider).isOnline) return;
+    _onlineReconcileInFlight = true;
+    try {
+      final bool online = await ref
+          .read(presenceControllerProvider.notifier)
+          .reconcileOnStart();
+      if (!mounted || !online) return;
+      if (ref.read(homeControllerProvider).isOnline) return;
+      ref.read(homeControllerProvider.notifier).setStatus(DriverStatus.online);
+      unawaited(ref.read(marketplaceControllerProvider.notifier).start());
+      unawaited(ref.read(dashboardControllerProvider.notifier).refresh());
+    } catch (_) {
+      // Best-effort — the manual toggle remains available.
+    } finally {
+      _onlineReconcileInFlight = false;
     }
   }
 
@@ -428,6 +462,7 @@ class _DriveShellPageState extends ConsumerState<DriveShellPage>
                   unawaited(
                     ref.read(dashboardControllerProvider.notifier).refresh(),
                   );
+                  unawaited(_maybePromptAlwaysLocation());
                 }
               },
               onOpenSettings: () async {
@@ -443,9 +478,33 @@ class _DriveShellPageState extends ConsumerState<DriveShellPage>
                 }
               },
             ),
+          if (_alwaysNudgeOpen)
+            AlwaysLocationNudgeSheet(
+              onOpenSettings: () async {
+                await AlwaysLocationNudge.openSettings();
+                if (mounted) {
+                  setState(() => _alwaysNudgeOpen = false);
+                }
+              },
+              onDismiss: () => setState(() => _alwaysNudgeOpen = false),
+            ),
         ],
       ),
     );
+  }
+
+  /// After the driver first goes online with only "while in use" location,
+  /// surface a one-time, dismissible rationale guiding them to Settings to
+  /// pick "Allow all the time". Android-only and shown at most once; see
+  /// [AlwaysLocationNudge].
+  Future<void> _maybePromptAlwaysLocation() async {
+    if (!await AlwaysLocationNudge.shouldShow()) {
+      return;
+    }
+    await AlwaysLocationNudge.markShown();
+    if (mounted) {
+      setState(() => _alwaysNudgeOpen = true);
+    }
   }
 
   // ── Helpers ─────────────────────────────────────────────────────────────
@@ -511,6 +570,7 @@ class _DriveShellPageState extends ConsumerState<DriveShellPage>
         homeC.toggleOnline();
         unawaited(ref.read(marketplaceControllerProvider.notifier).start());
         unawaited(ref.read(dashboardControllerProvider.notifier).refresh());
+        unawaited(_maybePromptAlwaysLocation());
       } else {
         final PresenceState ps = ref.read(presenceControllerProvider);
         final LocationPermState reason = _toGateReason(ps.permission);
