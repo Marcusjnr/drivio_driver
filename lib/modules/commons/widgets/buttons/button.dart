@@ -16,6 +16,7 @@ class DrivioButton extends ConsumerWidget {
     this.variant = DrivioButtonVariant.accent,
     this.icon,
     this.disabled = false,
+    this.loading = false,
     this.height = AppDimensions.buttonHeight,
     this.width = double.infinity,
     this.compact = false,
@@ -26,6 +27,12 @@ class DrivioButton extends ConsumerWidget {
   final DrivioButtonVariant variant;
   final IconData? icon;
   final bool disabled;
+
+  /// Shows a centred spinner in place of the label and blocks taps.
+  /// Also auto-detected when [label] ends with an ellipsis (the app's
+  /// "Saving…" / "Going online…" loading-label convention) so callers
+  /// get a spinner instead of changing text without any extra wiring.
+  final bool loading;
   final double height;
   final double width;
   final bool compact;
@@ -33,9 +40,14 @@ class DrivioButton extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final _ButtonStyle style = _resolveStyle(context);
-    final bool effectivelyDisabled = disabled || onPressed == null;
+    final String trimmed = label.trimRight();
+    final bool busy =
+        loading || trimmed.endsWith('…') || trimmed.endsWith('...');
+    final bool disabledByCaller = disabled || onPressed == null;
     return Opacity(
-      opacity: effectivelyDisabled ? 0.55 : 1,
+      // A busy button stays full-opacity (the spinner reads as active);
+      // only a caller-disabled, non-busy button dims.
+      opacity: disabledByCaller && !busy ? 0.55 : 1,
       child: SizedBox(
         width: width,
         height: height,
@@ -44,32 +56,46 @@ class DrivioButton extends ConsumerWidget {
           borderRadius: AppRadius.md,
           child: InkWell(
             borderRadius: AppRadius.md,
-            onTap: effectivelyDisabled ? null : onPressed,
+            onTap: disabledByCaller || busy ? null : onPressed,
             child: Container(
               decoration: BoxDecoration(
                 borderRadius: AppRadius.md,
                 border: style.border,
               ),
               padding: EdgeInsets.symmetric(
-                horizontal: compact ? AppDimensions.space14 : AppDimensions.space16,
+                horizontal: compact
+                    ? AppDimensions.space14
+                    : AppDimensions.space16,
               ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: <Widget>[
-                  if (icon != null) ...<Widget>[
-                    Icon(icon, size: 18, color: style.fg),
-                    const SizedBox(width: AppDimensions.space8),
-                  ],
-                  Flexible(
-                    child: Text(
-                      label,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: AppTextStyles.button.copyWith(color: style.fg),
+              alignment: Alignment.center,
+              child: busy
+                  ? SizedBox(
+                      height: 20,
+                      width: 20,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2.2,
+                        valueColor: AlwaysStoppedAnimation<Color>(style.fg),
+                      ),
+                    )
+                  : Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: <Widget>[
+                        if (icon != null) ...<Widget>[
+                          Icon(icon, size: 18, color: style.fg),
+                          const SizedBox(width: AppDimensions.space8),
+                        ],
+                        Flexible(
+                          child: Text(
+                            label,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: AppTextStyles.button.copyWith(
+                              color: style.fg,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
-                  ),
-                ],
-              ),
             ),
           ),
         ),

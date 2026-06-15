@@ -55,6 +55,14 @@ class _DriveShellPageState extends ConsumerState<DriveShellPage>
     with WidgetsBindingObserver {
   bool _consumedInitialTrip = false;
   bool _tripReconcileInFlight = false;
+
+  // Last successfully-fetched route-ahead shape, kept per target. The
+  // snapped-origin cache key changes every ~100 m as the driver drives, so
+  // the new shape briefly loads (asData == null); reusing the previous shape
+  // during that window stops the line flashing back to a straight A→B.
+  LatLng? _lastRouteAheadTarget;
+  List<LatLng> _lastRouteAheadShape = const <LatLng>[];
+
   bool _onlineReconcileInFlight = false;
   bool _gateOpen = false;
   bool _kycGateOpen = false;
@@ -143,6 +151,17 @@ class _DriveShellPageState extends ConsumerState<DriveShellPage>
       if (ref.read(driveShellControllerProvider).isTripLike) return;
       AppNotifier.info(message: 'You have a trip in progress. Resuming it.');
       ref.read(driveShellControllerProvider.notifier).enterTrip(tripId);
+      // A driver on a trip must keep streaming location: the rider tracks
+      // them live, and our own trip map needs the fix for the route line +
+      // car marker. A cold start / OEM kill can leave the stream down even
+      // mid-trip, so resume it here (independent of the online toggle).
+      if (!ref.read(presenceControllerProvider).isStreaming) {
+        unawaited(
+          ref
+              .read(presenceControllerProvider.notifier)
+              .startStreaming(silent: true),
+        );
+      }
     } catch (_) {
       // Best-effort — bootstrap and realtime remain the primary paths.
     } finally {
@@ -169,10 +188,16 @@ class _DriveShellPageState extends ConsumerState<DriveShellPage>
     final DriveShellState shell = ref.watch(driveShellControllerProvider);
     final HomeState home = ref.watch(homeControllerProvider);
     final HomeController homeC = ref.read(homeControllerProvider.notifier);
-    final KycOverallStatus kycStatus = ref.watch(
-      kycControllerProvider.select((KycState s) => s.overall),
+    final (KycOverallStatus, bool) kycGate = ref.watch(
+      kycControllerProvider.select(
+        (KycState s) => (s.overall, s.livenessPassed),
+      ),
     );
-    final bool kycComplete = kycStatus == KycOverallStatus.approved;
+    final KycOverallStatus kycStatus = kycGate.$1;
+    // Liveness is required on top of overall approval, so the banner keeps
+    // nudging an approved driver who still hasn't done the face check.
+    final bool kycComplete =
+        kycStatus == KycOverallStatus.approved && kycGate.$2;
     final SubscriptionState subState = ref.watch(
       subscriptionControllerProvider,
     );
@@ -536,9 +561,13 @@ class _DriveShellPageState extends ConsumerState<DriveShellPage>
       return;
     }
 
-    // Going online runs the gate checks first.
+    // Going online runs the gate checks first. Liveness is required on
+    // top of overall approval, so an existing approved driver who hasn't
+    // done the face check is still blocked (and the gate sheet surfaces
+    // the outstanding "Selfie & liveness" step).
+    final KycState kyc = ref.read(kycControllerProvider);
     final bool kycComplete =
-        ref.read(kycControllerProvider).overall == KycOverallStatus.approved;
+        kyc.overall == KycOverallStatus.approved && kyc.livenessPassed;
     final bool subUnlocks = ref
         .read(subscriptionControllerProvider)
         .unlocksMarketplace;
@@ -713,16 +742,11 @@ class _DriveShellPageState extends ConsumerState<DriveShellPage>
         if (trip == null) {
           return _MapProps(initialCenter: driverFix, initialZoom: 14);
         }
-        // Recorder mutates `samples` by creating a new list each tick, so
-        // a select on it correctly fires on each new breadcrumb.
-        final List<LatLng> breadcrumb = ref
-            .watch(
-              tripLocationRecorderProvider(
-                shell.activeTripId!,
-              ).select((TripLocationRecorderState s) => s.samples),
-            )
-            .map((dynamic s) => LatLng(s.lat as double, s.lng as double))
-            .toList(growable: false);
+        // Keep the trip-path recorder alive (it persists the driver's
+        // breadcrumbs server-side). We intentionally do NOT draw the trail
+        // on the driver map — a single forward route-ahead line matches what
+        // the rider sees, instead of a trail + route-ahead crossing lines.
+        ref.watch(tripLocationRecorderProvider(shell.activeTripId!));
         final bool isLive =
             shell.mode == ShellMode.trip &&
             (trip.state == TripState.enRoute ||
@@ -738,17 +762,6 @@ class _DriveShellPageState extends ConsumerState<DriveShellPage>
         // Per-spec turn-by-turn is still handed off to Google/Apple Maps
         // via DRV-053 — this line is just the at-a-glance preview.
         final List<LiveMapPolyline> lines = <LiveMapPolyline>[];
-        if (breadcrumb.length >= 2) {
-          lines.add(
-            LiveMapPolyline(
-              id: 'breadcrumb',
-              points: breadcrumb,
-              color: '#34D399', // accent green = where we've been
-              width: 5,
-              opacity: 0.95,
-            ),
-          );
-        }
         ({LatLng a, LatLng b})? tripBounds;
         if (driverFix != null && isLive) {
           final LatLng? aheadTarget = _routeAheadTarget(trip);
@@ -764,13 +777,29 @@ class _DriveShellPageState extends ConsumerState<DriveShellPage>
             final List<LatLng> directionsShape =
                 ref.watch(routeAheadShapeProvider(key)).asData?.value ??
                 const <LatLng>[];
+            // While the next shape loads, reuse the last good one for the
+            // same target so the line doesn't flash to a straight A→B as the
+            // driver moves. Only fall back to straight before the very first
+            // shape arrives (or right after the target flips pickup→dropoff).
+            if (directionsShape.length >= 2) {
+              _lastRouteAheadTarget = aheadTarget;
+              _lastRouteAheadShape = directionsShape;
+            }
+            final LatLng? cachedTarget = _lastRouteAheadTarget;
+            final bool sameTarget =
+                cachedTarget != null &&
+                cachedTarget.latitude == aheadTarget.latitude &&
+                cachedTarget.longitude == aheadTarget.longitude;
+            final List<LatLng> shape = directionsShape.length >= 2
+                ? directionsShape
+                : (sameTarget ? _lastRouteAheadShape : const <LatLng>[]);
             // Stitch the EXACT driver position onto the front of the
             // polyline. The directions endpoint was queried with the
             // snapped coords, so its first point can sit ~100 m away
             // from where the driver actually is — without this prepend
             // the line visibly disconnects from the GPS dot.
-            final List<LatLng> points = directionsShape.length >= 2
-                ? <LatLng>[driverFix, ...directionsShape]
+            final List<LatLng> points = shape.length >= 2
+                ? <LatLng>[driverFix, ...shape]
                 : <LatLng>[driverFix, aheadTarget];
             lines.add(
               LiveMapPolyline(
@@ -798,12 +827,21 @@ class _DriveShellPageState extends ConsumerState<DriveShellPage>
         //     just keeps the in-app map context useful.
         final bool followDuringTrip =
             shell.mode == ShellMode.trip && trip.state == TripState.inProgress;
+        // Follow the driver only once we actually have a fix. Otherwise
+        // (e.g. a cold start mid-trip, before the location stream has
+        // produced a position) frame the whole pickup→dropoff route so the
+        // map sits on the trip area instead of the default map centre.
+        final bool followNow = followDuringTrip && driverFix != null;
+        final ({LatLng a, LatLng b})? routeBounds = boundsForPoints(<LatLng>[
+          LatLng(trip.pickupLat, trip.pickupLng),
+          LatLng(trip.dropoffLat, trip.dropoffLng),
+        ]);
         return _MapProps(
           initialCenter: LatLng(trip.pickupLat, trip.pickupLng),
           initialZoom: 15,
           showUserLocation: true,
-          followUser: followDuringTrip,
-          fitBounds: followDuringTrip ? null : tripBounds,
+          followUser: followNow,
+          fitBounds: followNow ? null : (tripBounds ?? routeBounds),
           markers: <LiveMapMarker>[
             LiveMapMarker(
               id: 'pickup',
@@ -1248,13 +1286,24 @@ class _KycBanner extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final bool inReview = status == KycOverallStatus.pendingReview;
-    final String headline = inReview
+    // An already-approved driver only reaches this banner when the face
+    // check is the one thing still outstanding, so tailor the copy to it.
+    final bool livenessOnly = status == KycOverallStatus.approved;
+    final String headline = livenessOnly
+        ? 'Face check required'
+        : inReview
         ? 'Verification under review'
         : 'Complete verification';
-    final String subline = inReview
+    final String subline = livenessOnly
+        ? 'Do a quick face check to start accepting trips.'
+        : inReview
         ? "We'll notify you when it's approved."
         : 'Upload your docs to start accepting trips.';
-    final String cta = inReview ? 'View status' : 'Continue';
+    final String cta = livenessOnly
+        ? 'Start'
+        : inReview
+        ? 'View status'
+        : 'Continue';
     final Color tone = inReview ? context.accent : context.amber;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),

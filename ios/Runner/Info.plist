@@ -61,7 +61,9 @@
 	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
 	<string>Drivio keeps your location up to date while you're online so riders can be matched to you and see you on the map, even when the app is in the background.</string>
 	<key>NSCameraUsageDescription</key>
-	<string>Drivio needs camera access so you can take photos of your vehicle documents.</string>
+	<string>Drivio needs camera access for your identity face check and to take photos of your vehicle documents.</string>
+	<key>NSMotionUsageDescription</key>
+	<string>Drivio uses motion sensors during the identity face check to confirm a live person.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>Drivio needs photo library access so you can attach existing pictures of your vehicle documents.</string>
 	<key>NSMicrophoneUsageDescription</key>

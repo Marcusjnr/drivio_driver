@@ -87,10 +87,29 @@ class KycState {
   final String? error;
 
   bool get allRequiredSubmitted => steps.every(
-        (KycStep s) =>
-            s.status == KycStepStatus.submitted ||
-            s.status == KycStepStatus.approved,
-      );
+    (KycStep s) =>
+        s.status == KycStepStatus.submitted ||
+        s.status == KycStepStatus.approved,
+  );
+
+  /// True once the driver has passed the face-liveness step
+  /// (`drivers.liveness_passed_at` is set). Required before going online,
+  /// independent of overall KYC approval — so existing approved drivers
+  /// who predate liveness are still gated until they complete it.
+  bool get livenessPassed => steps.any(
+    (KycStep s) =>
+        s.kind == KycStepKind.selfie &&
+        (s.status == KycStepStatus.submitted ||
+            s.status == KycStepStatus.approved),
+  );
+
+  /// The status to *display*. A driver isn't truly done until the face
+  /// check is passed, so a server-`approved` row with no liveness yet is
+  /// surfaced as still in progress, never as "Approved".
+  KycOverallStatus get effectiveOverall =>
+      overall == KycOverallStatus.approved && !livenessPassed
+      ? KycOverallStatus.inProgress
+      : overall;
 
   bool get canSubmitForReview =>
       allRequiredSubmitted &&
@@ -188,8 +207,8 @@ class KycController extends StateNotifier<KycState> {
       }
     }
 
-    final KycStepStatus bvnNinStatus = (snap.bvnVerifiedAt != null ||
-            snap.ninVerifiedAt != null)
+    final KycStepStatus bvnNinStatus =
+        (snap.bvnVerifiedAt != null || snap.ninVerifiedAt != null)
         ? KycStepStatus.submitted
         : KycStepStatus.required;
     final KycStepStatus selfieStatus = snap.livenessPassedAt != null
@@ -256,5 +275,5 @@ class KycController extends StateNotifier<KycState> {
 
 final StateNotifierProvider<KycController, KycState> kycControllerProvider =
     StateNotifierProvider<KycController, KycState>(
-  (Ref _) => KycController(locator<KycRepository>()),
-);
+      (Ref _) => KycController(locator<KycRepository>()),
+    );
