@@ -1,4 +1,7 @@
+import 'dart:typed_data';
+
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:uuid/uuid.dart';
 
 import 'package:drivio_driver/modules/commons/data/profile_repository.dart';
 import 'package:drivio_driver/modules/commons/supabase/supabase_module.dart';
@@ -8,6 +11,7 @@ class SupabaseProfileRepository implements ProfileRepository {
   SupabaseProfileRepository(this._supabase);
 
   final SupabaseModule _supabase;
+  final Uuid _uuid = const Uuid();
 
   @override
   Future<Profile?> getMyProfile() async {
@@ -58,6 +62,31 @@ class SupabaseProfileRepository implements ProfileRepository {
         .select()
         .single();
     return Profile.fromJson(row);
+  }
+
+  @override
+  Future<String> uploadAvatar({
+    required Uint8List bytes,
+    required String fileExtension,
+    required String contentType,
+  }) async {
+    final User? user = _supabase.auth.currentUser;
+    if (user == null) {
+      throw const _ProfileAuthException();
+    }
+    final String safeExt = fileExtension
+        .replaceAll(RegExp(r'[^a-zA-Z0-9]'), '')
+        .toLowerCase();
+    final String objectPath =
+        '${user.id}/${_uuid.v4()}.${safeExt.isEmpty ? 'jpg' : safeExt}';
+    await _supabase.storage
+        .from('avatars')
+        .uploadBinary(
+          objectPath,
+          bytes,
+          fileOptions: FileOptions(contentType: contentType, upsert: true),
+        );
+    return _supabase.storage.from('avatars').getPublicUrl(objectPath);
   }
 
   @override

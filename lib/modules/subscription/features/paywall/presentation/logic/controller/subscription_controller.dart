@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:drivio_driver/modules/commons/data/subscription_repository.dart';
 import 'package:drivio_driver/modules/commons/di/di.dart';
 import 'package:drivio_driver/modules/commons/errors/error_messages.dart';
+import 'package:drivio_driver/modules/commons/payments/paystack_checkout.dart';
+import 'package:drivio_driver/modules/commons/supabase/supabase_module.dart';
 import 'package:drivio_driver/modules/commons/logging/app_logger.dart';
 import 'package:drivio_driver/modules/commons/types/subscription.dart';
 import 'package:drivio_driver/modules/dash/features/home/presentation/logic/controller/home_controller.dart';
@@ -50,8 +52,9 @@ class SubscriptionState {
     bool clearSubscription = false,
   }) {
     return SubscriptionState(
-      subscription:
-          clearSubscription ? null : (subscription ?? this.subscription),
+      subscription: clearSubscription
+          ? null
+          : (subscription ?? this.subscription),
       plans: plans ?? this.plans,
       isLoading: isLoading ?? this.isLoading,
       isMutating: isMutating ?? this.isMutating,
@@ -69,6 +72,15 @@ class SubscriptionController extends StateNotifier<SubscriptionState> {
 
   Future<void> refresh() async {
     state = state.copyWith(isLoading: true, clearError: true);
+    // Recover a subscription payment that completed at Paystack but never
+    // got verified (app killed mid-flow) before reading current state.
+    try {
+      await PaystackCheckout(
+        locator<SupabaseModule>(),
+      ).reconcilePendingPayments(purpose: 'subscription');
+    } catch (_) {
+      // Non-fatal — verify-on-return is the primary settlement path.
+    }
     try {
       final List<SubscriptionPlan> plans = await _repo.listActivePlans();
       final Subscription? sub = await _repo.getMySubscription();
@@ -168,8 +180,8 @@ class SubscriptionController extends StateNotifier<SubscriptionState> {
 }
 
 final StateNotifierProvider<SubscriptionController, SubscriptionState>
-    subscriptionControllerProvider =
+subscriptionControllerProvider =
     StateNotifierProvider<SubscriptionController, SubscriptionState>(
-  (Ref ref) =>
-      SubscriptionController(locator<SubscriptionRepository>(), ref),
-);
+      (Ref ref) =>
+          SubscriptionController(locator<SubscriptionRepository>(), ref),
+    );

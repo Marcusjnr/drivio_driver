@@ -1,0 +1,29 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "drivio-website-fable",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "--prefix",
+        "/Users/ebube.okocha/StudioProjects/drivio_website_fable",
+        "run",
+        "dev"
+      ],
+      "port": 3000,
+      "autoPort": true
+    },
+    {
+      "name": "drivio-website-fable-prod",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "--prefix",
+        "/Users/ebube.okocha/StudioProjects/drivio_website_fable",
+        "run",
+        "start"
+      ],
+      "port": 3000,
+      "autoPort": true
+    }
+  ]
+}

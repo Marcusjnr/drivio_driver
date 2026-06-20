@@ -1,35 +1,53 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 const int _minPasswordLength = 8;
-final RegExp _emailRegex = RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$');
+// 10–13 digits after the +234 prefix is stripped — covers NG numbers
+// with or without the leading zero.
+final RegExp _phoneDigitsRegex = RegExp(r'^[0-9]{10,13}$');
 
 class SignInState {
   const SignInState({
-    this.email = '',
+    this.phone = '',
     this.password = '',
     this.isLoading = false,
     this.error,
   });
 
-  final String email;
+  /// Local digits the driver typed (without the +234 dial prefix).
+  final String phone;
   final String password;
   final bool isLoading;
   final String? error;
 
-  bool get hasValidEmail => _emailRegex.hasMatch(email.trim());
+  bool get hasValidPhone =>
+      _phoneDigitsRegex.hasMatch(phone.replaceAll(RegExp(r'\D'), ''));
   bool get hasValidPassword => password.length >= _minPasswordLength;
 
-  bool get canSubmit => hasValidEmail && hasValidPassword;
+  bool get canSubmit => hasValidPhone && hasValidPassword;
+
+  /// E.164-style phone string. Surface identifier shown to the driver;
+  /// the actual Supabase auth call (in OtpController) uses a phone-
+  /// derived synthetic email so no SMS goes out in dev.
+  String get normalizedPhone {
+    String digits = phone.replaceAll(RegExp(r'\D'), '');
+    if (digits.startsWith('234')) {
+      digits = digits.substring(3);
+    }
+    if (digits.startsWith('0')) {
+      digits = digits.substring(1);
+    }
+    return '+234$digits';
+  }
 
   SignInState copyWith({
-    String? email,
+    String? phone,
     String? password,
     bool? isLoading,
     String? error,
     bool clearError = false,
   }) {
     return SignInState(
-      email: email ?? this.email,
+      phone: phone ?? this.phone,
       password: password ?? this.password,
       isLoading: isLoading ?? this.isLoading,
       error: clearError ? null : (error ?? this.error),
@@ -40,17 +58,19 @@ class SignInState {
 class SignInController extends StateNotifier<SignInState> {
   SignInController() : super(const SignInState());
 
-  void onEmailChanged(String value) =>
-      state = state.copyWith(email: value, clearError: true);
+  void onPhoneChanged(String value) =>
+      state = state.copyWith(phone: value, clearError: true);
 
   void onPasswordChanged(String value) =>
       state = state.copyWith(password: value, clearError: true);
 
-  // TODO: Replace with real OTP provider (Termii, etc.)
+  /// Dev stub — no SMS goes out. The OTP screen accepts the hardcoded
+  /// code, which then triggers `signInWithPassword` via the phone-
+  /// derived synthetic email. Replace with a real send call when a
+  /// production SMS provider is wired (Termii / Supabase phone auth).
   Future<bool> requestOtp() async {
     if (!state.canSubmit) return false;
     state = state.copyWith(isLoading: true, clearError: true);
-    // Skip actual OTP sending — will be wired to a real provider later
     await Future<void>.delayed(const Duration(milliseconds: 300));
     state = state.copyWith(isLoading: false);
     return true;

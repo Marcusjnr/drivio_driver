@@ -1,20 +1,36 @@
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
-    <!-- Camera + media access for KYC and vehicle document capture. -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+    <uses-permission android:name="android.permission.INTERNET" />
+    <!-- Camera + media access for KYC, the face-liveness check, and
+         vehicle document capture. -->
     <uses-permission android:name="android.permission.CAMERA" />
     <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
     <uses-permission
         android:name="android.permission.READ_EXTERNAL_STORAGE"
         android:maxSdkVersion="32" />
 
-    <!-- Location while the app is in foreground (online toggle, marketplace
-         feed). Background tracking during trips comes in DRV-036. -->
+    <!-- Foreground location. FINE/COARSE cover the in-app use; BACKGROUND
+         lets the foreground-service location stream keep running while the
+         driver is online but the app is backgrounded or swiped away. -->
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />
+
+    <!-- Android 14+ requires the typed FGS permission matching the service's
+         foregroundServiceType. flutter_foreground_task contributes
+         FOREGROUND_SERVICE, WAKE_LOCK, RECEIVE_BOOT_COMPLETED and
+         POST_NOTIFICATIONS via its own manifest; we add the location type. -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
 
     <application
         android:label="drivio_driver"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
+        <!-- Bundle the ML Kit face-detection model at install time (used by
+             the KYC liveness check) so it isn't downloaded on first use. -->
+        <meta-data
+            android:name="com.google.mlkit.vision.DEPENDENCIES"
+            android:value="face" />
         <activity
             android:name=".MainActivity"
             android:exported="true"
@@ -42,6 +58,16 @@
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />
+
+        <!-- Re-typed flutter_foreground_task service. The package declares
+             this service; we override its foregroundServiceType to `location`
+             (Android 14+) so the online-presence stream is a location FGS.
+             Do not rename android:name. -->
+        <service
+            android:name="com.pravera.flutter_foreground_task.service.ForegroundService"
+            android:foregroundServiceType="location"
+            android:exported="false"
+            tools:replace="android:foregroundServiceType" />
     </application>
     <!-- Required for url_launcher / canLaunchUrl probing. Android 11+
          restricts visibility of installed apps; without these <queries>

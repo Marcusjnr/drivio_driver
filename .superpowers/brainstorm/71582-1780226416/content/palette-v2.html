@@ -1,0 +1,92 @@
+<h2>Palettes, rebuilt for a ride-hailing brand</h2>
+<p class="subtitle">Each one tells a story about movement, the city, and arrival — not money. Click to select.</p>
+
+<style>
+  .palette-card { padding: 0; overflow: hidden; }
+  .swatches { display: grid; grid-template-columns: 2fr 1.4fr 1.4fr 1fr 1fr; height: 130px; }
+  .swatch { display: flex; align-items: flex-end; padding: 10px; font-family: ui-monospace, monospace; font-size: 10px; letter-spacing: 0.4px; }
+  .pal-body { padding: 18px 20px 20px; }
+  .pal-name { font-size: 22px; font-weight: 700; letter-spacing: -0.4px; margin: 0 0 4px; }
+  .pal-strap { font-size: 11px; letter-spacing: 1.4px; text-transform: uppercase; opacity: 0.55; margin: 0 0 10px; font-weight: 600; }
+  .pal-story { font-size: 14px; line-height: 1.55; opacity: 0.85; margin: 0 0 14px; }
+  .pal-vibe { font-size: 13px; line-height: 1.5; opacity: 0.65; margin: 0; }
+  .pal-quote { font-size: 15px; font-style: italic; opacity: 0.9; line-height: 1.5; margin: 0 0 12px; }
+  .rec { display: inline-block; font-size: 9px; font-weight: 700; letter-spacing: 1.4px; padding: 3px 7px; border-radius: 4px; background: #1f2937; color: #fbbf24; margin-left: 8px; vertical-align: middle; }
+</style>
+
+<div class="cards">
+
+  <div class="card palette-card" data-choice="golden-hour" onclick="toggleSelect(this)">
+    <div class="swatches">
+      <div class="swatch" style="background:#D9893A;color:#1F1410">#D9893A</div>
+      <div class="swatch" style="background:#4D2D4A;color:#F7EFE0">#4D2D4A</div>
+      <div class="swatch" style="background:#F4BC8A;color:#1F1410">#F4BC8A</div>
+      <div class="swatch" style="background:#1F1410;color:#D9893A">#1F1410</div>
+      <div class="swatch" style="background:#F7EFE0;color:#1F1410">#F7EFE0</div>
+    </div>
+    <div class="pal-body">
+      <p class="pal-strap">A · Golden Hour <span class="rec">RECOMMENDED</span></p>
+      <p class="pal-name">Amber &amp; Aubergine</p>
+      <p class="pal-quote">"The city softens. You're heading home."</p>
+      <p class="pal-story">The most universal pan-African moment — that 6pm window when the sun catches the upper floors and everyone is trying to get somewhere. Amber carries the warmth without yelling. Aubergine grounds it like dusk. Photography in this palette looks like an editorial travel feature.</p>
+      <p class="pal-vibe">Warm. Restrained. Premium. Travels to every African city. Photography-first.</p>
+    </div>
+  </div>
+
+  <div class="card palette-card" data-choice="coastal-pulse" onclick="toggleSelect(this)">
+    <div class="swatches">
+      <div class="swatch" style="background:#EE6F4A;color:#F4ECE0">#EE6F4A</div>
+      <div class="swatch" style="background:#236767;color:#F4ECE0">#236767</div>
+      <div class="swatch" style="background:#F1B940;color:#0E2E2E">#F1B940</div>
+      <div class="swatch" style="background:#0E2E2E;color:#EE6F4A">#0E2E2E</div>
+      <div class="swatch" style="background:#F4ECE0;color:#0E2E2E">#F4ECE0</div>
+    </div>
+    <div class="pal-body">
+      <p class="pal-strap">B · Coastal Pulse</p>
+      <p class="pal-name">Coral &amp; Teal</p>
+      <p class="pal-quote">"The city is alive. You're moving through it."</p>
+      <p class="pal-story">Coral carries heat and motion. Teal carries depth and water (Lagos, Lomé, Dar es Salaam — coastal cities everywhere). The most movement-native palette. Energetic without being loud. Risk: the higher saturation needs disciplined application to stay premium.</p>
+      <p class="pal-vibe">Movement. Optimism. Coastal energy. Most ride-hailing-native of the four.</p>
+    </div>
+  </div>
+
+  <div class="card palette-card" data-choice="terra-horizon" onclick="toggleSelect(this)">
+    <div class="swatches">
+      <div class="swatch" style="background:#C45A3A;color:#EFE3CE">#C45A3A</div>
+      <div class="swatch" style="background:#7B97B0;color:#2D1F18">#7B97B0</div>
+      <div class="swatch" style="background:#D69B4C;color:#2D1F18">#D69B4C</div>
+      <div class="swatch" style="background:#2D1F18;color:#D69B4C">#2D1F18</div>
+      <div class="swatch" style="background:#EFE3CE;color:#2D1F18">#EFE3CE</div>
+    </div>
+    <div class="pal-body">
+      <p class="pal-strap">C · Terra &amp; Horizon</p>
+      <p class="pal-name">Terracotta &amp; Sky</p>
+      <p class="pal-quote">"The road, and somewhere to be."</p>
+      <p class="pal-story">Terracotta is the warm earth of the road. Dusty sky blue is the long horizon — the destination. Together they tell a story about journey: where you are, where you're going. Most timeless of the four — looks like an Aesop magazine spread.</p>
+      <p class="pal-vibe">Editorial. Timeless. Restrained. Strongest "designed to age over a decade" energy.</p>
+    </div>
+  </div>
+
+  <div class="card palette-card" data-choice="city-after-dark" onclick="toggleSelect(this)">
+    <div class="swatches">
+      <div class="swatch" style="background:#E47432;color:#F2EAD8">#E47432</div>
+      <div class="swatch" style="background:#391A3D;color:#F2EAD8">#391A3D</div>
+      <div class="swatch" style="background:#C66D5A;color:#F2EAD8">#C66D5A</div>
+      <div class="swatch" style="background:#0F0810;color:#E47432">#0F0810</div>
+      <div class="swatch" style="background:#F2EAD8;color:#0F0810">#F2EAD8</div>
+    </div>
+    <div class="pal-body">
+      <p class="pal-strap">D · City After Dark</p>
+      <p class="pal-name">Saffron &amp; Plum</p>
+      <p class="pal-quote">"Inside the car. The city sleeps."</p>
+      <p class="pal-story">A lot of rides happen at night — and there's something specific about the warmth inside a moving car when the city is dark. Saffron is the dashboard glow, plum is the night sky. Most distinctive direction. Risk: leans darker, harder to photograph people warmly without intentional lighting direction.</p>
+      <p class="pal-vibe">Nocturnal. Distinctive. Cinematic. Boldest direction — Drivio would look like nothing else in mobility.</p>
+    </div>
+  </div>
+
+</div>
+
+<div class="section" style="margin-top: 28px;">
+  <p class="label">My read</p>
+  <p style="opacity: 0.75; font-size: 14px; line-height: 1.6;">A (Golden Hour) is my recommendation because it carries every quality we agreed — warm, premium, pan-African, photography-friendly, people-led — and tells the most universal mobility story (the trip home at dusk). B is the closest second if you want more motion energy. C is the calmest, most editorial. D is the most distinctive but hardest to execute well at scale.</p>
+</div>

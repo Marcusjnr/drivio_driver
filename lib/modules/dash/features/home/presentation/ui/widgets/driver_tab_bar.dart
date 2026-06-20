@@ -14,7 +14,7 @@ class DriverTabBar extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final List<_Tab> tabs = const <_Tab>[
-      _Tab(id: DriverTab.drive, label: 'Drive', icon: DrivioIcons.home, route: AppRoutes.home),
+      _Tab(id: DriverTab.drive, label: 'Drive', icon: DrivioIcons.car, route: AppRoutes.home),
       _Tab(id: DriverTab.earnings, label: 'Earnings', icon: DrivioIcons.trendingUp, route: AppRoutes.earnings),
       _Tab(id: DriverTab.pricing, label: 'Pricing', icon: DrivioIcons.bolt, route: AppRoutes.pricing),
       _Tab(id: DriverTab.profile, label: 'Profile', icon: DrivioIcons.user, route: AppRoutes.profileHub),

@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:drivio_driver/modules/commons/all.dart';
 import 'package:drivio_driver/modules/commons/types/message.dart';
 import 'package:drivio_driver/modules/trip/features/chat/presentation/logic/controller/chat_controller.dart';
+import 'package:drivio_driver/modules/trip/features/chat/presentation/logic/controller/unread_chat_controller.dart';
 
 /// Driver↔passenger chat scoped to a trip. Receives the trip id via
 /// route arguments. Until the passenger app exists, the driver is also
@@ -17,6 +18,7 @@ class ChatPage extends ConsumerStatefulWidget {
 
 class _ChatPageState extends ConsumerState<ChatPage> {
   String? _tripId;
+  UnreadChatController? _unread;
   final TextEditingController _input = TextEditingController();
   final ScrollController _scroll = ScrollController();
 
@@ -24,10 +26,24 @@ class _ChatPageState extends ConsumerState<ChatPage> {
   void didChangeDependencies() {
     super.didChangeDependencies();
     _tripId ??= ModalRoute.of(context)?.settings.arguments as String?;
+    // Opening the chat clears the unread badge; clearing again on
+    // dispose covers messages that arrived while the page was open.
+    // Both mutations are deferred — provider state can't change inside
+    // widget life-cycles.
+    if (_tripId != null && _unread == null) {
+      _unread = ref.read(unreadChatControllerProvider(_tripId!).notifier);
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _unread?.markAllRead();
+      });
+    }
   }
 
   @override
   void dispose() {
+    final UnreadChatController? unread = _unread;
+    if (unread != null) {
+      Future<void>(unread.markAllRead);
+    }
     _input.dispose();
     _scroll.dispose();
     super.dispose();
@@ -66,8 +82,10 @@ class _ChatPageState extends ConsumerState<ChatPage> {
     final ChatController c = ref.read(chatControllerProvider(id).notifier);
 
     // Auto-scroll on new messages.
-    ref.listen<ChatState>(chatControllerProvider(id),
-        (ChatState? prev, ChatState next) {
+    ref.listen<ChatState>(chatControllerProvider(id), (
+      ChatState? prev,
+      ChatState next,
+    ) {
       if (prev == null) return;
       if (prev.messages.length != next.messages.length) {
         _scheduleScrollToBottom();
@@ -85,8 +103,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
       child: Column(
         children: <Widget>[
           Container(
-            padding:
-                const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
             decoration: BoxDecoration(
               border: Border(bottom: BorderSide(color: context.border)),
             ),
@@ -100,12 +117,14 @@ class _ChatPageState extends ConsumerState<ChatPage> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: <Widget>[
-                      Text('Rider',
-                          style: TextStyle(
-                            fontSize: 14,
-                            color: context.text,
-                            fontWeight: FontWeight.w600,
-                          )),
+                      Text(
+                        'Rider',
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: context.text,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
                       Row(
                         children: <Widget>[
                           Container(
@@ -117,9 +136,13 @@ class _ChatPageState extends ConsumerState<ChatPage> {
                             ),
                           ),
                           const SizedBox(width: 4),
-                          Text('Online',
-                              style: TextStyle(
-                                  fontSize: 11, color: context.accent)),
+                          Text(
+                            'Online',
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: context.accent,
+                            ),
+                          ),
                         ],
                       ),
                     ],
@@ -139,32 +162,32 @@ class _ChatPageState extends ConsumerState<ChatPage> {
             child: state.isLoading && state.messages.isEmpty
                 ? const Center(child: CircularProgressIndicator())
                 : state.messages.isEmpty
-                    ? Center(
-                        child: Padding(
-                          padding: const EdgeInsets.all(32),
-                          child: Text(
-                            'No messages yet — say hi 👋',
-                            style: AppTextStyles.bodySm
-                                .copyWith(color: context.textDim),
-                            textAlign: TextAlign.center,
-                          ),
+                ? Center(
+                    child: Padding(
+                      padding: const EdgeInsets.all(32),
+                      child: Text(
+                        'No messages yet — say hello.',
+                        style: AppTextStyles.bodySm.copyWith(
+                          color: context.textDim,
                         ),
-                      )
-                    : ListView.separated(
-                        controller: _scroll,
-                        padding: const EdgeInsets.all(14),
-                        itemCount: state.messages.length,
-                        separatorBuilder:
-                            (BuildContext _, int __) =>
-                                const SizedBox(height: 8),
-                        itemBuilder: (BuildContext _, int i) {
-                          final Message m = state.messages[i];
-                          return _Bubble(
-                            message: m,
-                            fromMe: m.senderUserId == state.myUserId,
-                          );
-                        },
+                        textAlign: TextAlign.center,
                       ),
+                    ),
+                  )
+                : ListView.separated(
+                    controller: _scroll,
+                    padding: const EdgeInsets.all(14),
+                    itemCount: state.messages.length,
+                    separatorBuilder: (BuildContext _, int __) =>
+                        const SizedBox(height: 8),
+                    itemBuilder: (BuildContext _, int i) {
+                      final Message m = state.messages[i];
+                      return _Bubble(
+                        message: m,
+                        fromMe: m.senderUserId == state.myUserId,
+                      );
+                    },
+                  ),
           ),
           if (state.error != null)
             Padding(
@@ -185,11 +208,13 @@ class _ChatPageState extends ConsumerState<ChatPage> {
               itemBuilder: (BuildContext _, int i) => GestureDetector(
                 onTap: state.isSending
                     ? null
-                    : () => c.send(quickReplies[i],
-                        kind: MessageKind.quickReply),
+                    : () =>
+                          c.send(quickReplies[i], kind: MessageKind.quickReply),
                 child: Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 8,
+                  ),
                   decoration: BoxDecoration(
                     color: context.surface2,
                     borderRadius: BorderRadius.circular(10),
@@ -217,7 +242,9 @@ class _ChatPageState extends ConsumerState<ChatPage> {
                 Expanded(
                   child: Container(
                     padding: const EdgeInsets.symmetric(
-                        horizontal: 14, vertical: 4),
+                      horizontal: 14,
+                      vertical: 4,
+                    ),
                     decoration: BoxDecoration(
                       color: context.surface,
                       borderRadius: BorderRadius.circular(20),
@@ -234,7 +261,9 @@ class _ChatPageState extends ConsumerState<ChatPage> {
                         isDense: true,
                         hintText: 'Type a message…',
                         hintStyle: TextStyle(
-                            color: context.textMuted, fontSize: 13),
+                          color: context.textMuted,
+                          fontSize: 13,
+                        ),
                       ),
                     ),
                   ),
@@ -245,12 +274,17 @@ class _ChatPageState extends ConsumerState<ChatPage> {
                   shape: const CircleBorder(),
                   child: InkWell(
                     customBorder: const CircleBorder(),
-                    onTap: state.isSending ? null : () => _onSend(c, _input.text),
+                    onTap: state.isSending
+                        ? null
+                        : () => _onSend(c, _input.text),
                     child: SizedBox(
                       width: 38,
                       height: 38,
-                      child: Icon(DrivioIcons.send,
-                          color: context.accentInk, size: 18),
+                      child: Icon(
+                        DrivioIcons.send,
+                        color: context.accentInk,
+                        size: 18,
+                      ),
                     ),
                   ),
                 ),
@@ -328,8 +362,8 @@ class _Bubble extends StatelessWidget {
     final String hh = h == 0
         ? '12'
         : h > 12
-            ? (h - 12).toString()
-            : h.toString();
+        ? (h - 12).toString()
+        : h.toString();
     final String mm = m.toString().padLeft(2, '0');
     final String ampm = h >= 12 ? 'PM' : 'AM';
     return '$hh:$mm $ampm';

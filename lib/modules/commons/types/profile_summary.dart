@@ -6,6 +6,7 @@ class ProfileSummary {
   const ProfileSummary({
     this.joinedAt,
     this.kycStatus,
+    this.livenessPassed = false,
     this.hasActiveVehicle = false,
     this.activeVehicleModel,
     this.lifetimeTrips = 0,
@@ -15,7 +16,9 @@ class ProfileSummary {
   });
 
   final DateTime? joinedAt;
-  final String? kycStatus; // raw enum: not_started/in_progress/pending_review/approved/rejected
+  final String?
+  kycStatus; // raw enum: not_started/in_progress/pending_review/approved/rejected
+  final bool livenessPassed; // drivers.liveness_passed_at is set
   final bool hasActiveVehicle;
   final String? activeVehicleModel;
   final int lifetimeTrips;
@@ -25,11 +28,11 @@ class ProfileSummary {
 
   int get lifetimeEarningsNaira => lifetimeEarningsMinor ~/ 100;
 
-  /// Driver is "verified" for UI badge purposes when KYC is approved
-  /// AND they have an active vehicle. Both gates the spec uses for
-  /// the on-the-road green check.
+  /// Driver is "verified" for UI badge purposes when KYC is approved,
+  /// the face-liveness check has passed, AND they have an active vehicle.
+  /// All three gate the on-the-road green check.
   bool get isVerified =>
-      kycStatus == 'approved' && hasActiveVehicle;
+      kycStatus == 'approved' && livenessPassed && hasActiveVehicle;
 
   static const ProfileSummary empty = ProfileSummary();
 
@@ -39,6 +42,7 @@ class ProfileSummary {
           ? null
           : DateTime.parse(json['joined_at'] as String),
       kycStatus: json['kyc_status'] as String?,
+      livenessPassed: (json['liveness_passed'] as bool?) ?? false,
       hasActiveVehicle: (json['has_active_vehicle'] as bool?) ?? false,
       activeVehicleModel: json['active_vehicle_model'] as String?,
       lifetimeTrips: (json['lifetime_trips'] as num?)?.toInt() ?? 0,

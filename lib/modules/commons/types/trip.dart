@@ -53,6 +53,7 @@ class Trip {
     required this.driverId,
     required this.vehicleId,
     required this.passengerId,
+    this.passengerName,
     required this.fareMinor,
     required this.currency,
     required this.state,
@@ -78,6 +79,10 @@ class Trip {
   final String driverId;
   final String vehicleId;
   final String passengerId;
+
+  /// Rider's full name (from profiles.full_name), or null if no profile
+  /// row / not joined. The UI falls back to "your rider" when null.
+  final String? passengerName;
   final int fareMinor;
   final String currency;
   final TripState state;
@@ -101,6 +106,18 @@ class Trip {
       ((expectedDistanceM ?? 0) / 1000).toDouble();
   int get durationMin => (expectedDurationS ?? 0) ~/ 60;
 
+  /// First name for familiar, mockup-style address ("Kemi · 8 Marina
+  /// Rd"). Falls back to "your rider" when the name is missing.
+  String get riderFirstName {
+    final String? n = passengerName?.trim();
+    if (n == null || n.isEmpty) return 'your rider';
+    return n.split(RegExp(r'\s+')).first;
+  }
+
+  /// Whether we have a real rider name to show (vs the generic fallback).
+  bool get hasRiderName =>
+      passengerName != null && passengerName!.trim().isNotEmpty;
+
   factory Trip.fromJson(Map<String, dynamic> json) {
     DateTime? parse(Object? v) =>
         v == null ? null : DateTime.parse(v as String);
@@ -111,6 +128,7 @@ class Trip {
       driverId: json['driver_id'] as String,
       vehicleId: json['vehicle_id'] as String,
       passengerId: json['passenger_id'] as String,
+      passengerName: json['passenger_name'] as String?,
       fareMinor: (json['fare_minor'] as num).toInt(),
       currency: json['currency'] as String,
       state: TripState.fromWire(json['state'] as String),

@@ -37,8 +37,15 @@ class SignUpState {
       hasValidEmail &&
       hasValidPassword;
 
+  /// E.164-style phone string. Surface identifier shown to the driver
+  /// + stored in `profiles.phone_e164`. Supabase auth itself uses a
+  /// phone-derived synthetic email under the hood (see OtpController)
+  /// so no SMS goes out in dev.
   String get normalizedPhone {
     String digits = phone.replaceAll(RegExp(r'[^\d]'), '');
+    if (digits.startsWith('234')) {
+      digits = digits.substring(3);
+    }
     if (digits.startsWith('0')) {
       digits = digits.substring(1);
     }
@@ -90,11 +97,14 @@ class SignUpController extends StateNotifier<SignUpState> {
   void onReferralChanged(String v) =>
       state = state.copyWith(referralCode: v, clearError: true);
 
-  // TODO: Replace with real OTP provider (Termii, etc.)
+  /// Dev stub — no SMS goes out. The OTP screen accepts the hardcoded
+  /// code (see `OtpController._devOtpCode`), which then triggers the
+  /// real Supabase signUp via the phone-derived synthetic email.
+  /// When a real SMS provider is wired (Termii / Supabase phone auth),
+  /// replace this with the actual send call.
   Future<bool> requestOtp() async {
     if (!state.canSubmit) return false;
     state = state.copyWith(isLoading: true, clearError: true);
-    // Skip actual OTP sending — will be wired to a real provider later
     await Future<void>.delayed(const Duration(milliseconds: 300));
     state = state.copyWith(isLoading: false);
     return true;

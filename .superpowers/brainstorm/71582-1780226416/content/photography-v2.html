@@ -1,0 +1,198 @@
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Marcellus&family=Albert+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+<h2>Photography direction — with actual photographs</h2>
+<p class="subtitle">Real photos this time (sourced from Unsplash). The final brand pass would commission or license from specific African photographers — but for committing a direction, these show the mood. Click your pick.</p>
+
+<style>
+  .photo-direction {
+    background: #F4ECE0;
+    border-radius: 18px;
+    overflow: hidden;
+    cursor: pointer;
+    border: 2px solid transparent;
+    transition: border 0.2s;
+    color: #0E2E2E;
+    margin-bottom: 24px;
+  }
+  .photo-direction.selected { border-color: #EE6F4A; }
+
+  .photo-grid-4 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: 1fr 1fr;
+    gap: 2px;
+    background: #0E2E2E;
+    aspect-ratio: 16/9;
+    position: relative;
+  }
+  .photo-tile {
+    background-size: cover;
+    background-position: center;
+    background-color: #0E2E2E;
+  }
+  .photo-label-badge {
+    position: absolute;
+    top: 16px;
+    left: 16px;
+    background: rgba(244,236,224,0.95);
+    color: #0E2E2E;
+    padding: 7px 12px;
+    border-radius: 6px;
+    font-family: 'Albert Sans', sans-serif;
+    font-size: 10px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    font-weight: 700;
+    z-index: 10;
+    backdrop-filter: blur(6px);
+  }
+  .rec-badge {
+    position: absolute;
+    top: 16px;
+    right: 16px;
+    background: #0E2E2E;
+    color: #F1B940;
+    padding: 7px 11px;
+    border-radius: 6px;
+    font-family: 'Albert Sans', sans-serif;
+    font-size: 9px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    font-weight: 700;
+    z-index: 10;
+  }
+
+  .direction-body {
+    padding: 26px 32px 28px;
+    display: grid;
+    grid-template-columns: 2fr 3fr;
+    gap: 32px;
+  }
+  .direction-meta { }
+  .direction-title {
+    font-family: 'Marcellus', serif;
+    font-size: 26px;
+    margin: 0 0 6px;
+    color: #0E2E2E;
+    line-height: 1.15;
+  }
+  .direction-quote {
+    font-family: 'Albert Sans', sans-serif;
+    font-size: 14px;
+    font-style: italic;
+    color: rgba(14,46,46,0.75);
+    margin: 0;
+    line-height: 1.5;
+  }
+  .direction-content {
+    font-family: 'Albert Sans', sans-serif;
+    font-size: 13px;
+    line-height: 1.65;
+    color: rgba(14,46,46,0.85);
+  }
+  .direction-content p { margin: 0 0 10px; }
+  .direction-refs {
+    font-size: 12px;
+    color: rgba(14,46,46,0.6);
+    margin-top: 12px !important;
+    padding-top: 12px;
+    border-top: 1px solid rgba(14,46,46,0.1);
+  }
+  .direction-refs strong { color: rgba(14,46,46,0.75); }
+</style>
+
+<!-- A · Hybrid -->
+<div class="photo-direction" data-choice="hybrid" onclick="toggleSelect(this)">
+  <div class="photo-grid-4">
+    <div class="photo-label-badge">A · Hybrid</div>
+    <div class="rec-badge">Recommended</div>
+    <div class="photo-tile" style="background-image: url('https://images.unsplash.com/photo-1531123897727-8f129e1688ce?fm=jpg&q=70&w=800&auto=format&fit=crop')"></div>
+    <div class="photo-tile" style="background-image: url('https://images.unsplash.com/photo-1574612357719-5dd0a272afe2?fm=jpg&q=70&w=800&auto=format&fit=crop')"></div>
+    <div class="photo-tile" style="background-image: url('https://images.unsplash.com/photo-1647316897340-6b6de5597c0f?fm=jpg&q=70&w=800&auto=format&fit=crop')"></div>
+    <div class="photo-tile" style="background-image: url('https://images.unsplash.com/photo-1569706971306-de5d78f6418e?fm=jpg&q=70&w=800&auto=format&fit=crop')"></div>
+  </div>
+  <div class="direction-body">
+    <div class="direction-meta">
+      <h3 class="direction-title">Editorial portrait + cinematic urbanscape</h3>
+      <p class="direction-quote">"Portraits for hero. Cityscape for context."</p>
+    </div>
+    <div class="direction-content">
+      <p>Two-mode system. Close, lit, dignified portraits of drivers and passengers hold the people story. Wide cinematic city shots — golden hour, blue hour, night — hold the place story. Together they cover person and city without either dominating.</p>
+      <p>Best for: brand campaigns, splash, OOH, social. Scales because the modes are clearly distinct (portrait vs landscape) — the brand team always knows which mode they're shooting.</p>
+      <p class="direction-refs"><strong>References:</strong> Cash App brand campaigns · Aesop · MR PORTER travel features · Apple TV+ premium documentaries</p>
+    </div>
+  </div>
+</div>
+
+<!-- B · Editorial portrait -->
+<div class="photo-direction" data-choice="editorial-portrait" onclick="toggleSelect(this)">
+  <div class="photo-grid-4">
+    <div class="photo-label-badge">B · Editorial</div>
+    <div class="photo-tile" style="background-image: url('https://images.unsplash.com/photo-1568782517100-09bf22d88c2d?fm=jpg&q=70&w=800&auto=format&fit=crop')"></div>
+    <div class="photo-tile" style="background-image: url('https://images.unsplash.com/photo-1593351799227-75df2026356b?fm=jpg&q=70&w=800&auto=format&fit=crop')"></div>
+    <div class="photo-tile" style="background-image: url('https://images.unsplash.com/photo-1565884280295-98eb83e41c65?fm=jpg&q=70&w=800&auto=format&fit=crop')"></div>
+    <div class="photo-tile" style="background-image: url('https://images.unsplash.com/photo-1530785602389-07594beb8b73?fm=jpg&q=70&w=800&auto=format&fit=crop')"></div>
+  </div>
+  <div class="direction-body">
+    <div class="direction-meta">
+      <h3 class="direction-title">Editorial portrait, art-directed</h3>
+      <p class="direction-quote">"All people, all the time."</p>
+    </div>
+    <div class="direction-content">
+      <p>Every brand image is a portrait. Lit. Composed. Magazine-grade. Subjects looking at camera or in considered moments. Maximum human warmth and premium polish; the city becomes abstract context behind the face.</p>
+      <p>Risk: without urban context, brand can feel slightly disembodied from the markets it operates in. Best paired with strong copy that names the place ("Drivers from Lagos, Accra, Nairobi").</p>
+      <p class="direction-refs"><strong>References:</strong> Aesop campaigns · NYT magazine portraits · Off-White campaigns · Vogue Africa</p>
+    </div>
+  </div>
+</div>
+
+<!-- C · Candid documentary -->
+<div class="photo-direction" data-choice="candid" onclick="toggleSelect(this)">
+  <div class="photo-grid-4">
+    <div class="photo-label-badge">C · Candid</div>
+    <div class="photo-tile" style="background-image: url('https://images.unsplash.com/photo-1622265648356-9f5e5886e77c?fm=jpg&q=70&w=800&auto=format&fit=crop')"></div>
+    <div class="photo-tile" style="background-image: url('https://images.unsplash.com/photo-1638018384328-dd39d83ba668?fm=jpg&q=70&w=800&auto=format&fit=crop')"></div>
+    <div class="photo-tile" style="background-image: url('https://images.unsplash.com/photo-1702725542848-ab2f0b29ffae?fm=jpg&q=70&w=800&auto=format&fit=crop')"></div>
+    <div class="photo-tile" style="background-image: url('https://images.unsplash.com/photo-1633598399299-eef4cbda2001?fm=jpg&q=70&w=800&auto=format&fit=crop')"></div>
+  </div>
+  <div class="direction-body">
+    <div class="direction-meta">
+      <h3 class="direction-title">Candid documentary</h3>
+      <p class="direction-quote">"Real moments. Naturally lit. Slightly imperfect."</p>
+    </div>
+    <div class="direction-content">
+      <p>Drivers between rides, passengers in transit, mid-action shots. Natural light only, no studio styling, slight motion blur welcome. Reads truthful, lived-in, genuinely Lagos / Accra / Nairobi.</p>
+      <p>Risk: harder to scale (every shoot needs a real context, not repeatable in studio). Can read less premium than the warm editorial direction we picked at the strategy level. Strong if Drivio wants to feel grassroots-and-real.</p>
+      <p class="direction-refs"><strong>References:</strong> Airbnb "Belong Anywhere" · Lyft early campaigns · Patagonia environmental work · Stephen Tayo street photography</p>
+    </div>
+  </div>
+</div>
+
+<!-- D · Cinematic urbanscape -->
+<div class="photo-direction" data-choice="cinematic" onclick="toggleSelect(this)">
+  <div class="photo-grid-4">
+    <div class="photo-label-badge">D · Cinematic</div>
+    <div class="photo-tile" style="background-image: url('https://images.unsplash.com/photo-1559585888-6b01c8ea796b?fm=jpg&q=70&w=800&auto=format&fit=crop')"></div>
+    <div class="photo-tile" style="background-image: url('https://images.unsplash.com/photo-1639565772627-2747e066c224?fm=jpg&q=70&w=800&auto=format&fit=crop')"></div>
+    <div class="photo-tile" style="background-image: url('https://images.unsplash.com/photo-1593717191400-84f38ee95485?fm=jpg&q=70&w=800&auto=format&fit=crop')"></div>
+    <div class="photo-tile" style="background-image: url('https://images.unsplash.com/photo-1696339059039-32c2ec012ef7?fm=jpg&q=70&w=800&auto=format&fit=crop')"></div>
+  </div>
+  <div class="direction-body">
+    <div class="direction-meta">
+      <h3 class="direction-title">Cinematic urbanscape, people in context</h3>
+      <p class="direction-quote">"The city, atmospheric. People in scale."</p>
+    </div>
+    <div class="direction-content">
+      <p>Wide cinematic shots of African cityscapes at blue hour, golden hour, neon-lit night. People are present but small in frame — silhouettes, scale-givers, not subjects. Drama from light.</p>
+      <p>Risk: the People's Brand center of gravity (human warmth) gets sublimated to atmosphere. Place becomes the character; person becomes context. Strong if you want Drivio to feel like an Apple TV+ travel doc.</p>
+      <p class="direction-refs"><strong>References:</strong> Apple TV+ premium docs · Spike Lee opening sequences · Sebastião Salgado · Christopher Doyle for Wong Kar-wai</p>
+    </div>
+  </div>
+</div>
+
+<div class="section" style="margin-top: 28px;">
+  <p class="label">A real note on these photos</p>
+  <p style="opacity: 0.75; font-size: 14px; line-height: 1.6;">These are stock photos from Unsplash, not from a curated African photographer roster. They're chosen to show the lighting, composition, and emotional register of each direction. The next pass — after this direction is locked — is sourcing from named photographers (Lakin Ogunbanwo, Stephen Tayo, Aida Muluneh, Yagazie Emezi, Aderonke Ayobamikun) and commissioning original work. I'll mark that as a follow-up in the spec.</p>
+</div>

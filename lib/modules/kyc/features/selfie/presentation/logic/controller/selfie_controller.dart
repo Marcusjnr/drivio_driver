@@ -1,27 +1,22 @@
+import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:image_picker/image_picker.dart';
 import 'package:mime/mime.dart';
 import 'package:path/path.dart' as p;
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'package:drivio_driver/modules/commons/data/document_repository.dart';
 import 'package:drivio_driver/modules/commons/data/document_repository_impl.dart';
+import 'package:drivio_driver/modules/commons/data/profile_repository.dart';
 import 'package:drivio_driver/modules/commons/di/di.dart';
 import 'package:drivio_driver/modules/commons/types/document.dart';
 import 'package:drivio_driver/modules/kyc/features/kyc_home/presentation/logic/data/kyc_repository.dart';
 
 class SelfieState {
-  const SelfieState({
-    this.previewBytes,
-    this.isCapturing = false,
-    this.isSubmitting = false,
-    this.error,
-  });
+  const SelfieState({this.previewBytes, this.isSubmitting = false, this.error});
 
   final Uint8List? previewBytes;
-  final bool isCapturing;
   final bool isSubmitting;
   final String? error;
 
@@ -29,79 +24,65 @@ class SelfieState {
 
   SelfieState copyWith({
     Uint8List? previewBytes,
-    bool? isCapturing,
     bool? isSubmitting,
     String? error,
     bool clearError = false,
-    bool clearPreview = false,
   }) {
     return SelfieState(
-      previewBytes:
-          clearPreview ? null : (previewBytes ?? this.previewBytes),
-      isCapturing: isCapturing ?? this.isCapturing,
+      previewBytes: previewBytes ?? this.previewBytes,
       isSubmitting: isSubmitting ?? this.isSubmitting,
       error: clearError ? null : (error ?? this.error),
     );
   }
 }
 
+/// Persists the captured liveness image: it doubles as the KYC selfie
+/// (private, for admin review) AND the driver's profile photo (public
+/// `avatars` bucket). Marking the `selfie` step server-side sets
+/// `drivers.liveness_passed_at`, which unblocks the ride-request feed.
 class SelfieController extends StateNotifier<SelfieState> {
-  SelfieController(this._docs, this._kyc) : super(const SelfieState());
+  SelfieController(this._docs, this._profiles, this._kyc)
+    : super(const SelfieState());
 
   final DocumentRepository _docs;
+  final ProfileRepository _profiles;
   final KycRepository _kyc;
-  final ImagePicker _imagePicker = ImagePicker();
-  String? _pendingExtension;
-  String? _pendingContentType;
 
-  Future<void> capture() async {
-    state = state.copyWith(isCapturing: true, clearError: true);
-    try {
-      final XFile? x = await _imagePicker.pickImage(
-        source: ImageSource.camera,
-        preferredCameraDevice: CameraDevice.front,
-        imageQuality: 85,
-        maxWidth: 1600,
-      );
-      if (x == null) {
-        state = state.copyWith(isCapturing: false);
-        return;
-      }
-      final Uint8List bytes = await x.readAsBytes();
-      _pendingExtension =
-          p.extension(x.path).replaceFirst('.', '').toLowerCase();
-      if (_pendingExtension!.isEmpty) _pendingExtension = 'jpg';
-      _pendingContentType =
-          x.mimeType ?? lookupMimeType(x.path) ?? 'image/jpeg';
-      state = state.copyWith(
-        isCapturing: false,
-        previewBytes: bytes,
-      );
-    } catch (_) {
-      state = state.copyWith(
-        isCapturing: false,
-        error: "Couldn't open the camera. Check permissions and try again.",
-      );
-    }
-  }
-
-  void clear() => state = state.copyWith(clearPreview: true, clearError: true);
-
-  Future<bool> submit() async {
-    final Uint8List? bytes = state.previewBytes;
-    if (bytes == null) return false;
+  /// Upload the liveness capture at [imagePath] and complete the step.
+  /// Returns true on success.
+  Future<bool> submit(String imagePath) async {
     state = state.copyWith(isSubmitting: true, clearError: true);
     try {
+      final Uint8List bytes = await File(imagePath).readAsBytes();
+      final String rawExt = p
+          .extension(imagePath)
+          .replaceFirst('.', '')
+          .toLowerCase();
+      final String fileExt = rawExt.isEmpty ? 'jpg' : rawExt;
+      final String contentType = lookupMimeType(imagePath) ?? 'image/jpeg';
+      state = state.copyWith(previewBytes: bytes);
+
+      // 1. KYC selfie — private bucket, for admin face-match review.
       final String filePath = await _docs.uploadFile(
         kind: DocumentKind.profileSelfie,
         bytes: bytes,
-        fileExtension: _pendingExtension ?? 'jpg',
-        contentType: _pendingContentType ?? 'image/jpeg',
+        fileExtension: fileExt,
+        contentType: contentType,
       );
       await _docs.registerDocument(
         kind: DocumentKind.profileSelfie,
         filePath: filePath,
       );
+
+      // 2. Profile photo — public avatars bucket.
+      final String avatarUrl = await _profiles.uploadAvatar(
+        bytes: bytes,
+        fileExtension: fileExt,
+        contentType: contentType,
+      );
+      await _profiles.updateMyProfile(avatarUrl: avatarUrl);
+
+      // 3. Mark the step → sets drivers.liveness_passed_at.
       await _kyc.markStepCompleted('selfie');
       state = state.copyWith(isSubmitting: false);
       return true;
@@ -120,7 +101,7 @@ class SelfieController extends StateNotifier<SelfieState> {
     } catch (_) {
       state = state.copyWith(
         isSubmitting: false,
-        error: "Couldn't submit your selfie. Try again in a moment.",
+        error: "Couldn't save your verification. Try again in a moment.",
       );
       return false;
     }
@@ -128,10 +109,11 @@ class SelfieController extends StateNotifier<SelfieState> {
 }
 
 final AutoDisposeStateNotifierProvider<SelfieController, SelfieState>
-    selfieControllerProvider =
+selfieControllerProvider =
     StateNotifierProvider.autoDispose<SelfieController, SelfieState>(
-  (Ref ref) => SelfieController(
-    locator<DocumentRepository>(),
-    locator<KycRepository>(),
-  ),
-);
+      (Ref ref) => SelfieController(
+        locator<DocumentRepository>(),
+        locator<ProfileRepository>(),
+        locator<KycRepository>(),
+      ),
+    );

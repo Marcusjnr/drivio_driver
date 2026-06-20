@@ -199,7 +199,7 @@ class PricingProfile {
       };
 
   static const PricingProfile platformDefault = PricingProfile(
-    baseMinor: 60000,    // ₦600
+    baseMinor: 100000,   // ₦1,000
     perKmMinor: 20000,   // ₦200/km
     peakMultiplier: 1.5,
     peakEnabled: true,

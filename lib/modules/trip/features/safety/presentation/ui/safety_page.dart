@@ -97,19 +97,19 @@ class _SafetyPageState extends ConsumerState<SafetyPage> {
           title: 'QUICK ACTIONS',
           children: const <Widget>[
             _SafetyRow(
-                emoji: '📍',
+                icon: DrivioIcons.share,
                 title: 'Share trip status',
                 sub: 'Send live ETA to trusted contacts'),
             _SafetyRow(
-                emoji: '🎙️',
+                icon: DrivioIcons.mic,
                 title: 'Record audio',
                 sub: 'Encrypted, only auditable in a report'),
             _SafetyRow(
-                emoji: '💬',
+                icon: DrivioIcons.chat,
                 title: 'Contact Trust team',
                 sub: '24/7 in-app support — typical reply 2 min'),
             _SafetyRow(
-                emoji: '⚠️',
+                icon: DrivioIcons.warning,
                 title: 'Report a rider',
                 sub: 'File an incident after the trip',
                 isLast: true),
@@ -247,7 +247,7 @@ class _HoldToActivateState extends State<_HoldToActivate>
                         color: context.bg,
                       ),
                     )
-                  : const Text('🚨', style: TextStyle(fontSize: 36)),
+                  : Icon(DrivioIcons.warning, size: 36, color: context.ivory),
             ),
           ],
         ),
@@ -305,12 +305,12 @@ class _HelpOnTheWay extends StatelessWidget {
 
 class _SafetyRow extends StatelessWidget {
   const _SafetyRow({
-    required this.emoji,
+    required this.icon,
     required this.title,
     required this.sub,
     this.isLast = false,
   });
-  final String emoji;
+  final IconData icon;
   final String title;
   final String sub;
   final bool isLast;
@@ -334,7 +334,7 @@ class _SafetyRow extends StatelessWidget {
               borderRadius: BorderRadius.circular(10),
             ),
             alignment: Alignment.center,
-            child: Text(emoji, style: const TextStyle(fontSize: 18)),
+            child: Icon(icon, size: 18, color: context.text),
           ),
           const SizedBox(width: 12),
           Expanded(

@@ -1,0 +1,410 @@
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Marcellus&family=Albert+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+<h2>Photography direction</h2>
+<p class="subtitle">Mood evocations (not real photos — those come later). The gradient + composition + description gives you the feel. Click to commit.</p>
+
+<style>
+  .photo-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 24px;
+    margin-top: 24px;
+  }
+  .photo-card {
+    background: #F4ECE0;
+    border-radius: 18px;
+    overflow: hidden;
+    cursor: pointer;
+    border: 2px solid transparent;
+    transition: border 0.2s;
+    color: #0E2E2E;
+  }
+  .photo-card.selected { border-color: #EE6F4A; }
+
+  .photo-frames {
+    position: relative;
+    aspect-ratio: 16/10;
+    overflow: hidden;
+  }
+
+  .photo-label {
+    position: absolute;
+    top: 14px;
+    left: 14px;
+    background: rgba(244,236,224,0.95);
+    color: #0E2E2E;
+    padding: 6px 10px;
+    border-radius: 6px;
+    font-family: 'Albert Sans', sans-serif;
+    font-size: 10px;
+    letter-spacing: 1.4px;
+    text-transform: uppercase;
+    font-weight: 700;
+    z-index: 10;
+    backdrop-filter: blur(6px);
+  }
+
+  .photo-content {
+    padding: 22px 24px 24px;
+  }
+  .photo-title {
+    font-family: 'Marcellus', serif;
+    font-size: 22px;
+    margin: 0 0 4px;
+    color: #0E2E2E;
+  }
+  .photo-quote {
+    font-family: 'Albert Sans', sans-serif;
+    font-size: 13px;
+    font-style: italic;
+    color: rgba(14,46,46,0.7);
+    margin: 0 0 18px;
+    line-height: 1.5;
+  }
+  .photo-seen-label {
+    font-family: 'Albert Sans', sans-serif;
+    font-size: 10px;
+    letter-spacing: 1.6px;
+    text-transform: uppercase;
+    color: rgba(14,46,46,0.5);
+    font-weight: 600;
+    margin: 0 0 10px;
+  }
+  .photo-seen-list {
+    font-family: 'Albert Sans', sans-serif;
+    font-size: 13px;
+    line-height: 1.6;
+    color: rgba(14,46,46,0.85);
+    margin: 0 0 16px;
+    padding-left: 0;
+    list-style: none;
+  }
+  .photo-seen-list li {
+    padding-left: 14px;
+    position: relative;
+    margin-bottom: 4px;
+  }
+  .photo-seen-list li::before {
+    content: '·';
+    color: #EE6F4A;
+    position: absolute;
+    left: 0;
+    font-weight: 800;
+  }
+  .photo-refs {
+    font-family: 'Albert Sans', sans-serif;
+    font-size: 12px;
+    color: rgba(14,46,46,0.6);
+    line-height: 1.5;
+    margin: 0;
+    padding-top: 14px;
+    border-top: 1px solid rgba(14,46,46,0.08);
+  }
+  .photo-refs strong { color: rgba(14,46,46,0.75); }
+  .rec {
+    display: inline-block;
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 1.4px;
+    padding: 3px 7px;
+    border-radius: 4px;
+    background: #0E2E2E;
+    color: #F1B940;
+    margin-left: 8px;
+    vertical-align: middle;
+  }
+
+  /* A · Hybrid: split warm studio + golden hour cityscape */
+  .frame-a {
+    background:
+      linear-gradient(135deg,
+        #2E1418 0%,
+        #5A2D24 25%,
+        #B8623E 48%,
+        transparent 50%),
+      linear-gradient(135deg,
+        transparent 50%,
+        #6B3A1F 52%,
+        #E48E3E 75%,
+        #F4BC8A 100%);
+  }
+  .frame-a::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background:
+      radial-gradient(ellipse at 25% 60%, rgba(220,160,110,0.4) 0%, transparent 30%),
+      radial-gradient(ellipse at 75% 40%, rgba(255,180,80,0.3) 0%, transparent 35%);
+  }
+  .frame-a .split-line {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 50%;
+    width: 2px;
+    background: rgba(244,236,224,0.4);
+    transform: translateX(-50%) rotate(15deg);
+    transform-origin: center;
+  }
+  .frame-a .silhouette-left {
+    position: absolute;
+    bottom: 0;
+    left: 18%;
+    width: 70px;
+    height: 90px;
+    background: rgba(20,8,12,0.6);
+    border-radius: 50% 50% 0 0 / 70% 70% 0 0;
+  }
+  .frame-a .skyline {
+    position: absolute;
+    bottom: 0;
+    right: 0;
+    width: 50%;
+    height: 35%;
+    background:
+      linear-gradient(to top, #1F0F0A 0%, transparent 90%);
+  }
+  .frame-a .building {
+    position: absolute;
+    bottom: 0;
+    background: rgba(20,8,12,0.7);
+  }
+  .frame-a .b1 { right: 8%; width: 16px; height: 50px; }
+  .frame-a .b2 { right: 18%; width: 14px; height: 70px; }
+  .frame-a .b3 { right: 28%; width: 18px; height: 40px; }
+  .frame-a .b4 { right: 38%; width: 14px; height: 60px; }
+
+  /* B · Editorial portrait — warm rim-lit studio */
+  .frame-b {
+    background:
+      radial-gradient(circle at 60% 50%, #C9885A 0%, #8B4F30 30%, #2E1410 70%, #1A0808 100%);
+  }
+  .frame-b .face {
+    position: absolute;
+    top: 25%;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 90px;
+    height: 110px;
+    border-radius: 50% 50% 45% 45% / 55% 55% 45% 45%;
+    background: linear-gradient(135deg, #6F3E26 0%, #432010 80%);
+    box-shadow: inset 4px 0 16px rgba(220,170,120,0.3),
+                inset -3px 0 8px rgba(20,8,4,0.5);
+  }
+  .frame-b .rim {
+    position: absolute;
+    top: 25%;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 96px;
+    height: 116px;
+    border-radius: 50% 50% 45% 45% / 55% 55% 45% 45%;
+    background: linear-gradient(95deg, transparent 80%, rgba(255,200,120,0.6) 100%);
+    pointer-events: none;
+  }
+
+  /* C · Candid documentary — bright natural daylight, off-center */
+  .frame-c {
+    background: linear-gradient(135deg,
+      #E8D9B8 0%,
+      #DBC9A1 30%,
+      #B59870 60%,
+      #786250 100%);
+  }
+  .frame-c::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(ellipse at 30% 30%, rgba(255,245,220,0.5) 0%, transparent 50%);
+  }
+  .frame-c .figure {
+    position: absolute;
+    bottom: 18%;
+    right: 28%;
+    width: 50px;
+    height: 80px;
+    background: linear-gradient(180deg, #4A2818 0%, #2A1410 70%);
+    border-radius: 40% 40% 10% 10% / 30% 30% 10% 10%;
+    transform: rotate(-3deg);
+  }
+  .frame-c .ground-shadow {
+    position: absolute;
+    bottom: 12%;
+    right: 22%;
+    width: 70px;
+    height: 8px;
+    background: rgba(0,0,0,0.25);
+    border-radius: 50%;
+    filter: blur(4px);
+  }
+  .frame-c .frame-edge {
+    position: absolute;
+    top: 12%;
+    left: 8%;
+    width: 30%;
+    height: 30%;
+    border: 1px solid rgba(255,255,255,0.4);
+  }
+
+  /* D · Cinematic urbanscape — blue hour + orange city lights */
+  .frame-d {
+    background: linear-gradient(180deg,
+      #0A1A3A 0%,
+      #1F2B58 30%,
+      #4A2D45 65%,
+      #C56E3A 90%,
+      #E08540 100%);
+  }
+  .frame-d .skyline-d {
+    position: absolute;
+    bottom: 18%;
+    left: 0;
+    right: 0;
+    height: 50%;
+  }
+  .frame-d .building-d {
+    position: absolute;
+    bottom: 0;
+    background: rgba(8,8,18,0.85);
+  }
+  .frame-d .bd1 { left: 8%; width: 22px; height: 80px; }
+  .frame-d .bd2 { left: 16%; width: 26px; height: 120px; }
+  .frame-d .bd3 { left: 28%; width: 18px; height: 60px; }
+  .frame-d .bd4 { left: 38%; width: 30px; height: 140px; }
+  .frame-d .bd5 { left: 52%; width: 24px; height: 90px; }
+  .frame-d .bd6 { left: 64%; width: 22px; height: 110px; }
+  .frame-d .bd7 { left: 76%; width: 28px; height: 70px; }
+  .frame-d .bd8 { left: 88%; width: 16px; height: 95px; }
+  .frame-d .window {
+    position: absolute;
+    width: 2px;
+    height: 2px;
+    background: #F1B940;
+    box-shadow: 0 0 4px rgba(241,185,64,0.8);
+  }
+  .frame-d .figure-d {
+    position: absolute;
+    bottom: 10%;
+    left: 45%;
+    width: 22px;
+    height: 38px;
+    background: rgba(8,8,12,0.9);
+    border-radius: 40% 40% 8% 8%;
+  }
+</style>
+
+<div class="photo-grid">
+
+  <div class="photo-card" data-choice="hybrid" onclick="toggleSelect(this)">
+    <div class="photo-frames frame-a">
+      <div class="photo-label">A · Hybrid</div>
+      <div class="silhouette-left"></div>
+      <div class="skyline"></div>
+      <div class="building b1"></div>
+      <div class="building b2"></div>
+      <div class="building b3"></div>
+      <div class="building b4"></div>
+    </div>
+    <div class="photo-content">
+      <h3 class="photo-title">Editorial portrait + cinematic urbanscape <span class="rec">RECOMMENDED</span></h3>
+      <p class="photo-quote">"Portraits for hero. Cityscape for context."</p>
+      <p class="photo-seen-label">What you'd see</p>
+      <ul class="photo-seen-list">
+        <li>Close-up portraits of drivers and passengers — lit, composed, dignified — for hero moments and brand campaigns</li>
+        <li>Wide cinematic shots of African cities at golden / blue hour — Lagos, Accra, Nairobi — for context</li>
+        <li>People sometimes in the cityscape frame, but always intentional — not candid</li>
+        <li>Warm rim lighting on portraits; ambient natural light on urbanscape</li>
+        <li>Shot list balances 60% portraits / 40% cityscape across the brand year</li>
+      </ul>
+      <p class="photo-refs"><strong>References:</strong> Cash App brand campaigns · Aesop · MR PORTER's travel features · Apple TV+ premium documentaries · Mubi</p>
+    </div>
+  </div>
+
+  <div class="photo-card" data-choice="editorial-portrait" onclick="toggleSelect(this)">
+    <div class="photo-frames frame-b">
+      <div class="photo-label">B · Editorial</div>
+      <div class="face"></div>
+      <div class="rim"></div>
+    </div>
+    <div class="photo-content">
+      <h3 class="photo-title">Editorial portrait, art-directed</h3>
+      <p class="photo-quote">"All people, all the time."</p>
+      <p class="photo-seen-label">What you'd see</p>
+      <ul class="photo-seen-list">
+        <li>Close-up portraits of real drivers and passengers, every shot</li>
+        <li>Warm directional lighting — rim light, soft fill — magazine-style</li>
+        <li>Subjects looking at lens or in considered moments</li>
+        <li>Restrained backgrounds, palette tied to Coastal Pulse</li>
+        <li>The face is always the subject — places become abstract</li>
+      </ul>
+      <p class="photo-refs"><strong>References:</strong> Aesop campaigns · NYT magazine portraits · Off-White campaigns · Vogue Africa</p>
+    </div>
+  </div>
+
+  <div class="photo-card" data-choice="candid" onclick="toggleSelect(this)">
+    <div class="photo-frames frame-c">
+      <div class="photo-label">C · Candid</div>
+      <div class="frame-edge"></div>
+      <div class="ground-shadow"></div>
+      <div class="figure"></div>
+    </div>
+    <div class="photo-content">
+      <h3 class="photo-title">Candid documentary</h3>
+      <p class="photo-quote">"Real moments. Naturally lit. Slightly imperfect."</p>
+      <p class="photo-seen-label">What you'd see</p>
+      <ul class="photo-seen-list">
+        <li>Drivers between rides, leaning on cars, talking to other drivers</li>
+        <li>Passengers waiting on corners, glancing at phones, hailing</li>
+        <li>Mid-action — getting in, paying, arriving</li>
+        <li>Natural light only, no styling, slight motion blur welcome</li>
+        <li>Frame compositions feel "caught," not posed</li>
+      </ul>
+      <p class="photo-refs"><strong>References:</strong> Airbnb "Belong Anywhere" · Lyft's early brand campaigns · Patagonia · Sean Tucker's street photography</p>
+    </div>
+  </div>
+
+  <div class="photo-card" data-choice="cinematic" onclick="toggleSelect(this)">
+    <div class="photo-frames frame-d">
+      <div class="skyline-d">
+        <div class="building-d bd1"></div>
+        <div class="building-d bd2"></div>
+        <div class="building-d bd3"></div>
+        <div class="building-d bd4"></div>
+        <div class="building-d bd5"></div>
+        <div class="building-d bd6"></div>
+        <div class="building-d bd7"></div>
+        <div class="building-d bd8"></div>
+      </div>
+      <div class="figure-d"></div>
+      <div class="photo-label">D · Cinematic</div>
+      <div class="window" style="left: 17%; bottom: 22%;"></div>
+      <div class="window" style="left: 18%; bottom: 16%;"></div>
+      <div class="window" style="left: 40%; bottom: 30%;"></div>
+      <div class="window" style="left: 41%; bottom: 22%;"></div>
+      <div class="window" style="left: 42%; bottom: 14%;"></div>
+      <div class="window" style="left: 67%; bottom: 26%;"></div>
+      <div class="window" style="left: 65%; bottom: 18%;"></div>
+    </div>
+    <div class="photo-content">
+      <h3 class="photo-title">Cinematic urbanscape, people in context</h3>
+      <p class="photo-quote">"The city, atmospheric. People in scale."</p>
+      <p class="photo-seen-label">What you'd see</p>
+      <ul class="photo-seen-list">
+        <li>Wide shots of African cityscapes at blue hour, golden hour, neon-lit night</li>
+        <li>People present but small in frame — silhouettes, scale-givers, not subjects</li>
+        <li>Drama from light: rim of sunset on glass, headlight trails, neon glow</li>
+        <li>City as character — the scene tells the story, not the face</li>
+        <li>No close-ups, no studio lighting, no posed portraits</li>
+      </ul>
+      <p class="photo-refs"><strong>References:</strong> Apple TV+ premium docs · Spike Lee opening sequences · Sebastião Salgado · cinematic city photography (Christopher Doyle for Wong Kar-wai)</p>
+    </div>
+  </div>
+
+</div>
+
+<div class="section" style="margin-top: 32px;">
+  <p class="label">A note on the visuals</p>
+  <p style="opacity: 0.75; font-size: 14px; line-height: 1.6;">Each photo frame is a mood block, not a real photograph — the gradient, the composition hint (a portrait silhouette, a skyline, a candid figure), the color temperature. Once a direction is locked, the next step is a real mood board with actual photographs sourced from African photographers (Israel Andrade, Lakin Ogunbanwo, Stephen Tayo, Aida Muluneh, etc.) — but that's a separate research pass and lives in the spec doc as a deferred task.</p>
+</div>

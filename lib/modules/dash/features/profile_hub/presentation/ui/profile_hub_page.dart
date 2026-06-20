@@ -36,10 +36,12 @@ class _ProfileHubPageState extends ConsumerState<ProfileHubPage> {
   @override
   Widget build(BuildContext context) {
     final ProfileHubState state = ref.watch(profileHubControllerProvider);
-    final ProfileHubController c =
-        ref.read(profileHubControllerProvider.notifier);
-    final SubscriptionState subState =
-        ref.watch(subscriptionControllerProvider);
+    final ProfileHubController c = ref.read(
+      profileHubControllerProvider.notifier,
+    );
+    final SubscriptionState subState = ref.watch(
+      subscriptionControllerProvider,
+    );
 
     return ScreenScaffold(
       bottomBar: const DriverTabBar(active: DriverTab.profile),
@@ -104,7 +106,7 @@ class _Header extends StatelessWidget {
     final int trips = state.summary.lifetimeTrips;
     return Row(
       children: <Widget>[
-        Avatar(name: name, variant: variant, size: 60),
+        Avatar(name: name, variant: variant, size: 60, imageUrl: p?.avatarUrl),
         const SizedBox(width: 14),
         Expanded(
           child: Column(
@@ -166,15 +168,20 @@ class _StatsRow extends StatelessWidget {
     final String lifetimeLabel = lifetimeNaira == 0
         ? '₦0'
         : NairaFormatter.formatCompact(lifetimeNaira);
-    final String vehicleLabel =
-        state.summary.activeVehicleModel ?? 'None';
+    final String vehicleLabel = state.summary.activeVehicleModel ?? 'None';
     return Row(
       children: <Widget>[
-        Expanded(child: _Stat(label: 'Joined', value: joinedLabel)),
+        Expanded(
+          child: _Stat(label: 'Joined', value: joinedLabel),
+        ),
         const SizedBox(width: 8),
-        Expanded(child: _Stat(label: 'Lifetime', value: lifetimeLabel)),
+        Expanded(
+          child: _Stat(label: 'Lifetime', value: lifetimeLabel),
+        ),
         const SizedBox(width: 8),
-        Expanded(child: _Stat(label: 'Vehicle', value: vehicleLabel)),
+        Expanded(
+          child: _Stat(label: 'Vehicle', value: vehicleLabel),
+        ),
       ],
     );
   }
@@ -184,8 +191,18 @@ class _StatsRow extends StatelessWidget {
   /// form is gone.
   static String _monthYear(DateTime t) {
     const List<String> m = <String>[
-      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
     ];
     final String month = m[(t.month - 1).clamp(0, 11)];
     return '$month ${t.year}';
@@ -291,13 +308,9 @@ class _DocLinkRow extends StatelessWidget {
       label: label,
       value: value,
       divider: !isLast,
-      onTap: () => AppNavigation.push(
-        AppRoutes.kycDocumentCapture,
-        arguments: kind,
-      ),
-      right: icon == null
-          ? null
-          : Icon(icon, size: 18, color: color),
+      onTap: () =>
+          AppNavigation.push(AppRoutes.kycDocumentCapture, arguments: kind),
+      right: icon == null ? null : Icon(icon, size: 18, color: color),
     );
   }
 
@@ -323,8 +336,18 @@ class _DocLinkRow extends StatelessWidget {
 
   static String _fmtDate(DateTime t) {
     const List<String> m = <String>[
-      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
     ];
     return '${m[(t.month - 1).clamp(0, 11)]} ${t.day}';
   }
@@ -355,8 +378,7 @@ class _ReviewsGroup extends StatelessWidget {
                         children: <Widget>[
                           Avatar(
                             name: top.passengerName,
-                            variant:
-                                top.passengerId.hashCode.abs() % 4,
+                            variant: top.passengerId.hashCode.abs() % 4,
                             size: 32,
                           ),
                           const SizedBox(width: 10),
@@ -376,8 +398,11 @@ class _ReviewsGroup extends StatelessWidget {
                               ],
                             ),
                           ),
-                          Icon(DrivioIcons.chevron,
-                              size: 14, color: context.textMuted),
+                          Icon(
+                            DrivioIcons.chevron,
+                            size: 14,
+                            color: context.textMuted,
+                          ),
                         ],
                       ),
                       if (top.comment != null) ...<Widget>[
@@ -452,8 +477,9 @@ class _AccountGroup extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final Subscription? sub = subState.subscription;
-    final (String subSubtitle, String pillText, PillTone pillTone) =
-        _subStatus(sub);
+    final (String subSubtitle, String pillText, PillTone pillTone) = _subStatus(
+      sub,
+    );
     final String referralValue = state.profile?.referralCode ?? '—';
     return _Group(
       title: 'ACCOUNT',
@@ -472,7 +498,9 @@ class _AccountGroup extends StatelessWidget {
                   height: 36,
                   decoration: BoxDecoration(
                     color: context.accent.withValues(alpha: 0.14),
-                    border: Border.all(color: context.accent.withValues(alpha: 0.28)),
+                    border: Border.all(
+                      color: context.accent.withValues(alpha: 0.28),
+                    ),
                     borderRadius: BorderRadius.circular(10),
                   ),
                   alignment: Alignment.center,
@@ -528,9 +556,7 @@ class _AccountGroup extends StatelessWidget {
       final int? days = sub.daysRemaining;
       switch (sub.status) {
         case SubscriptionStatus.trialing:
-          return days == null
-              ? 'Trial · ends soon'
-              : 'Trial · $days days left';
+          return days == null ? 'Trial · ends soon' : 'Trial · $days days left';
         case SubscriptionStatus.active:
           return days == null
               ? 'Drivio Pro · active'
@@ -613,10 +639,15 @@ class _Stat extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
-          Text(label.toUpperCase(),
-              style: AppTextStyles.eyebrow.copyWith(color: context.textDim)),
+          Text(
+            label.toUpperCase(),
+            style: AppTextStyles.eyebrow.copyWith(color: context.textDim),
+          ),
           const SizedBox(height: 4),
-          Text(value, style: AppTextStyles.metricVal.copyWith(color: context.text)),
+          Text(
+            value,
+            style: AppTextStyles.metricVal.copyWith(color: context.text),
+          ),
         ],
       ),
     );
@@ -633,7 +664,10 @@ class _Group extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
-        Text(title, style: AppTextStyles.eyebrow.copyWith(color: context.textDim)),
+        Text(
+          title,
+          style: AppTextStyles.eyebrow.copyWith(color: context.textDim),
+        ),
         const SizedBox(height: 8),
         Container(
           decoration: BoxDecoration(

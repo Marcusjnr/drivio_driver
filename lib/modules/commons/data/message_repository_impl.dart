@@ -45,11 +45,14 @@ class SupabaseMessageRepository implements MessageRepository {
   }
 
   @override
-  Stream<Message> watchForTrip(String tripId) {
+  Stream<Message> watchForTrip(
+    String tripId, {
+    String channelKey = 'messages',
+  }) {
     final StreamController<Message> ctrl =
         StreamController<Message>.broadcast();
     final RealtimeChannel channel = _supabase.client
-        .channel('messages:$tripId')
+        .channel('$channelKey:$tripId')
         .onPostgresChanges(
           event: PostgresChangeEvent.insert,
           schema: 'public',

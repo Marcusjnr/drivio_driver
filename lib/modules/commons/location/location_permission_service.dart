@@ -57,6 +57,30 @@ class LocationPermissionService {
     return _normalise(perm, service);
   }
 
+  /// Best-effort escalation from "while in use" to "always" (background)
+  /// location. Background permission is what lets the location foreground
+  /// service be (re)started from the background — notably the boot /
+  /// package-replaced restart paths.
+  ///
+  /// There is no dedicated geolocator call for this. On iOS a second
+  /// [Geolocator.requestPermission] after a while-in-use grant surfaces
+  /// the system "Change to Always Allow?" upgrade prompt. On Android 11+
+  /// the OS forbids prompting for background directly, so this resolves
+  /// to the current value and the upgrade must come from Settings. Either
+  /// way the caller should treat the result as advisory: while-in-use is
+  /// enough for the foreground-started service to keep streaming once the
+  /// app is backgrounded; "always" only adds the boot-restart capability.
+  Future<bool> requestBackgroundUpgrade() async {
+    final LocationPermission perm = await Geolocator.requestPermission();
+    return perm == LocationPermission.always;
+  }
+
+  /// True once the user has granted background ("always") location.
+  Future<bool> hasBackgroundPermission() async {
+    final LocationPermission perm = await Geolocator.checkPermission();
+    return perm == LocationPermission.always;
+  }
+
   /// Open the platform's app-settings screen so a permanently-denied
   /// driver can flip the toggle manually. Returns true if the deep-
   /// link succeeded.

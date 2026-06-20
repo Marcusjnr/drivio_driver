@@ -141,10 +141,10 @@ class RideRequestController extends StateNotifier<RideRequestState> {
     required RideRequestRepository requests,
     required VehicleRepository vehicles,
     required PricingRepository pricing,
-  })  : _requests = requests,
-        _vehicles = vehicles,
-        _pricing = pricing,
-        super(RideRequestState(requestId: requestId, isLoading: true)) {
+  }) : _requests = requests,
+       _vehicles = vehicles,
+       _pricing = pricing,
+       super(RideRequestState(requestId: requestId, isLoading: true)) {
     _hydrate();
   }
 
@@ -165,6 +165,11 @@ class RideRequestController extends StateNotifier<RideRequestState> {
   Timer? _bidPoll;
   static const Duration _kBidPollWindow = Duration(seconds: 4);
 
+  /// Once a bid is placed, the countdown follows the *bid's* own 60s window
+  /// (set server-side, per offer) rather than the request broadcast window,
+  /// so the driver's timer matches what the rider sees for this offer.
+  DateTime? _bidDeadline;
+
   String? _activeVehicleId;
   PricingProfile _pricingProfile = PricingProfile.platformDefault;
 
@@ -180,10 +185,7 @@ class RideRequestController extends StateNotifier<RideRequestState> {
       if (!mounted) return;
       final RideRequest? req = r[0] as RideRequest?;
       if (req == null) {
-        state = state.copyWith(
-          isLoading: false,
-          error: 'Request not found.',
-        );
+        state = state.copyWith(isLoading: false, error: 'Request not found.');
         return;
       }
 
@@ -196,20 +198,16 @@ class RideRequestController extends StateNotifier<RideRequestState> {
       _pricingProfile = r[2] as PricingProfile;
 
       final int suggested = _suggestedForRequest(req);
-      final PricingWindow? window =
-          _pricingProfile.activeWindow(req.createdAt);
-      final double mult = window == PricingWindow.peak
-          ? _pricingProfile.peakMultiplier
-          : window == PricingWindow.night
-              ? _pricingProfile.nightMultiplier
-              : 1.0;
+      // Surcharges were removed from the pricing model — the suggested
+      // fare is base + per-km only, identical at every hour. No
+      // peak/night window is ever active, so the bid composer shows no
+      // surcharge pill.
       state = state.copyWith(
         request: req,
         suggestedMinor: suggested,
         priceMinor: suggested,
-        suggestedWindow: window,
-        clearSuggestedWindow: window == null,
-        suggestedMultiplier: mult,
+        clearSuggestedWindow: true,
+        suggestedMultiplier: 1.0,
         secondsLeft: req.secondsRemaining(),
         isLoading: false,
       );
@@ -229,14 +227,19 @@ class RideRequestController extends StateNotifier<RideRequestState> {
     _ticker = Timer.periodic(const Duration(seconds: 1), (Timer t) {
       final RideRequest? r = state.request;
       if (r == null) return;
-      final int s = r.secondsRemaining();
+      // After a bid is placed, count down to that offer's own expiry;
+      // before then, count down the request broadcast window.
+      final DateTime? deadline = _bidDeadline;
+      final int s = deadline != null
+          ? deadline.difference(DateTime.now()).inSeconds.clamp(0, 24 * 3600)
+          : r.secondsRemaining();
       state = state.copyWith(secondsLeft: s);
       if (s <= 0) {
         t.cancel();
         if (state.phase == BidPhase.waiting) {
           state = state.copyWith(
             phase: BidPhase.lost,
-            error: 'Request expired before a bid was accepted.',
+            error: 'Your offer expired before it was accepted.',
           );
         }
       }
@@ -268,6 +271,9 @@ class RideRequestController extends StateNotifier<RideRequestState> {
         priceMinor: state.priceMinor,
       );
       if (!mounted) return;
+      // Optimistic local deadline; refined to the server's exact value as
+      // soon as the bid stream emits (see [_handleBidUpdate]).
+      _bidDeadline = DateTime.now().add(const Duration(seconds: 60));
       state = state.copyWith(bidId: bidId, phase: BidPhase.waiting);
       _watchBid(bidId);
     } catch (e, s) {
@@ -343,12 +349,14 @@ class RideRequestController extends StateNotifier<RideRequestState> {
         _bidPoll?.cancel();
         _bidPoll = null;
       case RideBidStatus.withdrawn:
+        _bidDeadline = null;
         state = state.copyWith(phase: BidPhase.composing);
         _bidPoll?.cancel();
         _bidPoll = null;
       case RideBidStatus.pending:
-        // No-op
-        break;
+        // Refine the local countdown to the server's exact per-offer
+        // expiry so the driver's timer matches the rider's for this offer.
+        _bidDeadline = bid.expiresAt;
     }
   }
 
@@ -358,6 +366,8 @@ class RideRequestController extends StateNotifier<RideRequestState> {
     try {
       await _requests.withdrawBid(bidId);
       if (!mounted) return;
+      // Back to composing — the countdown reverts to the request window.
+      _bidDeadline = null;
       state = state.copyWith(phase: BidPhase.composing, bidId: null);
     } catch (e, s) {
       if (!mounted) return;
@@ -368,19 +378,18 @@ class RideRequestController extends StateNotifier<RideRequestState> {
     }
   }
 
-  /// Driver's saved pricing profile drives this — base + per-km, plus
-  /// peak/night multiplier if the toggle is enabled and the request's
-  /// local hour falls in the corresponding window. Rounds to the nearest
-  /// ₦100 (via the shared helper on [PricingProfile] so the pricing-tab
-  /// preview and the bid composer never drift apart) and clamps to the
-  /// absolute floor / ceiling.
+  /// Driver's saved pricing profile drives this — base + per-km only.
+  /// Rounds to the nearest ₦100 (via the shared helper on
+  /// [PricingProfile] so the pricing-tab preview and the bid composer
+  /// never drift apart) and clamps to the absolute floor / ceiling.
+  /// No time-of-day surcharge is applied (surcharges were removed).
   int _suggestedForRequest(RideRequest req) {
-    final int raw = _pricingProfile.suggestFor(
+    final int raw = _pricingProfile.suggestForDistance(
       req.expectedDistanceM ?? 0,
-      req.createdAt,
     );
-    return PricingProfile.roundToNearestNaira100(raw)
-        .clamp(_kAbsoluteMinMinor, _kAbsoluteMaxMinor);
+    return PricingProfile.roundToNearestNaira100(
+      raw,
+    ).clamp(_kAbsoluteMinMinor, _kAbsoluteMaxMinor);
   }
 
   @override
@@ -394,10 +403,10 @@ class RideRequestController extends StateNotifier<RideRequestState> {
 
 final rideRequestControllerProvider = StateNotifierProvider.autoDispose
     .family<RideRequestController, RideRequestState, String>(
-  (Ref ref, String requestId) => RideRequestController(
-    requestId: requestId,
-    requests: locator<RideRequestRepository>(),
-    vehicles: locator<VehicleRepository>(),
-    pricing: locator<PricingRepository>(),
-  ),
-);
+      (Ref ref, String requestId) => RideRequestController(
+        requestId: requestId,
+        requests: locator<RideRequestRepository>(),
+        vehicles: locator<VehicleRepository>(),
+        pricing: locator<PricingRepository>(),
+      ),
+    );

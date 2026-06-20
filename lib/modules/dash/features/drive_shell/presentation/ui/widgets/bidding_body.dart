@@ -3,14 +3,16 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:drivio_driver/modules/commons/all.dart';
-import 'package:drivio_driver/modules/commons/types/pricing_profile.dart';
 import 'package:drivio_driver/modules/dash/features/drive_shell/presentation/logic/controller/drive_shell_controller.dart';
 import 'package:drivio_driver/modules/trip/features/ride_request/presentation/logic/controller/ride_request_controller.dart';
 
-/// Bottom-sheet body shown in [ShellMode.bidding]. Reads the active
-/// `requestId` from the shell state and delegates to the existing
-/// `RideRequestController` family. Decline simply asks the shell to
-/// exit bidding mode (no route pop).
+/// Bottom-sheet body shown in [ShellMode.bidding].
+///
+///   • composing / submitting → the bid composer (SCR-019/020/021):
+///     route, YOUR PRICE, the price input (type / slider / chips), the
+///     you-keep line, Decline / Submit.
+///   • waiting → the "Bid in." waiting sheet (SCR-022): a dark sheet
+///     with a depleting coral ring, the countdown, and Withdraw.
 class BiddingBody extends ConsumerWidget {
   const BiddingBody({super.key, required this.requestId});
 
@@ -37,20 +39,31 @@ class BiddingBody extends ConsumerWidget {
       );
     }
 
+    // SCR-022 — once the bid is placed, the composer gives way to the
+    // dark waiting sheet. won/lost are brief transitional states the
+    // shell navigates away from, so they ride the same waiting visual.
+    final bool waiting = state.phase == BidPhase.waiting ||
+        state.phase == BidPhase.won ||
+        state.phase == BidPhase.lost;
+    if (waiting) {
+      return _WaitingBody(state: state, onWithdraw: c.withdraw);
+    }
+
     return Container(
       padding: const EdgeInsets.fromLTRB(20, 18, 20, 16),
       decoration: BoxDecoration(
-        color: context.bg,
-        borderRadius:
-            const BorderRadius.vertical(top: Radius.circular(28)),
+        color: context.surface,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
         border: Border(top: BorderSide(color: context.border)),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: <Widget>[
-          _RouteRow(state: state),
+          _Handle(),
           const SizedBox(height: 14),
+          _RouteRow(state: state),
+          const SizedBox(height: 16),
           _FareCard(
             state: state,
             onPriceChanged: c.setPriceNaira,
@@ -64,7 +77,7 @@ class BiddingBody extends ConsumerWidget {
               textAlign: TextAlign.center,
             ),
           ],
-          const SizedBox(height: 10),
+          const SizedBox(height: 14),
           _ActionRow(
             state: state,
             controller: c,
@@ -74,6 +87,147 @@ class BiddingBody extends ConsumerWidget {
         ],
       ),
     );
+  }
+}
+
+/// Centered charcoal-teal drag handle, used by the bidding sheets which
+/// don't go through BottomSheetCard.
+class _Handle extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Container(
+        width: 40,
+        height: 5,
+        decoration: BoxDecoration(
+          color: context.text.withValues(alpha: 0.22),
+          borderRadius: BorderRadius.circular(5),
+        ),
+      ),
+    );
+  }
+}
+
+/// SCR-022 — "Bid in." waiting sheet. Dark charcoal-teal body with a
+/// depleting coral ring around the countdown.
+class _WaitingBody extends StatelessWidget {
+  const _WaitingBody({required this.state, required this.onWithdraw});
+
+  final RideRequestState state;
+  final VoidCallback onWithdraw;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(24, 16, 24, 28),
+      decoration: const BoxDecoration(
+        color: AppColors.charcoalTeal,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: <Widget>[
+          Center(
+            child: Container(
+              width: 40,
+              height: 5,
+              decoration: BoxDecoration(
+                color: AppColors.ivory.withValues(alpha: 0.22),
+                borderRadius: BorderRadius.circular(5),
+              ),
+            ),
+          ),
+          const SizedBox(height: 22),
+          Text(
+            'Bid in.',
+            style: AppTextStyles.screenTitle.copyWith(color: AppColors.ivory),
+          ),
+          const SizedBox(height: 22),
+          // Depleting coral ring + countdown.
+          SizedBox(
+            width: 140,
+            height: 140,
+            child: Stack(
+              alignment: Alignment.center,
+              children: <Widget>[
+                SizedBox(
+                  width: 140,
+                  height: 140,
+                  child: CircularProgressIndicator(
+                    value: state.progressPct.clamp(0.0, 1.0),
+                    strokeWidth: 3,
+                    backgroundColor: AppColors.ivory.withValues(alpha: 0.10),
+                    valueColor:
+                        const AlwaysStoppedAnimation<Color>(AppColors.coral),
+                  ),
+                ),
+                Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: <Widget>[
+                    Text(
+                      _fmtClock(state.secondsLeft),
+                      style: AppTextStyles.metricVal.copyWith(
+                        fontSize: 34,
+                        color: AppColors.ivory,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      'BID IN',
+                      style: AppTextStyles.eyebrow
+                          .copyWith(color: AppColors.coral),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 22),
+          Text(
+            '${NairaFormatter.format(state.priceNaira)} · '
+            '${state.distanceKm.toStringAsFixed(1)} km',
+            style: AppTextStyles.body.copyWith(
+              color: AppColors.ivory,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            state.phase == BidPhase.won
+                ? 'You won — loading your trip…'
+                : state.phase == BidPhase.lost
+                    ? 'Another driver was picked.'
+                    : 'Waiting for the rider to choose.',
+            style: AppTextStyles.bodySm.copyWith(
+              color: AppColors.ivory.withValues(alpha: 0.72),
+            ),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 20),
+          if (state.phase == BidPhase.waiting)
+            SizedBox(
+              height: 44,
+              child: TextButton(
+                onPressed: onWithdraw,
+                child: Text(
+                  'Withdraw bid',
+                  style: AppTextStyles.bodySm.copyWith(
+                    color: AppColors.ivory.withValues(alpha: 0.72),
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  static String _fmtClock(int seconds) {
+    if (seconds <= 0) return '00:00';
+    final int m = seconds ~/ 60;
+    final int s = seconds % 60;
+    return '${m.toString().padLeft(2, '0')}:${s.toString().padLeft(2, '0')}';
   }
 }
 
@@ -87,9 +241,8 @@ class _ErrorPanel extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.fromLTRB(20, 24, 20, 24),
       decoration: BoxDecoration(
-        color: context.bg,
-        borderRadius:
-            const BorderRadius.vertical(top: Radius.circular(28)),
+        color: context.surface,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
         border: Border(top: BorderSide(color: context.border)),
       ),
       child: Column(
@@ -128,15 +281,15 @@ class _ActionRow extends StatelessWidget {
             Expanded(
               child: DrivioButton(
                 label: 'Decline',
-                variant: DrivioButtonVariant.danger,
+                variant: DrivioButtonVariant.ghost,
                 onPressed: onDecline,
               ),
             ),
-            const SizedBox(width: 8),
+            const SizedBox(width: 10),
             Expanded(
               flex: 2,
               child: DrivioButton(
-                label: 'Bid · ${NairaFormatter.format(state.priceNaira)}',
+                label: 'Submit bid',
                 disabled: !state.canSubmit,
                 onPressed: controller.submitBid,
               ),
@@ -150,57 +303,16 @@ class _ActionRow extends StatelessWidget {
           onPressed: () {},
         );
       case BidPhase.waiting:
-        return Column(
-          children: <Widget>[
-            Container(
-              padding: const EdgeInsets.symmetric(vertical: 10),
-              alignment: Alignment.center,
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: <Widget>[
-                  SizedBox(
-                    width: 14,
-                    height: 14,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      color: context.accent,
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Text(
-                    'Bid placed · waiting for passenger',
-                    style: AppTextStyles.caption.copyWith(
-                      color: context.text,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 4),
-            DrivioButton(
-              label: 'Withdraw',
-              variant: DrivioButtonVariant.ghost,
-              onPressed: controller.withdraw,
-            ),
-          ],
-        );
       case BidPhase.won:
-        return DrivioButton(
-          label: 'You won! Loading trip…',
-          disabled: true,
-          onPressed: () {},
-        );
       case BidPhase.lost:
-        return DrivioButton(
-          label: 'Closing…',
-          disabled: true,
-          onPressed: () {},
-        );
+        // Handled by the dedicated waiting sheet; nothing here.
+        return const SizedBox.shrink();
     }
   }
 }
 
+/// Pickup (coral disc) → drop-off (teal square) rail, then a chip row
+/// with distance · duration per SCR-019.
 class _RouteRow extends StatelessWidget {
   const _RouteRow({required this.state});
   final RideRequestState state;
@@ -209,80 +321,103 @@ class _RouteRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final String pickup = state.request?.pickupAddress ?? 'Pickup';
     final String dropoff = state.request?.dropoffAddress ?? 'Dropoff';
-    return Row(
+    return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
-        SizedBox(
-          width: 12,
-          child: Column(
-            children: <Widget>[
-              const SizedBox(height: 6),
-              Container(
-                width: 10,
-                height: 10,
-                decoration: BoxDecoration(
-                  color: context.blue,
-                  shape: BoxShape.circle,
-                  border: Border.all(
-                    color: context.blue.withValues(alpha: 0.2),
-                    width: 3,
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            SizedBox(
+              width: 12,
+              child: Column(
+                children: <Widget>[
+                  const SizedBox(height: 5),
+                  Container(
+                    width: 10,
+                    height: 10,
+                    decoration: BoxDecoration(
+                      color: context.coral,
+                      shape: BoxShape.circle,
+                    ),
                   ),
-                ),
+                  SizedBox(
+                    height: 26,
+                    child: VerticalDivider(
+                        color: context.borderStrong, thickness: 2),
+                  ),
+                  Container(
+                    width: 10,
+                    height: 10,
+                    decoration: BoxDecoration(
+                      color: context.teal,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                ],
               ),
-              SizedBox(
-                height: 28,
-                child: VerticalDivider(
-                    color: context.borderStrong, thickness: 2),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  Text(
+                    pickup,
+                    style: AppTextStyles.bodySm.copyWith(
+                      color: context.text,
+                      fontWeight: FontWeight.w600,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 18),
+                  Text(
+                    dropoff,
+                    style: AppTextStyles.bodySm.copyWith(
+                      color: context.text,
+                      fontWeight: FontWeight.w600,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
               ),
-              Container(
-                width: 10,
-                height: 10,
-                decoration: BoxDecoration(
-                  color: context.text,
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-            ],
-          ),
+            ),
+          ],
         ),
-        const SizedBox(width: 10),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: <Widget>[
-              Text('PICKUP',
-                  style:
-                      AppTextStyles.eyebrow.copyWith(color: context.textDim)),
-              const SizedBox(height: 2),
-              Text(
-                pickup,
-                style: AppTextStyles.bodySm.copyWith(
-                  color: context.text,
-                  fontWeight: FontWeight.w700,
-                ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-              const SizedBox(height: 12),
-              Text(
-                'DROP-OFF · ${state.distanceKm.toStringAsFixed(1)} KM · ${state.durationMin} MIN',
-                style:
-                    AppTextStyles.eyebrow.copyWith(color: context.textDim),
-              ),
-              const SizedBox(height: 2),
-              Text(
-                dropoff,
-                style: AppTextStyles.bodySm.copyWith(
-                  color: context.text,
-                  fontWeight: FontWeight.w700,
-                ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ],
-          ),
+        const SizedBox(height: 12),
+        Row(
+          children: <Widget>[
+            _MetaChip(label: '${state.distanceKm.toStringAsFixed(1)} KM'),
+            const SizedBox(width: 8),
+            _MetaChip(label: '~${state.durationMin} MIN'),
+          ],
         ),
       ],
+    );
+  }
+}
+
+class _MetaChip extends StatelessWidget {
+  const _MetaChip({required this.label});
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(
+        color: context.surface2,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: context.border),
+      ),
+      child: Text(
+        label,
+        style: AppTextStyles.mono.copyWith(
+          color: context.textDim,
+          fontSize: 12,
+        ),
+      ),
     );
   }
 }
@@ -332,116 +467,72 @@ class _FareCardState extends State<_FareCard> {
   @override
   Widget build(BuildContext context) {
     final RideRequestState state = widget.state;
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: context.surface,
-        borderRadius: AppRadius.lg,
-        border: Border.all(color: context.border),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: <Widget>[
-              Flexible(
-                child: Text(
-                  'YOUR FARE · YOU DECIDE',
-                  style:
-                      AppTextStyles.eyebrow.copyWith(color: context.accent),
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-              const SizedBox(width: 8),
-              Flexible(
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: <Widget>[
-                    if (state.suggestedWindow != null) ...<Widget>[
-                      // Driver's pricing profile boosted the suggestion
-                      // because this request landed in their peak/night
-                      // window. Surface it so the higher number doesn't
-                      // surprise them.
-                      Pill(
-                        text: state.suggestedWindow == PricingWindow.peak
-                            ? 'PEAK · ${state.suggestedMultiplier.toStringAsFixed(1)}×'
-                            : 'NIGHT · ${state.suggestedMultiplier.toStringAsFixed(1)}×',
-                        tone: state.suggestedWindow == PricingWindow.peak
-                            ? PillTone.amber
-                            : PillTone.blue,
-                      ),
-                      const SizedBox(width: 6),
-                    ],
-                    Flexible(
-                      child: Text(
-                        'Suggested ${NairaFormatter.format(state.suggestedNaira)}',
-                        style: AppTextStyles.captionSm.copyWith(
-                          fontSize: 11,
-                          color: context.textDim,
-                        ),
-                        overflow: TextOverflow.ellipsis,
-                        softWrap: false,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        // YOUR PRICE eyebrow. (Surcharges removed — no peak/night pill.)
+        Text(
+          'YOUR PRICE',
+          style: AppTextStyles.eyebrow.copyWith(color: context.coral),
+        ),
+        const SizedBox(height: 8),
+        Center(
+          child: _PriceField(
+            controller: _ctrl,
+            focusNode: _focus,
+            editable: state.variant == PricingVariant.type &&
+                state.phase == BidPhase.composing,
+            onChanged: (String value) {
+              final int? n = int.tryParse(value);
+              if (n != null) widget.onPriceChanged(n);
+            },
           ),
-          const SizedBox(height: 10),
-          Center(
-            child: _PriceField(
-              controller: _ctrl,
-              focusNode: _focus,
-              editable: state.variant == PricingVariant.type &&
-                  state.phase == BidPhase.composing,
-              onChanged: (String value) {
-                final int? n = int.tryParse(value);
-                if (n != null) widget.onPriceChanged(n);
-              },
-            ),
+        ),
+        const SizedBox(height: 4),
+        Center(
+          child: Text(
+            'Suggested ${NairaFormatter.format(state.suggestedNaira)}',
+            style: AppTextStyles.bodySm.copyWith(color: context.textDim),
           ),
-          const SizedBox(height: 14),
-          _VariantSwitcher(
-            active: state.variant,
+        ),
+        const SizedBox(height: 16),
+        _VariantSwitcher(
+          active: state.variant,
+          disabled: state.phase != BidPhase.composing,
+          onTap: widget.onVariantChanged,
+        ),
+        const SizedBox(height: 12),
+        if (state.variant == PricingVariant.type)
+          _TypeKeys(
+            priceNaira: state.priceNaira,
+            onChanged: widget.onPriceChanged,
             disabled: state.phase != BidPhase.composing,
-            onTap: widget.onVariantChanged,
           ),
-          const SizedBox(height: 10),
-          if (state.variant == PricingVariant.type)
-            _TypeKeys(
-              priceNaira: state.priceNaira,
-              onChanged: widget.onPriceChanged,
-              disabled: state.phase != BidPhase.composing,
-            ),
-          if (state.variant == PricingVariant.slider)
-            _SliderVariant(state: state, onChanged: widget.onPriceChanged),
-          if (state.variant == PricingVariant.chips)
-            _ChipsVariant(state: state, onChanged: widget.onPriceChanged),
-          const SizedBox(height: 12),
-          _SentimentBar(score: state.sentimentScore),
-          const SizedBox(height: 10),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: <Widget>[
-              Text(
-                'You keep',
-                style: AppTextStyles.captionSm.copyWith(color: context.textDim),
-              ),
-              Text(
-                NairaFormatter.format(state.netToYou),
-                style: AppTextStyles.captionSm.copyWith(
-                  color: context.accent,
-                  fontWeight: FontWeight.w700,
+        if (state.variant == PricingVariant.slider)
+          _SliderVariant(state: state, onChanged: widget.onPriceChanged),
+        if (state.variant == PricingVariant.chips)
+          _ChipsVariant(state: state, onChanged: widget.onPriceChanged),
+        const SizedBox(height: 14),
+        // "You keep" — equals the bid price exactly (no commission math,
+        // brand anti-pattern §12.7).
+        Center(
+          child: RichText(
+            text: TextSpan(
+              style: AppTextStyles.bodySm.copyWith(color: context.textDim),
+              children: <InlineSpan>[
+                const TextSpan(text: 'You keep '),
+                TextSpan(
+                  text: NairaFormatter.format(state.netToYou),
+                  style: AppTextStyles.bodySm.copyWith(
+                    color: context.coral,
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }
@@ -470,7 +561,7 @@ class _PriceField extends StatelessWidget {
           Text(
             '₦',
             style: AppTextStyles.priceHero.copyWith(
-              color: context.textDim,
+              color: context.coral,
               fontWeight: FontWeight.w500,
             ),
           ),
@@ -486,8 +577,8 @@ class _PriceField extends StatelessWidget {
                 FilteringTextInputFormatter.digitsOnly,
               ],
               textAlign: TextAlign.center,
-              cursorColor: context.accent,
-              style: AppTextStyles.priceHero.copyWith(color: context.text),
+              cursorColor: context.coral,
+              style: AppTextStyles.priceHero.copyWith(color: context.coral),
               decoration: const InputDecoration(
                 isDense: true,
                 border: InputBorder.none,
@@ -531,10 +622,13 @@ class _VariantSwitcher extends StatelessWidget {
               child: GestureDetector(
                 onTap: disabled ? null : () => onTap(v),
                 child: Container(
-                  padding: const EdgeInsets.symmetric(vertical: 6),
+                  padding: const EdgeInsets.symmetric(vertical: 8),
                   decoration: BoxDecoration(
-                    color: isActive ? context.surface3 : Colors.transparent,
+                    color: isActive ? context.surface : Colors.transparent,
                     borderRadius: BorderRadius.circular(6),
+                    border: isActive
+                        ? Border.all(color: context.border)
+                        : null,
                   ),
                   alignment: Alignment.center,
                   child: Text(
@@ -566,7 +660,7 @@ class _TypeKeys extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final List<int> deltas = const <int>[500, 100, -100, -500];
+    const List<int> deltas = <int>[-500, -100, 100, 500];
     return Opacity(
       opacity: disabled ? 0.55 : 1,
       child: Row(
@@ -578,7 +672,7 @@ class _TypeKeys extends StatelessWidget {
                       onTap:
                           disabled ? null : () => onChanged(priceNaira + d),
                       child: Container(
-                        padding: const EdgeInsets.symmetric(vertical: 10),
+                        padding: const EdgeInsets.symmetric(vertical: 12),
                         decoration: BoxDecoration(
                           color: context.surface2,
                           borderRadius: BorderRadius.circular(10),
@@ -615,16 +709,18 @@ class _SliderVariant extends StatelessWidget {
       children: <Widget>[
         SliderTheme(
           data: SliderTheme.of(context).copyWith(
-            activeTrackColor: context.accent,
+            activeTrackColor: context.coral,
             inactiveTrackColor: context.surface3,
-            thumbColor: context.text,
+            thumbColor: context.coral,
             trackHeight: 6,
+            overlayShape:
+                const RoundSliderOverlayShape(overlayRadius: 16),
           ),
           child: Slider(
             value: state.priceNaira.toDouble().clamp(min, max),
             min: min,
             max: max,
-            divisions: ((max - min) / 100).round(),
+            divisions: ((max - min) / 100).round().clamp(1, 1000),
             onChanged: state.phase == BidPhase.composing
                 ? (double v) => onChanged(v.round())
                 : null,
@@ -634,18 +730,17 @@ class _SliderVariant extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: <Widget>[
             Text(
-              NairaFormatter.format(min.round()),
-              style: AppTextStyles.captionSm
+              '60%',
+              style: AppTextStyles.mono
                   .copyWith(fontSize: 11, color: context.textMuted),
             ),
             Text(
-              'Suggested',
-              style: AppTextStyles.captionSm
-                  .copyWith(fontSize: 11, color: context.textMuted),
+              'Suggested ${NairaFormatter.format(state.suggestedNaira)}',
+              style: AppTextStyles.captionSm.copyWith(color: context.textMuted),
             ),
             Text(
-              NairaFormatter.format(max.round()),
-              style: AppTextStyles.captionSm
+              '160%',
+              style: AppTextStyles.mono
                   .copyWith(fontSize: 11, color: context.textMuted),
             ),
           ],
@@ -682,7 +777,7 @@ class _ChipsVariant extends StatelessWidget {
                 child: Container(
                   padding: const EdgeInsets.symmetric(vertical: 10),
                   decoration: BoxDecoration(
-                    color: active ? context.accent : context.surface2,
+                    color: active ? context.coral : context.surface2,
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(
                       color: active ? Colors.transparent : context.border,
@@ -694,7 +789,7 @@ class _ChipsVariant extends StatelessWidget {
                       Text(
                         o.label,
                         style: AppTextStyles.caption.copyWith(
-                          color: active ? context.accentInk : context.text,
+                          color: active ? context.coralInk : context.text,
                           fontWeight: FontWeight.w700,
                         ),
                       ),
@@ -702,9 +797,8 @@ class _ChipsVariant extends StatelessWidget {
                       Text(
                         NairaFormatter.format(o.value),
                         style: AppTextStyles.captionSm.copyWith(
-                          fontSize: 11,
                           color: active
-                              ? context.accentInk.withValues(alpha: 0.85)
+                              ? context.coralInk.withValues(alpha: 0.85)
                               : context.textDim,
                         ),
                       ),
@@ -724,69 +818,4 @@ class _ChipOption {
   _ChipOption(this.label, this.value);
   final String label;
   final int value;
-}
-
-class _SentimentBar extends StatelessWidget {
-  const _SentimentBar({required this.score});
-  final int score;
-
-  @override
-  Widget build(BuildContext context) {
-    final List<String> emojis = const <String>['😟', '🤔', '👍', '🔥', '😬'];
-    final List<String> labels = const <String>[
-      "Below market — you'll likely get it",
-      'A touch low — still competitive',
-      'Right on — fair price',
-      'Aggressive — expect fewer bites',
-      'Too high — riders may skip',
-    ];
-    final int idx = (score + 2).clamp(0, 4);
-    final PillTone tone = idx < 3
-        ? PillTone.accent
-        : idx == 3
-            ? PillTone.amber
-            : PillTone.red;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-      decoration: BoxDecoration(
-        color: context.surface2,
-        borderRadius: AppRadius.md,
-        border: Border.all(color: context.border),
-      ),
-      child: Row(
-        children: <Widget>[
-          Text(emojis[idx], style: const TextStyle(fontSize: 22)),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: <Widget>[
-                Text(
-                  labels[idx],
-                  style: AppTextStyles.caption.copyWith(
-                    color: context.text,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  'Nearby drivers: ₦2.8k – ₦4.2k',
-                  style: AppTextStyles.captionSm
-                      .copyWith(fontSize: 11, color: context.textDim),
-                ),
-              ],
-            ),
-          ),
-          Pill(
-            text: idx == 2
-                ? 'FAIR'
-                : idx < 2
-                    ? 'LOW'
-                    : 'HIGH',
-            tone: tone,
-          ),
-        ],
-      ),
-    );
-  }
 }

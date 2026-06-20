@@ -41,7 +41,7 @@ class _KycHomePageState extends ConsumerState<KycHomePage> {
                 children: <Widget>[
                   BackButtonBox(onTap: () => AppNavigation.pop()),
                   const SizedBox(width: 12),
-                  _OverallPill(status: state.overall),
+                  _OverallPill(status: state.effectiveOverall),
                 ],
               ),
               const SizedBox(height: 18),
@@ -77,6 +77,12 @@ class _KycHomePageState extends ConsumerState<KycHomePage> {
               const SizedBox(height: 18),
               if (state.overall == KycOverallStatus.pendingReview)
                 _ReviewBanner(text: 'Your application is being reviewed.')
+              else if (state.overall == KycOverallStatus.approved &&
+                  !state.livenessPassed)
+                _ReviewBanner(
+                  text:
+                      'One step left: finish the face check above to go live.',
+                )
               else if (state.overall == KycOverallStatus.approved)
                 _ReviewBanner(text: 'You\'re approved. Welcome to Drivio!')
               else
@@ -152,99 +158,100 @@ class _StepRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final (Color border, Color iconColor, IconData icon) = switch (step.status) {
+    final (
+      Color border,
+      Color iconColor,
+      IconData icon,
+    ) = switch (step.status) {
       KycStepStatus.approved => (
-          context.accent,
-          context.accent,
-          DrivioIcons.check
-        ),
+        context.accent,
+        context.accent,
+        DrivioIcons.check,
+      ),
       KycStepStatus.submitted => (
-          context.amber,
-          context.amber,
-          DrivioIcons.refresh
-        ),
-      KycStepStatus.rejected => (
-          context.red,
-          context.red,
-          DrivioIcons.close
-        ),
+        context.amber,
+        context.amber,
+        DrivioIcons.refresh,
+      ),
+      KycStepStatus.rejected => (context.red, context.red, DrivioIcons.close),
       KycStepStatus.expired => (
-          context.amber,
-          context.amber,
-          DrivioIcons.refresh
-        ),
+        context.amber,
+        context.amber,
+        DrivioIcons.refresh,
+      ),
       KycStepStatus.required => (
-          context.borderStrong,
-          context.textDim,
-          DrivioIcons.chevron
-        ),
+        context.borderStrong,
+        context.textDim,
+        DrivioIcons.chevron,
+      ),
     };
 
-    final bool isInteractive = step.status == KycStepStatus.required ||
+    final bool isInteractive =
+        step.status == KycStepStatus.required ||
         step.status == KycStepStatus.rejected ||
         step.status == KycStepStatus.expired;
 
     return Opacity(
       opacity: isInteractive ? 1 : 0.55,
       child: InkWell(
-      borderRadius: BorderRadius.circular(12),
-      onTap: isInteractive ? () => _routeForStep(step.kind) : null,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-        decoration: BoxDecoration(
-          color: context.surface,
-          borderRadius: AppRadius.md,
-          border: Border.all(color: border),
-        ),
-        child: Row(
-          children: <Widget>[
-            Container(
-              width: 32,
-              height: 32,
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                color: iconColor.withValues(alpha: 0.14),
-                borderRadius: BorderRadius.circular(99),
+        borderRadius: BorderRadius.circular(12),
+        onTap: isInteractive ? () => _routeForStep(step.kind) : null,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+          decoration: BoxDecoration(
+            color: context.surface,
+            borderRadius: AppRadius.md,
+            border: Border.all(color: border),
+          ),
+          child: Row(
+            children: <Widget>[
+              Container(
+                width: 32,
+                height: 32,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: iconColor.withValues(alpha: 0.14),
+                  borderRadius: BorderRadius.circular(99),
+                ),
+                child: Icon(icon, size: 16, color: iconColor),
               ),
-              child: Icon(icon, size: 16, color: iconColor),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: <Widget>[
-                  Text(
-                    step.title,
-                    style: AppTextStyles.bodySm.copyWith(
-                      color: context.text,
-                      fontWeight: FontWeight.w700,
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    Text(
+                      step.title,
+                      style: AppTextStyles.bodySm.copyWith(
+                        color: context.text,
+                        fontWeight: FontWeight.w700,
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    step.rejectionReason ?? step.subtitle,
-                    style: AppTextStyles.captionSm.copyWith(
-                      fontSize: 11,
-                      color: step.status == KycStepStatus.rejected
-                          ? context.red
-                          : context.textDim,
+                    const SizedBox(height: 2),
+                    Text(
+                      step.rejectionReason ?? step.subtitle,
+                      style: AppTextStyles.captionSm.copyWith(
+                        fontSize: 11,
+                        color: step.status == KycStepStatus.rejected
+                            ? context.red
+                            : context.textDim,
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
-            ),
-            const SizedBox(width: 8),
-            Text(
-              _shortLabel(step.status),
-              style: AppTextStyles.captionSm.copyWith(
-                fontSize: 11,
-                color: iconColor,
-                fontWeight: FontWeight.w700,
+              const SizedBox(width: 8),
+              Text(
+                _shortLabel(step.status),
+                style: AppTextStyles.captionSm.copyWith(
+                  fontSize: 11,
+                  color: iconColor,
+                  fontWeight: FontWeight.w700,
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
-      ),
       ),
     );
   }
