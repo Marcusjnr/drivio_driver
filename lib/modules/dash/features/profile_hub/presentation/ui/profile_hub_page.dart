@@ -603,6 +603,10 @@ class _SettingsGroup extends StatelessWidget {
           onTap: () => AppNavigation.push(AppRoutes.profileEdit),
         ),
         FieldRow(
+          label: 'Amenities',
+          onTap: () => AppNavigation.push(AppRoutes.driverAmenities),
+        ),
+        FieldRow(
           label: 'Appearance',
           onTap: () => AppNavigation.push(AppRoutes.appearance),
         ),

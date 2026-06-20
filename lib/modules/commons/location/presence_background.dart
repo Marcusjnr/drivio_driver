@@ -117,6 +117,20 @@ class PresenceTaskHandler extends TaskHandler {
     if (uploader == null || _lastLat == null) {
       return;
     }
+    // Re-push the last known fix to the main isolate every tick. The
+    // position stream is silent while the driver is stationary (distance
+    // filter), so without this the UI's PresenceState.lastLat would only
+    // ever be set by the single onStart fix — and if that one message is
+    // missed (startup race) the marketplace feed never positions and the
+    // driver sees no requests. Repeating it makes foreground positioning
+    // self-healing.
+    FlutterForegroundTask.sendDataToMain(<String, Object?>{
+      BgPresenceMsg.type: BgPresenceMsg.position,
+      BgPresenceMsg.lat: _lastLat,
+      BgPresenceMsg.lng: _lastLng,
+      BgPresenceMsg.accuracyM: _lastAccuracyM ?? 0,
+      BgPresenceMsg.at: DateTime.now().millisecondsSinceEpoch,
+    });
     // Fire-and-forget: onRepeatEvent is synchronous. A dropped tick is
     // harmless; the next one (30s) retries.
     unawaited(

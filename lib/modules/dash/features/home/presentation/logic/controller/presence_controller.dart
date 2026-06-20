@@ -164,6 +164,7 @@ class PresenceController extends StateNotifier<PresenceState> {
       }
       await _bgFixSub?.cancel();
       _bgFixSub = _bg.fixes.listen(_onBgFix);
+      unawaited(_seedLastKnownFix());
     } else {
       // iOS: main-isolate stream (background-mode kept alive) + heartbeat,
       // plus the native significant-location shim for force-quit recovery.
@@ -306,6 +307,28 @@ class PresenceController extends StateNotifier<PresenceState> {
   }
 
   // ── Android FGS fixes → UI ───────────────────────────────────────────
+
+  /// Best-effort instant position at go-online so the marketplace feed
+  /// positions right away, instead of waiting for the first FGS fix to
+  /// round-trip from the isolate (which, while stationary, may be the only
+  /// position message and can lose a startup race). Harmless if null.
+  Future<void> _seedLastKnownFix() async {
+    if (state.lastLat != null) return;
+    try {
+      final Position? last = await Geolocator.getLastKnownPosition();
+      if (last == null || !mounted || state.lastLat != null) return;
+      _onBgFix(
+        BgFix(
+          lat: last.latitude,
+          lng: last.longitude,
+          accuracyM: last.accuracy.round(),
+          at: DateTime.now(),
+        ),
+      );
+    } catch (_) {
+      // best effort
+    }
+  }
 
   void _onBgFix(BgFix fix) {
     state = state.copyWith(

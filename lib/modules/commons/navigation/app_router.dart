@@ -27,6 +27,7 @@ import 'package:drivio_driver/modules/profile/features/payment_methods/presentat
 import 'package:drivio_driver/modules/profile/features/referral/presentation/ui/referral_page.dart';
 import 'package:drivio_driver/modules/profile/features/reviews/presentation/ui/reviews_page.dart';
 import 'package:drivio_driver/modules/profile/features/sign_out/presentation/ui/sign_out_page.dart';
+import 'package:drivio_driver/modules/profile/features/amenities/presentation/ui/driver_amenities_page.dart';
 import 'package:drivio_driver/modules/profile/features/vehicle_details/presentation/ui/vehicle_details_page.dart';
 import 'package:drivio_driver/modules/splash/presentation/ui/splash_page.dart';
 import 'package:drivio_driver/modules/subscription/features/manage/presentation/ui/subscription_manage_page.dart';
@@ -101,6 +102,8 @@ class AppRouter {
         return (BuildContext _) => const SafetyPage();
       case AppRoutes.vehicleDetails:
         return (BuildContext _) => const VehicleDetailsPage();
+      case AppRoutes.driverAmenities:
+        return (BuildContext _) => const DriverAmenitiesPage();
       case AppRoutes.reviews:
         return (BuildContext _) => const ReviewsPage();
       case AppRoutes.paymentMethods:

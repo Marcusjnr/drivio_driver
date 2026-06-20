@@ -39,6 +39,7 @@ class AppRoutes {
   // server-side store. The bell inbox at /notifications still exists.
   static const String notificationsInbox = '/notifications';
   static const String profileEdit = '/profile/edit';
+  static const String driverAmenities = '/profile/amenities';
   static const String help = '/profile/help';
   static const String appearance = '/profile/appearance';
   static const String signOut = '/profile/sign-out';
