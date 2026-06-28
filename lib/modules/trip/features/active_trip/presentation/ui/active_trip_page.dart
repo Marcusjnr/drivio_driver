@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:maplibre_gl/maplibre_gl.dart';
 
 import 'package:drivio_driver/modules/commons/all.dart';
 import 'package:drivio_driver/modules/commons/data/trip_location_repository.dart';
 import 'package:drivio_driver/modules/commons/types/trip.dart';
 import 'package:drivio_driver/modules/commons/widgets/map/live_map.dart';
+import 'package:drivio_driver/modules/dash/features/drive_shell/presentation/logic/route_ahead_provider.dart';
 import 'package:drivio_driver/modules/dash/features/home/presentation/logic/controller/presence_controller.dart';
 import 'package:drivio_driver/modules/trip/features/active_trip/presentation/logic/controller/active_trip_controller.dart';
 import 'package:drivio_driver/modules/trip/features/active_trip/presentation/logic/controller/trip_location_recorder.dart';
@@ -17,24 +19,77 @@ class ActiveTripPage extends ConsumerStatefulWidget {
   ConsumerState<ActiveTripPage> createState() => _ActiveTripPageState();
 }
 
-class _ActiveTripPageState extends ConsumerState<ActiveTripPage> {
+class _ActiveTripPageState extends ConsumerState<ActiveTripPage>
+    with WidgetsBindingObserver {
   String? _tripId;
+
+  /// Last good road shape for the route-to-target line, kept so a transient
+  /// empty (while the next directions request loads as the driver moves)
+  /// doesn't flash a straight line. Reset when the leg target changes.
+  List<LatLng> _lastRouteShape = const <LatLng>[];
+  LatLng? _lastRouteTarget;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
     _tripId ??= ModalRoute.of(context)?.settings.arguments as String?;
-    // Ensure GPS is streaming — covers the cold-start resume case where
-    // the user was routed straight to /active-trip without going through
-    // the home page's online toggle.
+    _ensureLocationStreaming();
+  }
+
+  /// Re-check location whenever the driver returns to the app. If they
+  /// revoked permission or turned off location services while away, the
+  /// live trip would otherwise silently stop tracking — so we re-request.
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState lifecycle) {
+    if (lifecycle == AppLifecycleState.resumed) {
+      _ensureLocationStreaming();
+    }
+  }
+
+  void _ensureLocationStreaming() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      final PresenceController presence =
-          ref.read(presenceControllerProvider.notifier);
-      if (!ref.read(presenceControllerProvider).isStreaming) {
-        presence.startStreaming();
+      if (!mounted) {
+        return;
+      }
+      final PresenceState p = ref.read(presenceControllerProvider);
+      if (!p.isStreaming ||
+          p.permission != PresencePermissionState.granted) {
+        // silent: don't re-pop the notification/battery hardening dialogs the
+        // driver already answered, but DO request location if it's missing.
+        ref
+            .read(presenceControllerProvider.notifier)
+            .startStreaming(silent: true);
       }
     });
+  }
+
+  /// Act on the permission banner: re-request when it's just denied, or send
+  /// the driver to the right Settings screen when it's blocked / services off.
+  Future<void> _resolveLocation(PresencePermissionState p) async {
+    switch (p) {
+      case PresencePermissionState.permanentlyDenied:
+        await Geolocator.openAppSettings();
+      case PresencePermissionState.serviceDisabled:
+        await Geolocator.openLocationSettings();
+      case PresencePermissionState.denied:
+      case PresencePermissionState.unknown:
+      case PresencePermissionState.granted:
+        await ref
+            .read(presenceControllerProvider.notifier)
+            .startStreaming(silent: true);
+    }
   }
 
   @override
@@ -120,16 +175,77 @@ class _ActiveTripPageState extends ConsumerState<ActiveTripPage> {
         .map((TripLocationSample s) => LatLng(s.lat, s.lng))
         .toList(growable: false);
 
+    // Live route line from the driver's current GPS to the leg target — the
+    // rider on the pickup leg, the destination once in progress. Derived
+    // from live GPS + the trip, so it reappears immediately on a cold
+    // resume (unlike the in-memory breadcrumb above).
+    final PresenceState presence = ref.watch(presenceControllerProvider);
+    final LatLng? driverPos = presence.hasFix
+        ? LatLng(presence.lastLat!, presence.lastLng!)
+        : null;
+    final LatLng legTarget =
+        (trip.state == TripState.assigned || trip.state == TripState.enRoute)
+        ? LatLng(trip.pickupLat, trip.pickupLng)
+        : LatLng(trip.dropoffLat, trip.dropoffLng);
+    final RouteAheadKey? routeKey = driverPos == null
+        ? null
+        : RouteAheadKey(
+            originLat: snapForRouteCache(driverPos.latitude),
+            originLng: snapForRouteCache(driverPos.longitude),
+            destinationLat: legTarget.latitude,
+            destinationLng: legTarget.longitude,
+          );
+    final List<LatLng> routeShape = routeKey == null
+        ? const <LatLng>[]
+        : (ref.watch(routeAheadShapeProvider(routeKey)).asData?.value ??
+              const <LatLng>[]);
+    // Flicker fix: keep the last good shape while the next request loads as
+    // the driver moves; reset when the leg target changes.
+    if (_lastRouteTarget == null ||
+        _lastRouteTarget!.latitude != legTarget.latitude ||
+        _lastRouteTarget!.longitude != legTarget.longitude) {
+      _lastRouteShape = const <LatLng>[];
+      _lastRouteTarget = legTarget;
+    }
+    if (routeShape.isNotEmpty) {
+      _lastRouteShape = routeShape;
+    }
+    final List<LatLng> effectiveRoute =
+        routeShape.isNotEmpty ? routeShape : _lastRouteShape;
+    final List<LatLng> routePoints = driverPos == null
+        ? const <LatLng>[]
+        : (effectiveRoute.length >= 2
+              ? <LatLng>[driverPos, ...effectiveRoute]
+              : <LatLng>[driverPos, legTarget]);
+
+    // Location is required to keep the live trip tracking. If the driver
+    // reopens with it revoked/off, prompt them to restore it.
+    final bool needsLocation = isLive &&
+        presence.permission != PresencePermissionState.granted &&
+        presence.permission != PresencePermissionState.unknown;
+
     return ScreenScaffold(
       child: Stack(
         children: <Widget>[
           Positioned.fill(
             child: LiveMap(
               initialCenter: LatLng(trip.pickupLat, trip.pickupLng),
-              initialZoom: 15,
+              // Close "navigation" zoom that tracks the driver's GPS the
+              // whole live trip — both to the rider and on to the drop-off —
+              // matching the rider app's close follow zoom.
+              initialZoom: 18,
               followUser: isLive,
               markers: markers,
               polylines: <LiveMapPolyline>[
+                // Route ahead: driver → current leg target (coral).
+                if (routePoints.length >= 2)
+                  LiveMapPolyline(
+                    id: 'route',
+                    points: routePoints,
+                    color: '#EE6F4A',
+                    width: 6,
+                  ),
+                // Breadcrumb of where the driver has been (green).
                 if (path.length >= 2)
                   LiveMapPolyline(
                     id: 'breadcrumb',
@@ -182,7 +298,19 @@ class _ActiveTripPageState extends ConsumerState<ActiveTripPage> {
             top: 70,
             left: 16,
             right: 16,
-            child: _RouteCard(trip: trip),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: <Widget>[
+                if (needsLocation) ...<Widget>[
+                  _LocationPermissionBanner(
+                    permission: presence.permission,
+                    onResolve: () => _resolveLocation(presence.permission),
+                  ),
+                  const SizedBox(height: 10),
+                ],
+                _RouteCard(trip: trip),
+              ],
+            ),
           ),
           Positioned(
             left: 0,
@@ -674,5 +802,79 @@ _StageInfo _stageInfo(BuildContext context, TripState state) {
         color: context.red,
         emoji: '🚫',
       );
+  }
+}
+
+/// Shown over the active-trip map when location permission/services are
+/// missing — the live trip can't track or navigate without them. Gives the
+/// driver a one-tap path to restore it (request, or jump to the right
+/// Settings screen).
+class _LocationPermissionBanner extends StatelessWidget {
+  const _LocationPermissionBanner({
+    required this.permission,
+    required this.onResolve,
+  });
+
+  final PresencePermissionState permission;
+  final VoidCallback onResolve;
+
+  @override
+  Widget build(BuildContext context) {
+    final String title;
+    final String body;
+    final String action;
+    switch (permission) {
+      case PresencePermissionState.serviceDisabled:
+        title = 'Location is off';
+        body = 'Turn on location services so your trip keeps tracking and '
+            'you can navigate.';
+        action = 'Turn on location';
+      case PresencePermissionState.permanentlyDenied:
+        title = 'Location is blocked';
+        body = 'Open Settings and allow location to continue this trip.';
+        action = 'Open settings';
+      case PresencePermissionState.denied:
+      case PresencePermissionState.unknown:
+      case PresencePermissionState.granted:
+        title = 'Location needed';
+        body = 'Allow location so we can track your trip and guide you to '
+            'the rider.';
+        action = 'Allow location';
+    }
+
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: context.surface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: context.coral.withValues(alpha: 0.5)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Row(
+            children: <Widget>[
+              Icon(Icons.location_off_rounded, size: 18, color: context.coral),
+              const SizedBox(width: 8),
+              Text(
+                title,
+                style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w700,
+                  color: context.text,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(
+            body,
+            style: AppTextStyles.bodySm.copyWith(color: context.textDim),
+          ),
+          const SizedBox(height: 12),
+          DrivioButton(label: action, onPressed: onResolve),
+        ],
+      ),
+    );
   }
 }
