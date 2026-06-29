@@ -3,6 +3,8 @@ import 'dart:math' as math;
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:drivio_driver/modules/commons/analytics/analytics_events.dart';
+import 'package:drivio_driver/modules/commons/analytics/mixpanel_service.dart';
 import 'package:drivio_driver/modules/commons/data/ride_request_repository.dart';
 import 'package:drivio_driver/modules/commons/di/di.dart';
 import 'package:drivio_driver/modules/commons/types/pricing_profile.dart';
@@ -96,6 +98,11 @@ class MarketplaceController extends StateNotifier<MarketplaceState> {
   double? _lastFetchLng;
   bool _fetchInFlight = false;
 
+  /// Ride-request ids we've already counted as "received", so the 5 s
+  /// poll / realtime / move-driven refetches don't re-fire the event for
+  /// a request that's still open across fetches.
+  final Set<String> _seenRequestIds = <String>{};
+
   /// Subscribe to realtime + start the safety-net poll + (if we already
   /// have a fix) do an initial fetch. Idempotent.
   Future<void> start() async {
@@ -121,6 +128,7 @@ class MarketplaceController extends StateNotifier<MarketplaceState> {
     _lastFetchLat = null;
     _lastFetchLng = null;
     _fetchInFlight = false;
+    _seenRequestIds.clear();
     state = state.copyWith(requests: const <RideRequest>[]);
   }
 
@@ -174,6 +182,19 @@ class MarketplaceController extends StateNotifier<MarketplaceState> {
       if (!mounted) return;
       _lastFetchLat = lat;
       _lastFetchLng = lng;
+
+      // One "Ride Request Received" per request id, the first time it
+      // surfaces in the feed. Properties carry no rider PII or exact GPS.
+      final MixpanelService mp = locator<MixpanelService>();
+      for (final RideRequest r in next) {
+        if (_seenRequestIds.add(r.id)) {
+          mp.track(
+            AnalyticsEvents.rideRequestReceived,
+            properties: <String, dynamic>{'ride_request_id': r.id},
+          );
+        }
+      }
+
       state = state.copyWith(requests: next, isLoading: false);
     } catch (e) {
       if (!mounted) return;

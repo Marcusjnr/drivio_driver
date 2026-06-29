@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:drivio_driver/modules/commons/all.dart';
+import 'package:drivio_driver/modules/commons/analytics/analytics_events.dart';
+import 'package:drivio_driver/modules/commons/analytics/mixpanel_service.dart';
 import 'package:drivio_driver/modules/commons/types/document.dart';
 import 'package:drivio_driver/modules/kyc/features/kyc_home/presentation/logic/controller/kyc_controller.dart';
 
@@ -16,6 +18,7 @@ class _KycHomePageState extends ConsumerState<KycHomePage> {
   @override
   void initState() {
     super.initState();
+    locator<MixpanelService>().track(AnalyticsEvents.kycStarted);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
         ref.read(kycControllerProvider.notifier).refresh();

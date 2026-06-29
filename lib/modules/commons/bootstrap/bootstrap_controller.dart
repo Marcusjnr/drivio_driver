@@ -1,6 +1,8 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import 'package:drivio_driver/modules/commons/analytics/analytics_events.dart';
+import 'package:drivio_driver/modules/commons/analytics/mixpanel_service.dart';
 import 'package:drivio_driver/modules/commons/bootstrap/bootstrap_destination.dart';
 import 'package:drivio_driver/modules/commons/data/trip_repository.dart';
 import 'package:drivio_driver/modules/commons/di/di.dart';
@@ -42,6 +44,10 @@ class BootstrapController extends StateNotifier<BootstrapState> {
   final SupabaseModule _supabase = locator<SupabaseModule>();
   final TripRepository _trips = locator<TripRepository>();
 
+  /// Guards the one-shot "App Opened" + identify so a re-`resolve()`
+  /// (e.g. after sign-in) doesn't double-count the launch.
+  bool _appOpenedTracked = false;
+
   Future<void> resolve() async {
     state = state.copyWith(isLoading: true, clearActiveTripId: true);
     AppLogger.i('bootstrap.resolve start');
@@ -60,6 +66,16 @@ class BootstrapController extends StateNotifier<BootstrapState> {
       final String userId = session.user.id;
       AppLogger.i('bootstrap.resolve: have session',
           data: <String, dynamic>{'user_id': userId});
+
+      // Signed-in session known at startup — tie analytics to the driver
+      // and stamp the launch. Distinct id is the Supabase user uuid.
+      if (!_appOpenedTracked) {
+        _appOpenedTracked = true;
+        final MixpanelService mp = locator<MixpanelService>();
+        mp.identifyUser(userId);
+        mp.setProfile(<String, dynamic>{'user_role': 'driver'});
+        mp.track(AnalyticsEvents.appOpened);
+      }
 
       // Profile must exist before anything else.
       final List<dynamic> profileRows = await _supabase

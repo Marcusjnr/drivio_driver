@@ -5,6 +5,14 @@ abstract final class Env {
   static String get supabaseAnonKey => dotenv.get('SUPABASE_ANON_KEY');
   static String get sentryDsn => dotenv.get('SENTRY_DSN', fallback: '');
   static String get posthogKey => dotenv.get('POSTHOG_KEY', fallback: '');
+
+  /// Mixpanel project token + server URL (placeholders live in `.env`).
+  /// Replace MIXPANEL_TOKEN with the real project token. Server URL defaults
+  /// to the US endpoint; use https://api-eu.mixpanel.com for EU residency.
+  static String get mixpanelToken => dotenv.get('MIXPANEL_TOKEN', fallback: '');
+  static String get mixpanelServerUrl =>
+      dotenv.get('MIXPANEL_SERVER_URL', fallback: 'https://api.mixpanel.com');
+
   static String get paystackPublicKey =>
       dotenv.get('PAYSTACK_PUBLIC_KEY', fallback: '');
 

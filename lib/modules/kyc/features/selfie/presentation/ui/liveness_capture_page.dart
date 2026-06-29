@@ -6,6 +6,8 @@ import 'package:flutter/material.dart';
 import 'package:permission_handler/permission_handler.dart';
 
 import 'package:drivio_driver/modules/commons/all.dart';
+import 'package:drivio_driver/modules/commons/analytics/analytics_events.dart';
+import 'package:drivio_driver/modules/commons/analytics/mixpanel_service.dart';
 
 /// Full-screen face liveness check.
 ///
@@ -29,6 +31,21 @@ class _LivenessCapturePageState extends State<LivenessCapturePage> {
 
   bool _popped = false;
   bool _capturing = false;
+
+  // One-shot analytics guards. A "started" fires when the detector first
+  // comes up; a single "failed" per attempt avoids double-counting (e.g.
+  // an error during a session that already emitted a non-verified result).
+  bool _startedTracked = false;
+  bool _failedTracked = false;
+
+  void _trackFailed(String reason) {
+    if (_failedTracked) return;
+    _failedTracked = true;
+    locator<MixpanelService>().track(
+      AnalyticsEvents.livenessCheckFailed,
+      properties: <String, dynamic>{'failure_reason': reason},
+    );
+  }
 
   // Failure surfaces handled by the fallback screen.
   bool _permissionDenied = false;
@@ -77,8 +94,13 @@ class _LivenessCapturePageState extends State<LivenessCapturePage> {
         await detector.dispose();
         return;
       }
+      if (!_startedTracked) {
+        _startedTracked = true;
+        locator<MixpanelService>().track(AnalyticsEvents.livenessCheckStarted);
+      }
       setState(() => _detector = detector);
     } catch (_) {
+      _trackFailed('init_error');
       if (mounted) setState(() => _hadError = true);
     }
   }
@@ -90,6 +112,7 @@ class _LivenessCapturePageState extends State<LivenessCapturePage> {
       if (s.result?.isVerified == true) {
         _capture();
       } else {
+        _trackFailed('not_verified');
         setState(() => _hadError = true);
       }
     }
@@ -127,6 +150,8 @@ class _LivenessCapturePageState extends State<LivenessCapturePage> {
     _detector = null;
     old?.dispose();
     _capturing = false;
+    _startedTracked = false;
+    _failedTracked = false;
     _init();
   }
 

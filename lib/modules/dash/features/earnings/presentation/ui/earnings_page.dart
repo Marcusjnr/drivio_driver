@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:drivio_driver/modules/commons/all.dart';
+import 'package:drivio_driver/modules/commons/analytics/analytics_events.dart';
+import 'package:drivio_driver/modules/commons/analytics/mixpanel_service.dart';
 import 'package:drivio_driver/modules/commons/types/wallet.dart';
 import 'package:drivio_driver/modules/dash/features/earnings/presentation/logic/controller/wallet_controller.dart';
 import 'package:drivio_driver/modules/dash/features/home/presentation/ui/widgets/driver_tab_bar.dart';
@@ -25,6 +27,7 @@ class _EarningsPageState extends ConsumerState<EarningsPage> {
   @override
   void initState() {
     super.initState();
+    locator<MixpanelService>().track(AnalyticsEvents.earningsViewed);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) ref.read(walletControllerProvider.notifier).refresh();
     });

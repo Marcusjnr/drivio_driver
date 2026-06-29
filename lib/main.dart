@@ -2,6 +2,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/widgets.dart';
 
 import 'package:drivio_driver/app.dart';
+import 'package:drivio_driver/modules/commons/analytics/mixpanel_service.dart';
 import 'package:drivio_driver/modules/commons/config/flavor.dart';
 import 'package:drivio_driver/modules/commons/di/di.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
@@ -17,5 +18,9 @@ Future<void> main() async {
   );
 
   await dotenv.load(fileName: '.env');
+
+  // Analytics. No-op until a real MIXPANEL_TOKEN is set in .env.
+  await locator<MixpanelService>().init();
+
   App.run();
 }

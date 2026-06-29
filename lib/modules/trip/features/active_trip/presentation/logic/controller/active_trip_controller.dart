@@ -2,6 +2,8 @@ import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:drivio_driver/modules/commons/analytics/analytics_events.dart';
+import 'package:drivio_driver/modules/commons/analytics/mixpanel_service.dart';
 import 'package:drivio_driver/modules/commons/data/trip_repository.dart';
 import 'package:drivio_driver/modules/commons/di/di.dart';
 import 'package:drivio_driver/modules/commons/errors/error_messages.dart';
@@ -196,6 +198,10 @@ class ActiveTripController extends StateNotifier<ActiveTripState> {
         toState: next,
         reason: reason,
       );
+      // Fire once per real transition. `_transitionTo` is guarded by
+      // `isAdvancing` and only the destination states below are tracked,
+      // so each lifecycle event sends exactly once.
+      _trackTripTransition(next);
       if (!mounted) return;
       // Realtime listener delivers the fresh row; just clear the busy flag.
       state = state.copyWith(isAdvancing: false);
@@ -213,6 +219,20 @@ class ActiveTripController extends StateNotifier<ActiveTripState> {
           : humaniseError(e, fallback: "Couldn't update the trip.");
       state = state.copyWith(isAdvancing: false, error: friendly);
     }
+  }
+
+  void _trackTripTransition(TripState next) {
+    final String? event = switch (next) {
+      TripState.inProgress => AnalyticsEvents.tripStarted,
+      TripState.completed => AnalyticsEvents.tripCompleted,
+      TripState.cancelled => AnalyticsEvents.tripCancelled,
+      _ => null,
+    };
+    if (event == null) return;
+    locator<MixpanelService>().track(
+      event,
+      properties: <String, dynamic>{'trip_id': state.tripId},
+    );
   }
 
   Future<void> refresh() => _hydrate();

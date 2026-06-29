@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:drivio_driver/modules/commons/analytics/analytics_events.dart';
+import 'package:drivio_driver/modules/commons/analytics/mixpanel_service.dart';
 import 'package:drivio_driver/modules/commons/di/di.dart';
 import 'package:drivio_driver/modules/commons/payments/paystack_checkout.dart';
 import 'package:drivio_driver/modules/commons/supabase/supabase_module.dart';
@@ -65,6 +67,16 @@ class PaystackActivationController
       completed: false,
     );
 
+    final MixpanelService mp = locator<MixpanelService>();
+    final Map<String, dynamic> planProps = <String, dynamic>{
+      'subscription_plan': plan.interval.tierName.toLowerCase(),
+      'subscription_amount': plan.priceNaira,
+    };
+    mp.track(
+      AnalyticsEvents.subscriptionPaymentInitiated,
+      properties: planProps,
+    );
+
     final PaystackResult result = await _checkout.run(
       context: context,
       purpose: 'subscription',
@@ -73,6 +85,10 @@ class PaystackActivationController
 
     switch (result.outcome) {
       case PaystackOutcome.success:
+        mp.track(
+          AnalyticsEvents.subscriptionPurchased,
+          properties: planProps,
+        );
         state = state.copyWith(
           isProcessing: false,
           completed: true,

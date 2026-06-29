@@ -2,6 +2,7 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:get_it/get_it.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import 'package:drivio_driver/modules/commons/analytics/mixpanel_service.dart';
 import 'package:drivio_driver/modules/commons/config/config.dart';
 import 'package:drivio_driver/modules/commons/config/flavor.dart';
 import 'package:drivio_driver/modules/commons/supabase/supabase_module.dart';
@@ -82,6 +83,8 @@ Future<void> setupServiceLocator(Flavor flavor) async {
   );
 
   locator.registerSingleton<SupabaseModule>(SupabaseModule.fromInstance());
+
+  locator.registerLazySingleton<MixpanelService>(() => MixpanelService());
 
   locator.registerLazySingleton<VehicleRepository>(
     () => SupabaseVehicleRepository(locator<SupabaseModule>()),

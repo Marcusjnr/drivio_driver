@@ -8,6 +8,8 @@ import 'package:mime/mime.dart';
 import 'package:path/path.dart' as p;
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import 'package:drivio_driver/modules/commons/analytics/analytics_events.dart';
+import 'package:drivio_driver/modules/commons/analytics/mixpanel_service.dart';
 import 'package:drivio_driver/modules/commons/di/di.dart';
 import 'package:drivio_driver/modules/commons/types/document.dart';
 import 'package:drivio_driver/modules/commons/types/vehicle.dart';
@@ -300,6 +302,11 @@ class AddVehicleController extends StateNotifier<AddVehicleState> {
           vehicleId: vehicle.id,
         );
       }
+
+      locator<MixpanelService>().track(
+        AnalyticsEvents.vehicleAdded,
+        properties: <String, dynamic>{'vehicle_type': vehicle.category.name},
+      );
 
       state = state.copyWith(isLoading: false);
       return vehicle;

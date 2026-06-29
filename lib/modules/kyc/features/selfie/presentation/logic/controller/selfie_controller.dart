@@ -6,6 +6,8 @@ import 'package:mime/mime.dart';
 import 'package:path/path.dart' as p;
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import 'package:drivio_driver/modules/commons/analytics/analytics_events.dart';
+import 'package:drivio_driver/modules/commons/analytics/mixpanel_service.dart';
 import 'package:drivio_driver/modules/commons/data/document_repository.dart';
 import 'package:drivio_driver/modules/commons/data/document_repository_impl.dart';
 import 'package:drivio_driver/modules/commons/data/profile_repository.dart';
@@ -84,6 +86,7 @@ class SelfieController extends StateNotifier<SelfieState> {
 
       // 3. Mark the step → sets drivers.liveness_passed_at.
       await _kyc.markStepCompleted('selfie');
+      locator<MixpanelService>().track(AnalyticsEvents.livenessCheckPassed);
       state = state.copyWith(isSubmitting: false);
       return true;
     } on DocumentAuthException {

@@ -1,5 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:drivio_driver/modules/commons/analytics/analytics_events.dart';
+import 'package:drivio_driver/modules/commons/analytics/mixpanel_service.dart';
 import 'package:drivio_driver/modules/commons/di/di.dart';
 import 'package:drivio_driver/modules/commons/types/document.dart';
 import 'package:drivio_driver/modules/kyc/features/kyc_home/presentation/logic/data/kyc_repository.dart';
@@ -169,6 +171,7 @@ class KycController extends StateNotifier<KycState> {
         );
         return false;
       }
+      locator<MixpanelService>().track(AnalyticsEvents.kycSubmitted);
       await refresh();
       state = state.copyWith(isSubmitting: false);
       return true;

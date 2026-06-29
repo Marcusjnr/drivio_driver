@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import 'package:drivio_driver/modules/commons/analytics/analytics_events.dart';
+import 'package:drivio_driver/modules/commons/analytics/mixpanel_service.dart';
 import 'package:drivio_driver/modules/commons/di/di.dart';
 import 'package:drivio_driver/modules/commons/logging/app_logger.dart';
 import 'package:drivio_driver/modules/commons/supabase/supabase_module.dart';
@@ -125,6 +127,10 @@ class OtpController extends StateNotifier<OtpState> {
     if (!state.isComplete) return false;
 
     if (state.value != _devOtpCode) {
+      locator<MixpanelService>().track(
+        AnalyticsEvents.otpFailed,
+        properties: <String, dynamic>{'failure_reason': 'wrong_code'},
+      );
       state = state.copyWith(
         isVerifying: false,
         error: 'Wrong code. Try again.',
@@ -154,6 +160,10 @@ class OtpController extends StateNotifier<OtpState> {
         );
         if (res.session == null) {
           AppLogger.w('otp.verify signUp returned null session');
+          locator<MixpanelService>().track(
+            AnalyticsEvents.otpFailed,
+            properties: <String, dynamic>{'failure_reason': 'no_session'},
+          );
           state = state.copyWith(
             isVerifying: false,
             error:
@@ -173,11 +183,21 @@ class OtpController extends StateNotifier<OtpState> {
         'session': after == null ? 'null' : 'present',
         'user_id': after?.user.id ?? '—',
       });
+      final String? verifiedUserId = after?.user.id;
+      final MixpanelService mp = locator<MixpanelService>();
+      if (verifiedUserId != null) {
+        mp.identifyUser(verifiedUserId);
+      }
+      mp.track(AnalyticsEvents.otpVerified);
       state = state.copyWith(isVerifying: false);
       return true;
     } on AuthException catch (e) {
       AppLogger.w('otp.verify AuthException',
           data: <String, dynamic>{'message': e.message});
+      locator<MixpanelService>().track(
+        AnalyticsEvents.otpFailed,
+        properties: <String, dynamic>{'failure_reason': 'auth_error'},
+      );
       state = state.copyWith(
         isVerifying: false,
         error: _humaniseAuthError(e),
@@ -186,6 +206,10 @@ class OtpController extends StateNotifier<OtpState> {
       return false;
     } catch (e, st) {
       AppLogger.e('otp.verify threw', error: e, stackTrace: st);
+      locator<MixpanelService>().track(
+        AnalyticsEvents.otpFailed,
+        properties: <String, dynamic>{'failure_reason': 'exception'},
+      );
       state = state.copyWith(
         isVerifying: false,
         error: 'Verification failed. Check your connection.',

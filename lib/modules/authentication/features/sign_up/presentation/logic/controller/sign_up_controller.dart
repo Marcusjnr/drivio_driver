@@ -3,6 +3,8 @@ import 'dart:math';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import 'package:drivio_driver/modules/commons/analytics/analytics_events.dart';
+import 'package:drivio_driver/modules/commons/analytics/mixpanel_service.dart';
 import 'package:drivio_driver/modules/commons/di/di.dart';
 import 'package:drivio_driver/modules/commons/supabase/supabase_module.dart';
 
@@ -104,6 +106,7 @@ class SignUpController extends StateNotifier<SignUpState> {
   /// replace this with the actual send call.
   Future<bool> requestOtp() async {
     if (!state.canSubmit) return false;
+    locator<MixpanelService>().track(AnalyticsEvents.driverSignupStarted);
     state = state.copyWith(isLoading: true, clearError: true);
     await Future<void>.delayed(const Duration(milliseconds: 300));
     state = state.copyWith(isLoading: false);
@@ -139,6 +142,15 @@ class SignUpController extends StateNotifier<SignUpState> {
         'user_id': user.id,
         'kyc_status': 'not_started',
       });
+
+      final MixpanelService mp = locator<MixpanelService>();
+      mp.identifyUser(user.id);
+      mp.setProfile(<String, dynamic>{'user_role': 'driver'});
+      mp.setProfileOnce(<String, dynamic>{
+        'signup_date': DateTime.now().toUtc().toIso8601String(),
+        'signup_method': 'phone',
+      });
+      mp.track(AnalyticsEvents.driverAccountCreated);
 
       state = state.copyWith(isLoading: false);
       return true;

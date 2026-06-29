@@ -4,6 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:maplibre_gl/maplibre_gl.dart';
 
 import 'package:drivio_driver/modules/commons/all.dart';
+import 'package:drivio_driver/modules/commons/analytics/analytics_events.dart';
+import 'package:drivio_driver/modules/commons/analytics/mixpanel_service.dart';
 import 'package:drivio_driver/modules/commons/widgets/map/live_map.dart';
 import 'package:drivio_driver/modules/trip/features/ride_request/presentation/logic/controller/ride_request_controller.dart';
 
@@ -16,12 +18,22 @@ class RideRequestPage extends ConsumerStatefulWidget {
 
 class _RideRequestPageState extends ConsumerState<RideRequestPage> {
   String? _requestId;
+  bool _composerOpenedTracked = false;
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
     _requestId ??=
         ModalRoute.of(context)?.settings.arguments as String?;
+
+    final String? id = _requestId;
+    if (id != null && !_composerOpenedTracked) {
+      _composerOpenedTracked = true;
+      locator<MixpanelService>().track(
+        AnalyticsEvents.bidComposerOpened,
+        properties: <String, dynamic>{'ride_request_id': id},
+      );
+    }
   }
 
   @override

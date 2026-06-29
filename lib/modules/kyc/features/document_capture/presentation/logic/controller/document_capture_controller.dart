@@ -8,6 +8,8 @@ import 'package:mime/mime.dart';
 import 'package:path/path.dart' as p;
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import 'package:drivio_driver/modules/commons/analytics/analytics_events.dart';
+import 'package:drivio_driver/modules/commons/analytics/mixpanel_service.dart';
 import 'package:drivio_driver/modules/commons/data/document_repository.dart';
 import 'package:drivio_driver/modules/commons/data/document_repository_impl.dart';
 import 'package:drivio_driver/modules/commons/di/di.dart';
@@ -99,6 +101,12 @@ class DocumentCaptureController extends StateNotifier<DocumentCaptureState> {
         isUploading: false,
         uploadedFilePath: filePath,
         uploadedFileName: picked.fileName,
+      );
+
+      // Category only — never the image bytes / file name / path.
+      locator<MixpanelService>().track(
+        AnalyticsEvents.documentUploaded,
+        properties: <String, dynamic>{'document_type': kind.wire},
       );
     } on DocumentAuthException {
       state = state.copyWith(

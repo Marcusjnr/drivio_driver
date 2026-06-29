@@ -2,6 +2,8 @@ import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:drivio_driver/modules/commons/analytics/analytics_events.dart';
+import 'package:drivio_driver/modules/commons/analytics/mixpanel_service.dart';
 import 'package:drivio_driver/modules/commons/data/pricing_repository.dart';
 import 'package:drivio_driver/modules/commons/data/ride_request_repository.dart';
 import 'package:drivio_driver/modules/commons/di/di.dart';
@@ -237,6 +239,13 @@ class RideRequestController extends StateNotifier<RideRequestState> {
       if (s <= 0) {
         t.cancel();
         if (state.phase == BidPhase.waiting) {
+          locator<MixpanelService>().track(
+            AnalyticsEvents.driverOfferExpired,
+            properties: <String, dynamic>{
+              'ride_request_id': state.requestId,
+              'bid_amount': state.priceNaira,
+            },
+          );
           state = state.copyWith(
             phase: BidPhase.lost,
             error: 'Your offer expired before it was accepted.',
@@ -271,6 +280,14 @@ class RideRequestController extends StateNotifier<RideRequestState> {
         priceMinor: state.priceMinor,
       );
       if (!mounted) return;
+      locator<MixpanelService>().track(
+        AnalyticsEvents.driverOfferSubmitted,
+        properties: <String, dynamic>{
+          'ride_request_id': state.requestId,
+          'bid_amount': state.priceNaira,
+          'suggested_bid_amount': state.suggestedNaira,
+        },
+      );
       // Optimistic local deadline; refined to the server's exact value as
       // soon as the bid stream emits (see [_handleBidUpdate]).
       _bidDeadline = DateTime.now().add(const Duration(seconds: 60));
@@ -326,15 +343,36 @@ class RideRequestController extends StateNotifier<RideRequestState> {
 
   Future<void> _handleBidUpdate(String bidId, RideBid bid) async {
     if (!mounted) return;
+    // Realtime + poll can both deliver the same terminal status; only act
+    // (and fire analytics) on the first transition out of `waiting`.
+    final bool wasWaiting = state.phase == BidPhase.waiting;
     switch (bid.status) {
       case RideBidStatus.accepted:
         // Look up the trip created for this bid and advance.
         final String? tripId = await _requests.findTripIdForBid(bidId);
         if (!mounted) return;
+        if (wasWaiting) {
+          locator<MixpanelService>().track(
+            AnalyticsEvents.driverOfferAccepted,
+            properties: <String, dynamic>{
+              'ride_request_id': state.requestId,
+              'bid_amount': state.priceNaira,
+            },
+          );
+        }
         state = state.copyWith(phase: BidPhase.won, tripId: tripId);
         _bidPoll?.cancel();
         _bidPoll = null;
       case RideBidStatus.rejected:
+        if (wasWaiting) {
+          locator<MixpanelService>().track(
+            AnalyticsEvents.driverOfferRejected,
+            properties: <String, dynamic>{
+              'ride_request_id': state.requestId,
+              'bid_amount': state.priceNaira,
+            },
+          );
+        }
         state = state.copyWith(
           phase: BidPhase.lost,
           error: 'Another driver was chosen.',
@@ -342,6 +380,15 @@ class RideRequestController extends StateNotifier<RideRequestState> {
         _bidPoll?.cancel();
         _bidPoll = null;
       case RideBidStatus.expired:
+        if (wasWaiting) {
+          locator<MixpanelService>().track(
+            AnalyticsEvents.driverOfferExpired,
+            properties: <String, dynamic>{
+              'ride_request_id': state.requestId,
+              'bid_amount': state.priceNaira,
+            },
+          );
+        }
         state = state.copyWith(
           phase: BidPhase.lost,
           error: 'Your bid expired.',

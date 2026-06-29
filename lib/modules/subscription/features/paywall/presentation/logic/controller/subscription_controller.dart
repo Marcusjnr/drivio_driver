@@ -1,5 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:drivio_driver/modules/commons/analytics/analytics_events.dart';
+import 'package:drivio_driver/modules/commons/analytics/mixpanel_service.dart';
 import 'package:drivio_driver/modules/commons/data/subscription_repository.dart';
 import 'package:drivio_driver/modules/commons/di/di.dart';
 import 'package:drivio_driver/modules/commons/errors/error_messages.dart';
@@ -70,6 +72,12 @@ class SubscriptionController extends StateNotifier<SubscriptionState> {
   final SubscriptionRepository _repo;
   final Ref _ref;
 
+  /// Last status we've observed, so we can fire "Subscription Activated"
+  /// exactly once on the real transition into `active` (e.g. right after
+  /// a verified Paystack payment), not on every refresh of an already-
+  /// active subscription.
+  SubscriptionStatus? _lastStatus;
+
   Future<void> refresh() async {
     state = state.copyWith(isLoading: true, clearError: true);
     // Recover a subscription payment that completed at Paystack but never
@@ -84,6 +92,29 @@ class SubscriptionController extends StateNotifier<SubscriptionState> {
     try {
       final List<SubscriptionPlan> plans = await _repo.listActivePlans();
       final Subscription? sub = await _repo.getMySubscription();
+
+      // Fire once on the real transition into `active`.
+      if (sub != null &&
+          sub.status == SubscriptionStatus.active &&
+          _lastStatus != SubscriptionStatus.active) {
+        SubscriptionPlan? plan;
+        for (final SubscriptionPlan p in plans) {
+          if (p.id == sub.planId) {
+            plan = p;
+            break;
+          }
+        }
+        locator<MixpanelService>().track(
+          AnalyticsEvents.subscriptionActivated,
+          properties: <String, dynamic>{
+            if (plan != null)
+              'subscription_plan': plan.interval.tierName.toLowerCase(),
+            'subscription_status': sub.status.name,
+          },
+        );
+      }
+      _lastStatus = sub?.status;
+
       state = state.copyWith(
         subscription: sub,
         clearSubscription: sub == null,

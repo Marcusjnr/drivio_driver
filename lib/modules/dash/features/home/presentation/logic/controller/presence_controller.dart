@@ -7,6 +7,8 @@ import 'package:geolocator/geolocator.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' as sb;
 
+import 'package:drivio_driver/modules/commons/analytics/analytics_events.dart';
+import 'package:drivio_driver/modules/commons/analytics/mixpanel_service.dart';
 import 'package:drivio_driver/modules/commons/config/env.dart';
 import 'package:drivio_driver/modules/commons/data/presence_repository.dart';
 import 'package:drivio_driver/modules/commons/di/di.dart';
@@ -118,6 +120,19 @@ class PresenceController extends StateNotifier<PresenceState> {
     if (permission == LocationPermission.denied) {
       permission = await Geolocator.requestPermission();
     }
+
+    // Report the resolved permission once (no GPS coordinates, just the
+    // permission tier). Fires on an explicit toggle only — silent resumes
+    // re-ask the OS but shouldn't re-count the result.
+    if (!silent) {
+      locator<MixpanelService>().track(
+        AnalyticsEvents.backgroundLocationPermissionResult,
+        properties: <String, dynamic>{
+          'permission_status': _permissionLabel(permission),
+        },
+      );
+    }
+
     if (permission == LocationPermission.deniedForever) {
       state = state.copyWith(
         permission: PresencePermissionState.permanentlyDenied,
@@ -175,6 +190,11 @@ class PresenceController extends StateNotifier<PresenceState> {
     _listenForTokenRotation();
     await _setIntendedOnline(true);
     state = state.copyWith(isStreaming: true);
+    // Only count an explicit toggle as "went online" — silent resumes
+    // (cold reopen / active-trip re-ensure) shouldn't inflate the metric.
+    if (!silent) {
+      locator<MixpanelService>().track(AnalyticsEvents.driverWentOnline);
+    }
     return true;
   }
 
@@ -233,6 +253,7 @@ class PresenceController extends StateNotifier<PresenceState> {
       // best effort
     }
     state = state.copyWith(isStreaming: false);
+    locator<MixpanelService>().track(AnalyticsEvents.driverWentOffline);
   }
 
   // ── iOS main-isolate stream ──────────────────────────────────────────
@@ -377,6 +398,21 @@ class PresenceController extends StateNotifier<PresenceState> {
         unawaited(_bg.updateSession(session));
       }
     });
+  }
+
+  /// Maps a geolocator permission to the analytics `permission_status`
+  /// value (always / while_using / denied). No coordinates are ever sent.
+  static String _permissionLabel(LocationPermission p) {
+    switch (p) {
+      case LocationPermission.always:
+        return 'always';
+      case LocationPermission.whileInUse:
+        return 'while_using';
+      case LocationPermission.denied:
+      case LocationPermission.deniedForever:
+      case LocationPermission.unableToDetermine:
+        return 'denied';
+    }
   }
 
   Future<void> _setIntendedOnline(bool value) async {

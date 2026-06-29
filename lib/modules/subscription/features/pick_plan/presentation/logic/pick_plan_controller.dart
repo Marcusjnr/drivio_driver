@@ -1,6 +1,8 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:drivio_driver/modules/commons/analytics/analytics_events.dart';
+import 'package:drivio_driver/modules/commons/analytics/mixpanel_service.dart';
 import 'package:drivio_driver/modules/commons/data/subscription_repository.dart';
 import 'package:drivio_driver/modules/commons/di/di.dart';
 import 'package:drivio_driver/modules/commons/errors/error_messages.dart';
@@ -167,12 +169,32 @@ class PickPlanController extends StateNotifier<PickPlanState> {
 
   final SubscriptionRepository _repo;
 
+  /// One-shot guard so a retry of [hydrate] doesn't re-count the screen view.
+  bool _viewedTracked = false;
+
+  /// Maps a tier code to the canonical plan label used in analytics
+  /// (daily / weekly / monthly), falling back to the raw code.
+  static String _planLabel(SubscriptionInterval interval) {
+    switch (interval) {
+      case SubscriptionInterval.day:
+        return 'daily';
+      case SubscriptionInterval.week:
+        return 'weekly';
+      case SubscriptionInterval.month:
+        return 'monthly';
+    }
+  }
+
   /// Loads the 3 active tiers + driver's recent activity, picks a
   /// recommendation, and pre-selects it.
   Future<void> hydrate({
     required PickPlanIntent intent,
     String? currentTierCode,
   }) async {
+    if (!_viewedTracked) {
+      _viewedTracked = true;
+      locator<MixpanelService>().track(AnalyticsEvents.subscriptionPlanViewed);
+    }
     state = state.copyWith(
       intent: intent,
       currentTierCode: currentTierCode,
@@ -239,6 +261,19 @@ class PickPlanController extends StateNotifier<PickPlanState> {
   void selectTier(String code) {
     if (state.selectedTierCode == code) return;
     state = state.copyWith(selectedTierCode: code);
+
+    for (final SubscriptionPlan p in state.tiers) {
+      if (p.code == code) {
+        locator<MixpanelService>().track(
+          AnalyticsEvents.subscriptionPlanSelected,
+          properties: <String, dynamic>{
+            'subscription_plan': _planLabel(p.interval),
+            'subscription_amount': p.priceNaira,
+          },
+        );
+        break;
+      }
+    }
   }
 
   /// Queue a tier switch for the active subscription. Used by the
