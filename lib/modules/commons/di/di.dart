@@ -28,6 +28,8 @@ import 'package:drivio_driver/modules/commons/data/passenger_rating_repository.d
 import 'package:drivio_driver/modules/commons/data/passenger_rating_repository_impl.dart';
 import 'package:drivio_driver/modules/commons/data/payout_account_repository.dart';
 import 'package:drivio_driver/modules/commons/data/payout_account_repository_impl.dart';
+import 'package:drivio_driver/modules/commons/data/withdrawal_repository.dart';
+import 'package:drivio_driver/modules/commons/data/withdrawal_repository_impl.dart';
 import 'package:drivio_driver/modules/commons/data/pricing_repository.dart';
 import 'package:drivio_driver/modules/commons/data/pricing_repository_impl.dart';
 import 'package:drivio_driver/modules/commons/data/driver_amenities_repository.dart';
@@ -176,6 +178,10 @@ Future<void> setupServiceLocator(Flavor flavor) async {
 
   locator.registerLazySingleton<PayoutAccountRepository>(
     () => SupabasePayoutAccountRepository(locator<SupabaseModule>()),
+  );
+
+  locator.registerLazySingleton<WithdrawalRepository>(
+    () => SupabaseWithdrawalRepository(locator<SupabaseModule>()),
   );
 
   locator.registerLazySingleton<DirectionsRepository>(

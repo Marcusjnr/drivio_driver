@@ -539,11 +539,15 @@ class _AccountGroup extends StatelessWidget {
           onTap: () => AppNavigation.push(AppRoutes.paymentMethods),
         ),
         FieldRow(
-          label: 'Referral code',
-          value: referralValue,
-          divider: false,
-          onTap: () => AppNavigation.push(AppRoutes.referral),
+          label: 'Withdraw earnings',
+          onTap: () => AppNavigation.push(AppRoutes.withdraw),
         ),
+        // FieldRow(
+        //   label: 'Referral code',
+        //   value: referralValue,
+        //   divider: false,
+        //   onTap: () => AppNavigation.push(AppRoutes.referral),
+        // ),
       ],
     );
   }

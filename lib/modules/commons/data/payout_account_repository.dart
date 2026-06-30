@@ -5,20 +5,12 @@ abstract class PayoutAccountRepository {
   /// added one yet.
   Future<PayoutAccount?> getMyPayoutAccount();
 
-  /// Insert or replace the calling driver's payout account. The
-  /// caller must have already collected/validated the account number
-  /// off the Paystack resolve-account endpoint (or accepted manual
-  /// entry).
-  ///
-  /// `accountNumber` is sent in full to the server which masks it
-  /// down to the last 4 before storage. Bank code is no longer
-  /// captured client-side — Paystack resolves the bank from the
-  /// account number alone.
-  Future<PayoutAccount> upsertMyPayoutAccount({
-    required String bankName,
-    required String accountNumber,
-    required String accountName,
-  });
+  // The payout account row is no longer written directly from the
+  // client. Saving a bank account goes through the
+  // `driver-payout-recipient` Edge Function (see WithdrawalRepository),
+  // which resolves the account with Paystack, mints the transfer
+  // recipient, and persists the row server-side. The client only reads
+  // it back via [getMyPayoutAccount].
 
   /// Delete the driver's saved payout account. Returns true if a row
   /// was actually removed.

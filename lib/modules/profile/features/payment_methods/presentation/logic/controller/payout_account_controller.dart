@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:drivio_driver/modules/commons/data/payout_account_repository.dart';
 import 'package:drivio_driver/modules/commons/data/wallet_repository.dart';
+import 'package:drivio_driver/modules/commons/data/withdrawal_repository.dart';
 import 'package:drivio_driver/modules/commons/di/di.dart';
 import 'package:drivio_driver/modules/commons/types/payout_account.dart';
 import 'package:drivio_driver/modules/commons/types/wallet.dart';
@@ -54,16 +55,23 @@ class PayoutAccountController extends StateNotifier<PayoutAccountState> {
   PayoutAccountController({
     required PayoutAccountRepository payoutAccounts,
     required WalletRepository wallet,
+    required WithdrawalRepository withdrawals,
   })  : _payoutAccounts = payoutAccounts,
         _wallet = wallet,
+        _withdrawals = withdrawals,
         super(const PayoutAccountState()) {
     _hydrate();
   }
 
   final PayoutAccountRepository _payoutAccounts;
   final WalletRepository _wallet;
+  final WithdrawalRepository _withdrawals;
 
   Future<void> refresh() => _hydrate();
+
+  /// Load the Nigerian bank list for the picker. Best-effort: returns an
+  /// empty list on failure so the sheet can show its own error.
+  Future<List<PaystackBank>> loadBanks() => _withdrawals.listBanks();
 
   Future<void> _hydrate() async {
     state = state.copyWith(isLoading: true, clearError: true);
@@ -93,33 +101,48 @@ class PayoutAccountController extends StateNotifier<PayoutAccountState> {
     }
   }
 
-  /// Save a new payout account (or replace the existing one). UI
-  /// optimistically reloads the row from the server so what's
-  /// rendered always matches what's persisted (incl. the masked
-  /// account number the server normalised).
-  Future<bool> saveAccount({
+  /// Save (or replace) the driver's payout account. The client no longer
+  /// writes the row directly — it calls `driver-payout-recipient`, which
+  /// resolves the account with Paystack, mints the transfer recipient,
+  /// and persists the row server-side. We then re-load it so the rendered
+  /// row matches exactly what was stored (masked number, confirmed name,
+  /// recipient code). Returns the server-confirmed account name on
+  /// success, or null on failure (with [state.error] set to the friendly
+  /// server message).
+  Future<String?> saveAccount({
     required String bankName,
+    required String bankCode,
     required String accountNumber,
-    required String accountName,
   }) async {
     state = state.copyWith(isSaving: true, clearError: true);
     try {
-      final PayoutAccount saved =
-          await _payoutAccounts.upsertMyPayoutAccount(
-        bankName: bankName,
+      final PayoutRecipientResult recipient =
+          await _withdrawals.createPayoutRecipient(
         accountNumber: accountNumber,
-        accountName: accountName,
+        bankCode: bankCode,
+        bankName: bankName,
       );
-      if (!mounted) return false;
-      state = state.copyWith(account: saved, isSaving: false);
-      return true;
-    } catch (e) {
-      if (!mounted) return false;
+      // Re-read the persisted row so UI reflects the server's source of
+      // truth (incl. the freshly-minted recipient code).
+      final PayoutAccount? saved = await _payoutAccounts.getMyPayoutAccount();
+      if (!mounted) return null;
+      state = state.copyWith(
+        account: saved,
+        clearAccount: saved == null,
+        isSaving: false,
+      );
+      return recipient.accountName;
+    } on WithdrawalException catch (e) {
+      if (!mounted) return null;
+      state = state.copyWith(isSaving: false, error: e.message);
+      return null;
+    } catch (_) {
+      if (!mounted) return null;
       state = state.copyWith(
         isSaving: false,
         error: "Couldn't save bank details. Try again in a moment.",
       );
-      return false;
+      return null;
     }
   }
 
@@ -148,5 +171,6 @@ final StateNotifierProvider<PayoutAccountController, PayoutAccountState>
   (Ref _) => PayoutAccountController(
     payoutAccounts: locator<PayoutAccountRepository>(),
     wallet: locator<WalletRepository>(),
+    withdrawals: locator<WithdrawalRepository>(),
   ),
 );

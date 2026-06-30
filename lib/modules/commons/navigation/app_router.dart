@@ -23,7 +23,9 @@ import 'package:drivio_driver/modules/profile/features/appearance/presentation/u
 import 'package:drivio_driver/modules/profile/features/help/presentation/ui/help_page.dart';
 import 'package:drivio_driver/modules/profile/features/notifications_inbox/presentation/ui/notifications_inbox_page.dart';
 import 'package:drivio_driver/modules/profile/features/profile_edit/presentation/ui/profile_edit_page.dart';
+import 'package:drivio_driver/modules/profile/features/payment_methods/presentation/ui/add_payout_account_page.dart';
 import 'package:drivio_driver/modules/profile/features/payment_methods/presentation/ui/payment_methods_page.dart';
+import 'package:drivio_driver/modules/profile/features/withdraw/presentation/ui/withdraw_page.dart';
 import 'package:drivio_driver/modules/profile/features/referral/presentation/ui/referral_page.dart';
 import 'package:drivio_driver/modules/profile/features/reviews/presentation/ui/reviews_page.dart';
 import 'package:drivio_driver/modules/profile/features/sign_out/presentation/ui/sign_out_page.dart';
@@ -108,6 +110,10 @@ class AppRouter {
         return (BuildContext _) => const ReviewsPage();
       case AppRoutes.paymentMethods:
         return (BuildContext _) => const PaymentMethodsPage();
+      case AppRoutes.withdraw:
+        return (BuildContext _) => const WithdrawPage();
+      case AppRoutes.addBankAccount:
+        return (BuildContext _) => const AddPayoutAccountPage();
       case AppRoutes.referral:
         return (BuildContext _) => const ReferralPage();
       case AppRoutes.notificationsInbox:

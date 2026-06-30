@@ -655,12 +655,9 @@ class _BalanceCard extends StatelessWidget {
               Expanded(
                 child: DrivioButton(
                   label: 'Withdraw',
-                  disabled: state.balanceNaira < 5000,
-                  onPressed: () {
-                    AppNotifier.info(
-                      message: 'Withdrawals run via Paystack — coming soon.',
-                    );
-                  },
+                  disabled: state.balanceNaira < 1000,
+                  onPressed: () =>
+                      AppNavigation.push<void>(AppRoutes.withdraw),
                 ),
               ),
               const SizedBox(width: 8),

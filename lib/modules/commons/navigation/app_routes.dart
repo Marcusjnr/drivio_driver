@@ -34,6 +34,8 @@ class AppRoutes {
   // `kycDocumentCapture` with the right DocumentKind argument.
   static const String reviews = '/profile/reviews';
   static const String paymentMethods = '/profile/payment-methods';
+  static const String withdraw = '/profile/withdraw';
+  static const String addBankAccount = '/profile/add-bank-account';
   static const String referral = '/profile/referral';
   // notifications preferences page removed (Q4/Q7) until prefs have a
   // server-side store. The bell inbox at /notifications still exists.

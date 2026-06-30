@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:drivio_driver/modules/commons/all.dart';
@@ -7,6 +6,7 @@ import 'package:drivio_driver/modules/commons/types/payout_account.dart';
 import 'package:drivio_driver/modules/commons/types/wallet.dart';
 import 'package:drivio_driver/modules/commons/widgets/detail_scaffold.dart';
 import 'package:drivio_driver/modules/profile/features/payment_methods/presentation/logic/controller/payout_account_controller.dart';
+import 'package:drivio_driver/modules/profile/features/payment_methods/presentation/ui/payout_account_sheet.dart';
 
 /// Per Q2: cards-on-file are removed (we can't securely store cards
 /// in v1). The page now manages a single payout bank account and
@@ -71,28 +71,28 @@ class PaymentMethodsPage extends ConsumerWidget {
     WidgetRef ref, {
     required PayoutAccount? existing,
   }) async {
-    final _PayoutDraft? draft = await showModalBottomSheet<_PayoutDraft>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (BuildContext ctx) => _PayoutSheet(existing: existing),
+    final PayoutDraft? draft = await showPayoutAccountSheet(
+      context,
+      existing: existing,
+      loadBanks: () =>
+          ref.read(payoutAccountControllerProvider.notifier).loadBanks(),
     );
     if (draft == null) return;
-    final bool ok = await ref
+    final String? accountName = await ref
         .read(payoutAccountControllerProvider.notifier)
         .saveAccount(
           bankName: draft.bankName,
+          bankCode: draft.bankCode,
           accountNumber: draft.accountNumber,
-          accountName: draft.accountName,
         );
-    if (!ok) {
+    if (accountName == null) {
       final String? err =
           ref.read(payoutAccountControllerProvider).error;
       AppNotifier.error(
         message: err ?? "Couldn't save bank details. Try again in a moment.",
       );
     } else {
-      AppNotifier.success(message: 'Bank details saved.');
+      AppNotifier.success(message: 'Bank account verified — $accountName.');
     }
   }
 
@@ -393,157 +393,3 @@ class _BillingRow extends StatelessWidget {
   }
 }
 
-// ── Add/edit payout account sheet ──────────────────────────────────────
-
-/// Returned from the bottom sheet; the page hands these values to the
-/// controller for the upsert. Bank code intentionally omitted —
-/// Paystack resolves the bank from the account number alone.
-class _PayoutDraft {
-  const _PayoutDraft({
-    required this.bankName,
-    required this.accountNumber,
-    required this.accountName,
-  });
-  final String bankName;
-  final String accountNumber;
-  final String accountName;
-}
-
-class _PayoutSheet extends StatefulWidget {
-  const _PayoutSheet({this.existing});
-  final PayoutAccount? existing;
-
-  @override
-  State<_PayoutSheet> createState() => _PayoutSheetState();
-}
-
-class _PayoutSheetState extends State<_PayoutSheet> {
-  late final TextEditingController _bankName =
-      TextEditingController(text: widget.existing?.bankName ?? '');
-  // Existing rows only have the last 4 — leave the field empty so the
-  // driver re-enters the full number when editing.
-  late final TextEditingController _acctNumber =
-      TextEditingController();
-  late final TextEditingController _acctName =
-      TextEditingController(text: widget.existing?.accountName ?? '');
-  String? _error;
-
-  @override
-  void dispose() {
-    _bankName.dispose();
-    _acctNumber.dispose();
-    _acctName.dispose();
-    super.dispose();
-  }
-
-  bool _validate() {
-    if (_bankName.text.trim().isEmpty) {
-      setState(() => _error = 'Bank name is required.');
-      return false;
-    }
-    final String acct = _acctNumber.text.trim();
-    if (!RegExp(r'^\d{10}$').hasMatch(acct)) {
-      setState(() =>
-          _error = 'Account number must be 10 digits (NUBAN format).');
-      return false;
-    }
-    if (_acctName.text.trim().isEmpty) {
-      setState(() => _error = 'Account name is required.');
-      return false;
-    }
-    setState(() => _error = null);
-    return true;
-  }
-
-  void _save() {
-    if (!_validate()) return;
-    Navigator.of(context).pop(
-      _PayoutDraft(
-        bankName: _bankName.text.trim(),
-        accountNumber: _acctNumber.text.trim(),
-        accountName: _acctName.text.trim(),
-      ),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final bool isEdit = widget.existing != null;
-    final double bottomInset = MediaQuery.of(context).viewInsets.bottom;
-    return Padding(
-      padding: EdgeInsets.only(bottom: bottomInset),
-      child: Container(
-        decoration: BoxDecoration(
-          color: context.surface,
-          borderRadius:
-              const BorderRadius.vertical(top: Radius.circular(20)),
-        ),
-        padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: <Widget>[
-            Center(
-              child: Container(
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: context.textMuted,
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-            ),
-            const SizedBox(height: 16),
-            Text(
-              isEdit ? 'Edit payout account' : 'Add payout account',
-              style: AppTextStyles.h2.copyWith(color: context.text),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              "We'll deposit your earnings to this Nigerian bank account.",
-              style: AppTextStyles.caption.copyWith(color: context.textDim),
-            ),
-            const SizedBox(height: 16),
-            DrivioInput(
-              label: 'Bank name',
-              hint: 'GTBank',
-              controller: _bankName,
-              autofocus: !isEdit,
-            ),
-            const SizedBox(height: 12),
-            DrivioInput(
-              label: 'Account number',
-              hint: isEdit
-                  ? 'Re-enter to update'
-                  : '10-digit NUBAN',
-              controller: _acctNumber,
-              keyboardType: TextInputType.number,
-              inputFormatters: <TextInputFormatter>[
-                FilteringTextInputFormatter.digitsOnly,
-                LengthLimitingTextInputFormatter(10),
-              ],
-            ),
-            const SizedBox(height: 12),
-            DrivioInput(
-              label: 'Account name',
-              hint: 'TUNDE OGUNLEYE',
-              controller: _acctName,
-            ),
-            if (_error != null) ...<Widget>[
-              const SizedBox(height: 8),
-              Text(
-                _error!,
-                style: TextStyle(fontSize: 12, color: context.red),
-              ),
-            ],
-            const SizedBox(height: 18),
-            DrivioButton(
-              label: isEdit ? 'Save changes' : 'Add account',
-              onPressed: _save,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
