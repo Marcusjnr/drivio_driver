@@ -15,6 +15,7 @@ class AppRoutes {
   static const String kycDocumentCapture = '/kyc/document';
 
   static const String home = '/home';
+  static const String locationAlways = '/location-always';
   static const String addVehicle = '/add-vehicle';
   static const String earnings = '/earnings';
   static const String pricing = '/pricing';

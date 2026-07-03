@@ -1,12 +1,14 @@
 import 'dart:async';
+import 'dart:io' show Platform;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:maplibre_gl/maplibre_gl.dart';
 
+import 'package:geolocator/geolocator.dart';
+
 import 'package:drivio_driver/modules/commons/all.dart';
 import 'package:drivio_driver/modules/commons/data/trip_repository.dart';
-import 'package:drivio_driver/modules/commons/location/always_location_nudge.dart';
 import 'package:drivio_driver/modules/commons/location/location_permission_service.dart';
 import 'package:drivio_driver/modules/commons/types/demand_cell.dart';
 import 'package:drivio_driver/modules/commons/types/ride_request.dart';
@@ -22,7 +24,6 @@ import 'package:drivio_driver/modules/dash/features/home/presentation/logic/cont
 import 'package:drivio_driver/modules/dash/features/home/presentation/logic/controller/demand_heatmap_controller.dart';
 import 'package:drivio_driver/modules/dash/features/home/presentation/logic/controller/home_controller.dart';
 import 'package:drivio_driver/modules/dash/features/home/presentation/logic/controller/presence_controller.dart';
-import 'package:drivio_driver/modules/dash/features/home/presentation/ui/widgets/always_location_nudge_sheet.dart';
 import 'package:drivio_driver/modules/dash/features/home/presentation/ui/widgets/driver_tab_bar.dart';
 import 'package:drivio_driver/modules/dash/features/home/presentation/ui/widgets/kyc_gate_sheet.dart';
 import 'package:drivio_driver/modules/dash/features/home/presentation/ui/widgets/location_gate_sheet.dart';
@@ -77,9 +78,6 @@ class _DriveShellPageState extends ConsumerState<DriveShellPage>
   // sheet can render the right copy + CTA (re-prompt vs Open Settings).
   bool _locationGateOpen = false;
   LocationPermState _locationGateReason = LocationPermState.unknown;
-  // One-time post-online nudge toward "Allow all the time" background
-  // location (Android can't prompt for it in-app; see AlwaysLocationNudge).
-  bool _alwaysNudgeOpen = false;
 
   @override
   void initState() {
@@ -125,6 +123,16 @@ class _DriveShellPageState extends ConsumerState<DriveShellPage>
           .reconcileOnStart();
       if (!mounted || !online) return;
       if (ref.read(homeControllerProvider).isOnline) return;
+      // Belt for the background-location requirement: never resume into
+      // "online" without "Allow all the time" (e.g. tracking started,
+      // then the driver bailed out of the Settings detour, or revoked
+      // the grant while offline).
+      if (Platform.isAndroid &&
+          await Geolocator.checkPermission() != LocationPermission.always) {
+        await ref.read(presenceControllerProvider.notifier).stopStreaming();
+        return;
+      }
+      if (!mounted) return;
       ref.read(homeControllerProvider.notifier).setStatus(DriverStatus.online);
       unawaited(ref.read(marketplaceControllerProvider.notifier).start());
       unawaited(ref.read(dashboardControllerProvider.notifier).refresh());
@@ -487,6 +495,20 @@ class _DriveShellPageState extends ConsumerState<DriveShellPage>
                 final bool ok = await p.startStreaming();
                 if (!mounted) return;
                 if (ok) {
+                  // Same hard gate as the main go-online path: background
+                  // location is required before the driver counts as
+                  // online. The gate stops tracking itself before any
+                  // Settings detour.
+                  final bool alwaysOk = await _ensureAlwaysLocation(p);
+                  if (!mounted) return;
+                  if (!alwaysOk) {
+                    AppNotifier.warning(
+                      message:
+                          'Set location to “Allow all the time” to go '
+                          'online with Drivio.',
+                    );
+                    return;
+                  }
                   h.toggleOnline();
                   unawaited(
                     ref.read(marketplaceControllerProvider.notifier).start(),
@@ -494,7 +516,6 @@ class _DriveShellPageState extends ConsumerState<DriveShellPage>
                   unawaited(
                     ref.read(dashboardControllerProvider.notifier).refresh(),
                   );
-                  unawaited(_maybePromptAlwaysLocation());
                 }
               },
               onOpenSettings: () async {
@@ -510,33 +531,54 @@ class _DriveShellPageState extends ConsumerState<DriveShellPage>
                 }
               },
             ),
-          if (_alwaysNudgeOpen)
-            AlwaysLocationNudgeSheet(
-              onOpenSettings: () async {
-                await AlwaysLocationNudge.openSettings();
-                if (mounted) {
-                  setState(() => _alwaysNudgeOpen = false);
-                }
-              },
-              onDismiss: () => setState(() => _alwaysNudgeOpen = false),
-            ),
         ],
       ),
     );
   }
 
-  /// After the driver first goes online with only "while in use" location,
-  /// surface a one-time, dismissible rationale guiding them to Settings to
-  /// pick "Allow all the time". Android-only and shown at most once; see
-  /// [AlwaysLocationNudge].
-  Future<void> _maybePromptAlwaysLocation() async {
-    if (!await AlwaysLocationNudge.shouldShow()) {
-      return;
+  /// Required background-location gate. Returns true when the driver has
+  /// (or just granted) "Allow all the time" AND tracking is running;
+  /// otherwise walks them through the [LocationAlwaysPage] explainer and
+  /// reports whether they granted it there.
+  ///
+  /// Tracking is STOPPED before the explainer detour: going to Settings
+  /// backgrounds the app, and on return the resume reconciler would see
+  /// the live foreground service + "intended online" flag and flip the
+  /// shell online regardless of what the driver chose. Stopping first
+  /// removes both signals; a successful grant re-arms tracking here.
+  ///
+  /// Scope: only Androids where background location is a separate grant.
+  /// On Android 9 and below geolocator reports `always` as soon as the
+  /// normal location permission is granted (there is no separate
+  /// background grant), so those drivers only ever see the standard
+  /// permission prompt. iOS upgrades to always via the native prompt in
+  /// the significant-location shim, so it skips this too.
+  Future<bool> _ensureAlwaysLocation(PresenceController presence) async {
+    if (!Platform.isAndroid) {
+      return true;
     }
-    await AlwaysLocationNudge.markShown();
-    if (mounted) {
-      setState(() => _alwaysNudgeOpen = true);
+    if (await Geolocator.checkPermission() == LocationPermission.always) {
+      return true;
     }
+
+    await presence.stopStreaming();
+    if (!mounted) {
+      return false;
+    }
+    // The router builds MaterialPageRoute<dynamic> for named routes, so
+    // the result must be received untyped and compared, not cast.
+    final Object? granted = await AppNavigation.push<dynamic>(
+      AppRoutes.locationAlways,
+    );
+    // Re-check even on a bail-out: they may have granted in Settings and
+    // then backed out of the explainer instead of tapping through it.
+    final bool has = granted == true ||
+        await Geolocator.checkPermission() == LocationPermission.always;
+    if (!has || !mounted) {
+      return false;
+    }
+    // Re-arm the tracking we stopped for the detour.
+    return presence.startStreaming(silent: true);
   }
 
   // ── Helpers ─────────────────────────────────────────────────────────────
@@ -603,10 +645,24 @@ class _DriveShellPageState extends ConsumerState<DriveShellPage>
       final bool ok = await presence.startStreaming();
       if (!mounted) return;
       if (ok) {
+        // Hard gate: on Androids where background location is a separate
+        // grant (10+), "Allow all the time" is required to be online. On
+        // older versions geolocator already reports `always` once the
+        // normal permission is granted, so this never fires there. The
+        // gate stops tracking itself before any Settings detour.
+        final bool alwaysOk = await _ensureAlwaysLocation(presence);
+        if (!mounted) return;
+        if (!alwaysOk) {
+          AppNotifier.warning(
+            message:
+                'Set location to “Allow all the time” to go online '
+                'with Drivio.',
+          );
+          return; // Still offline — the button stays "Go online".
+        }
         homeC.toggleOnline();
         unawaited(ref.read(marketplaceControllerProvider.notifier).start());
         unawaited(ref.read(dashboardControllerProvider.notifier).refresh());
-        unawaited(_maybePromptAlwaysLocation());
       } else {
         final PresenceState ps = ref.read(presenceControllerProvider);
         final LocationPermState reason = _toGateReason(ps.permission);
