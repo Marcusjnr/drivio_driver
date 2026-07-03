@@ -25,6 +25,7 @@ class AppRoutes {
   static const String activeTrip = '/active-trip';
   static const String chat = '/chat';
   static const String call = '/call';
+  static const String incomingCall = '/call/incoming';
   static const String safety = '/safety';
 
   static const String vehicleDetails = '/profile/vehicle';

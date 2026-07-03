@@ -26,9 +26,15 @@ dependencies:
   geolocator: ^13.0.2
   maplibre_gl: ^0.26.1
   url_launcher: ^6.3.1
+  flutter_custom_tabs: ^2.4.0
   logger: ^2.4.0
   shimmer: ^3.0.0
   firebase_core: ^4.7.0
+  firebase_messaging: ^16.1.0
+  # Voice calls (Phase C): Agora media + native incoming-call UI.
+  agora_rtc_engine: ^6.5.2
+  flutter_callkit_incoming: ^2.5.2
+  audioplayers: ^6.1.0
   flutter_foreground_task: ^8.17.0
   http: ^1.2.2
   webview_flutter: ^4.13.0
@@ -42,9 +48,56 @@ dev_dependencies:
     sdk: flutter
   flutter_lints: ^6.0.0
   flutter_native_splash: ^2.4.0
+  flutter_flavorizr: ^2.2.3
+  flutter_launcher_icons: ^0.14.1
+
+# App launcher icon — driver "D." mark (ivory D + coral steering wheel on
+# charcoal-teal). Regenerate after editing the source images:
+#   dart run flutter_launcher_icons
+flutter_launcher_icons:
+  image_path: "assets/branding/app_icon.png"
+  android: true
+  ios: true
+  remove_alpha_ios: true
+  adaptive_icon_background: "#071919"
+  adaptive_icon_foreground: "assets/branding/app_icon_foreground.png"
+  min_sdk_android: 21
+
+# Flavor scaffolding (Phase A). Instruction list is deliberately trimmed:
+# no flutter:app/pages/main (would overwrite the real main.dart), no
+# icon/asset/firebase processors (Firebase lands in Phase B).
+flavorizr:
+  instructions:
+    - android:androidManifest
+    - android:buildGradle
+    - flutter:flavors
+    - flutter:targets
+    - ios:xcconfig
+    - ios:buildTargets
+    - ios:schema
+    - ios:plist
+  flavors:
+    prod:
+      app:
+        name: "Drivio Driver"
+      android:
+        applicationId: "com.drivedrivio.drivio_driver"
+      ios:
+        bundleId: "com.drivedrivio.drivio-driver"
+    staging:
+      app:
+        name: "Drivio Driver Beta"
+      android:
+        applicationId: "com.drivedrivio.drivio_driver.beta"
+      ios:
+        bundleId: "com.drivedrivio.drivio-driver.beta"
 
 flutter:
   uses-material-design: true
   assets:
     - .env
+    - .env.prod
+    - .env.staging
     - assets/images/
+    - assets/images/onboarding/
+    - assets/audio/

@@ -1,3 +1,4 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -153,8 +154,9 @@ class _SignUpPageState extends ConsumerState<SignUpPage> {
 }
 
 /// Sticky bottom bar — primary CTA + the terms micro-copy with
-/// underlined "Terms" and "Privacy Policy" per SCR-003 mockup.
-class _BottomBar extends StatelessWidget {
+/// underlined "Terms" and "Privacy Policy" per SCR-003 mockup. The
+/// linked words open the live legal pages in an in-app browser tab.
+class _BottomBar extends StatefulWidget {
   const _BottomBar({
     required this.canSubmit,
     required this.isLoading,
@@ -164,6 +166,23 @@ class _BottomBar extends StatelessWidget {
   final bool canSubmit;
   final bool isLoading;
   final VoidCallback onPressed;
+
+  @override
+  State<_BottomBar> createState() => _BottomBarState();
+}
+
+class _BottomBarState extends State<_BottomBar> {
+  late final TapGestureRecognizer _termsTap = TapGestureRecognizer()
+    ..onTap = () => LegalLinks.openTerms(context);
+  late final TapGestureRecognizer _privacyTap = TapGestureRecognizer()
+    ..onTap = () => LegalLinks.openPrivacy(context);
+
+  @override
+  void dispose() {
+    _termsTap.dispose();
+    _privacyTap.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -176,9 +195,9 @@ class _BottomBar extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: <Widget>[
             DrivioButton(
-              label: isLoading ? 'Sending code…' : 'Continue',
-              disabled: !canSubmit,
-              onPressed: canSubmit ? onPressed : null,
+              label: widget.isLoading ? 'Sending code…' : 'Continue',
+              disabled: !widget.canSubmit,
+              onPressed: widget.canSubmit ? widget.onPressed : null,
             ),
             const SizedBox(height: 12),
             Center(
@@ -193,6 +212,7 @@ class _BottomBar extends StatelessWidget {
                     const TextSpan(text: 'By continuing you agree to our '),
                     TextSpan(
                       text: 'Terms',
+                      recognizer: _termsTap,
                       style: AppTextStyles.captionSm.copyWith(
                         color: context.text,
                         decoration: TextDecoration.underline,
@@ -201,6 +221,7 @@ class _BottomBar extends StatelessWidget {
                     const TextSpan(text: ' and '),
                     TextSpan(
                       text: 'Privacy Policy',
+                      recognizer: _privacyTap,
                       style: AppTextStyles.captionSm.copyWith(
                         color: context.text,
                         decoration: TextDecoration.underline,

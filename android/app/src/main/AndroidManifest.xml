@@ -1,105 +1,82 @@
-<manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:tools="http://schemas.android.com/tools">
-    <uses-permission android:name="android.permission.INTERNET" />
-    <!-- Camera + media access for KYC, the face-liveness check, and
+<manifest xmlns:android="http://schemas.android.com/apk/res/android" xmlns:tools="http://schemas.android.com/tools">
+  <uses-permission android:name="android.permission.INTERNET"/>
+  <!-- Camera + media access for KYC, the face-liveness check, and
          vehicle document capture. -->
-    <uses-permission android:name="android.permission.CAMERA" />
-    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
-    <uses-permission
-        android:name="android.permission.READ_EXTERNAL_STORAGE"
-        android:maxSdkVersion="32" />
-
-    <!-- Foreground location. FINE/COARSE cover the in-app use; BACKGROUND
+  <uses-permission android:name="android.permission.CAMERA"/>
+  <uses-permission android:name="android.permission.READ_MEDIA_IMAGES"/>
+  <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32"/>
+  <!-- Foreground location. FINE/COARSE cover the in-app use; BACKGROUND
          lets the foreground-service location stream keep running while the
          driver is online but the app is backgrounded or swiped away. -->
-    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
-    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
-    <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />
-
-    <!-- Android 14+ requires the typed FGS permission matching the service's
+  <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
+  <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
+  <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION"/>
+  <!-- Android 14+ requires the typed FGS permission matching the service's
          foregroundServiceType. flutter_foreground_task contributes
          FOREGROUND_SERVICE, WAKE_LOCK, RECEIVE_BOOT_COMPLETED and
          POST_NOTIFICATIONS via its own manifest; we add the location type. -->
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
-
-    <application
-        android:label="drivio_driver"
-        android:name="${applicationName}"
-        android:icon="@mipmap/ic_launcher">
-        <!-- Bundle the ML Kit face-detection model at install time (used by
+  <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION"/>
+  <!-- In-app voice calls (Agora). -->
+  <uses-permission android:name="android.permission.RECORD_AUDIO"/>
+  <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS"/>
+  <uses-permission android:name="android.permission.BLUETOOTH_CONNECT"/>
+  <!-- Android 13+ runtime notification permission (push / incoming calls). -->
+  <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
+  <application android:label="@string/app_name" android:name="${applicationName}" android:icon="@mipmap/ic_launcher">
+    <!-- Bundle the ML Kit face-detection model at install time (used by
              the KYC liveness check) so it isn't downloaded on first use. -->
-        <meta-data
-            android:name="com.google.mlkit.vision.DEPENDENCIES"
-            android:value="face" />
-        <activity
-            android:name=".MainActivity"
-            android:exported="true"
-            android:launchMode="singleTop"
-            android:taskAffinity=""
-            android:theme="@style/LaunchTheme"
-            android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode"
-            android:hardwareAccelerated="true"
-            android:windowSoftInputMode="adjustResize">
-            <!-- Specifies an Android theme to apply to this Activity as soon as
+    <meta-data android:name="com.google.mlkit.vision.DEPENDENCIES" android:value="face"/>
+    <activity android:name=".MainActivity" android:exported="true" android:launchMode="singleTop" android:taskAffinity="" android:theme="@style/LaunchTheme" android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode" android:hardwareAccelerated="true" android:windowSoftInputMode="adjustResize">
+      <!-- Specifies an Android theme to apply to this Activity as soon as
                  the Android process has started. This theme is visible to the user
                  while the Flutter UI initializes. After that, this theme continues
                  to determine the Window background behind the Flutter UI. -->
-            <meta-data
-              android:name="io.flutter.embedding.android.NormalTheme"
-              android:resource="@style/NormalTheme"
-              />
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN"/>
-                <category android:name="android.intent.category.LAUNCHER"/>
-            </intent-filter>
-        </activity>
-        <!-- Don't delete the meta-data below.
+      <meta-data android:name="io.flutter.embedding.android.NormalTheme" android:resource="@style/NormalTheme"/>
+      <intent-filter>
+        <action android:name="android.intent.action.MAIN"/>
+        <category android:name="android.intent.category.LAUNCHER"/>
+      </intent-filter>
+    </activity>
+    <!-- Don't delete the meta-data below.
              This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->
-        <meta-data
-            android:name="flutterEmbedding"
-            android:value="2" />
-
-        <!-- Re-typed flutter_foreground_task service. The package declares
+    <meta-data android:name="flutterEmbedding" android:value="2"/>
+    <!-- Re-typed flutter_foreground_task service. The package declares
              this service; we override its foregroundServiceType to `location`
              (Android 14+) so the online-presence stream is a location FGS.
              Do not rename android:name. -->
-        <service
-            android:name="com.pravera.flutter_foreground_task.service.ForegroundService"
-            android:foregroundServiceType="location"
-            android:exported="false"
-            tools:replace="android:foregroundServiceType" />
-    </application>
-    <!-- Required for url_launcher / canLaunchUrl probing. Android 11+
+    <service android:name="com.pravera.flutter_foreground_task.service.ForegroundService" android:foregroundServiceType="location" android:exported="false" tools:replace="android:foregroundServiceType"/>
+  </application>
+  <!-- Required for url_launcher / canLaunchUrl probing. Android 11+
          restricts visibility of installed apps; without these <queries>
          entries every canLaunchUrl returns false even for installed
          handlers. -->
-    <queries>
-        <!-- Flutter engine: text-processing actions. -->
-        <intent>
-            <action android:name="android.intent.action.PROCESS_TEXT"/>
-            <data android:mimeType="text/plain"/>
-        </intent>
-        <!-- DRV-053 navigation handoff to maps apps. -->
-        <intent>
-            <action android:name="android.intent.action.VIEW"/>
-            <data android:scheme="https"/>
-        </intent>
-        <intent>
-            <action android:name="android.intent.action.VIEW"/>
-            <data android:scheme="http"/>
-        </intent>
-        <intent>
-            <action android:name="android.intent.action.VIEW"/>
-            <data android:scheme="geo"/>
-        </intent>
-        <intent>
-            <action android:name="android.intent.action.VIEW"/>
-            <data android:scheme="google.navigation"/>
-        </intent>
-        <!-- Phone dialer (DRV-062 masked-call hand-off). -->
-        <intent>
-            <action android:name="android.intent.action.DIAL"/>
-            <data android:scheme="tel"/>
-        </intent>
-    </queries>
+  <queries>
+    <!-- Flutter engine: text-processing actions. -->
+    <intent>
+      <action android:name="android.intent.action.PROCESS_TEXT"/>
+      <data android:mimeType="text/plain"/>
+    </intent>
+    <!-- DRV-053 navigation handoff to maps apps. -->
+    <intent>
+      <action android:name="android.intent.action.VIEW"/>
+      <data android:scheme="https"/>
+    </intent>
+    <intent>
+      <action android:name="android.intent.action.VIEW"/>
+      <data android:scheme="http"/>
+    </intent>
+    <intent>
+      <action android:name="android.intent.action.VIEW"/>
+      <data android:scheme="geo"/>
+    </intent>
+    <intent>
+      <action android:name="android.intent.action.VIEW"/>
+      <data android:scheme="google.navigation"/>
+    </intent>
+    <!-- Phone dialer (DRV-062 masked-call hand-off). -->
+    <intent>
+      <action android:name="android.intent.action.DIAL"/>
+      <data android:scheme="tel"/>
+    </intent>
+  </queries>
 </manifest>

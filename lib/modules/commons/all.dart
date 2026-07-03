@@ -5,6 +5,7 @@ export 'navigation/app_navigation.dart';
 export 'navigation/app_routes.dart';
 export 'theme/theme.dart';
 export 'theme/logic/theme_mode_controller.dart';
+export 'utils/legal_links.dart';
 export 'utils/naira_formatter.dart';
 export 'widgets/avatar.dart';
 export 'widgets/back_button_box.dart';

@@ -4,9 +4,19 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:drivio_driver/modules/commons/all.dart';
+import 'package:drivio_driver/modules/trip/features/call/logic/call_controller.dart';
 
-enum _CallState { ringing, active }
+// Brand call-screen palette (Coastal Pulse dark): deep charcoal-teal canvas,
+// glowing coral avatar ring, ivory serif identity.
+const Color _kBg = Color(0xFF0C2A2D);
+const Color _kDisc = Color(0xFF12393C);
+const Color _kLine = Color(0xFF2C5457);
+const Color _kIvory = Color(0xFFF2ECDF);
+const Color _kIvoryDim = Color(0xFFB9C4C0);
 
+/// The live call screen — outgoing ring, connected (timer + controls), and
+/// reconnecting states, driven by [activeCallControllerProvider]. Terminal
+/// phases show a short status then pop back.
 class CallPage extends ConsumerStatefulWidget {
   const CallPage({super.key});
 
@@ -15,225 +25,258 @@ class CallPage extends ConsumerStatefulWidget {
 }
 
 class _CallPageState extends ConsumerState<CallPage> {
-  _CallState _state = _CallState.ringing;
-  int _seconds = 0;
-  Timer? _timer;
+  bool _popScheduled = false;
 
-  @override
-  void dispose() {
-    _timer?.cancel();
-    super.dispose();
+  void _popSoon() {
+    if (_popScheduled) {
+      return;
+    }
+    _popScheduled = true;
+    Future<void>.delayed(const Duration(milliseconds: 1200), () {
+      if (!mounted) {
+        return;
+      }
+      ref.read(activeCallControllerProvider.notifier).reset();
+      if (AppNavigation.canPop()) {
+        AppNavigation.pop<void>();
+      }
+    });
   }
 
   @override
   Widget build(BuildContext context) {
-    final String mm = (_seconds ~/ 60).toString().padLeft(2, '0');
-    final String ss = (_seconds % 60).toString().padLeft(2, '0');
-    return ScreenScaffold(
-      background: const Color(0xFF0A0D10),
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(24, 40, 24, 30),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: <Widget>[
-            Column(
+    final CallState state = ref.watch(activeCallControllerProvider);
+    final ActiveCallController c = ref.read(
+      activeCallControllerProvider.notifier,
+    );
+
+    if (state.phase.isTerminal || state.phase == CallPhase.idle) {
+      _popSoon();
+    }
+
+    final String who = state.contact?.displayName ?? 'Rider';
+    final String mm = (state.connectedSeconds ~/ 60).toString().padLeft(2, '0');
+    final String ss = (state.connectedSeconds % 60).toString().padLeft(2, '0');
+
+    final String status = switch (state.phase) {
+      CallPhase.outgoingRinging => 'Calling…',
+      CallPhase.connecting =>
+        state.engineJoined ? 'Waiting for $who…' : 'Connecting…',
+      CallPhase.connected => '$mm:$ss',
+      CallPhase.reconnecting => 'Reconnecting…',
+      CallPhase.declined => 'Call declined',
+      CallPhase.missed => 'No answer',
+      CallPhase.cancelled => 'Call cancelled',
+      CallPhase.failed => state.error ?? 'Call failed',
+      CallPhase.ended => 'Call ended',
+      _ => '',
+    };
+
+    final bool inCall =
+        state.phase == CallPhase.connected ||
+        state.phase == CallPhase.reconnecting;
+    final bool ringing =
+        state.phase == CallPhase.outgoingRinging ||
+        state.phase == CallPhase.connecting;
+
+    return PopScope(
+      canPop: state.phase.isTerminal || state.phase == CallPhase.idle,
+      child: Scaffold(
+        backgroundColor: _kBg,
+        body: SafeArea(
+          child: SizedBox(
+            width: double.infinity,
+            child: Column(
               children: <Widget>[
-                const SizedBox(height: 40),
+                const Spacer(flex: 2),
+                GlowAvatar(
+                  url: state.contact?.avatarUrl,
+                  name: who,
+                  glowing: ringing || inCall,
+                  coral: context.coral,
+                ),
+                const SizedBox(height: 34),
                 Text(
-                  _state == _CallState.ringing
-                      ? 'CALLING RIDER…'
-                      : 'ON CALL',
-                  style: AppTextStyles.eyebrow.copyWith(
-                    color: context.textDim,
-                    letterSpacing: 1.6,
+                  who,
+                  style: AppTextStyles.h1.copyWith(
+                    color: _kIvory,
+                    fontSize: 40,
                   ),
                 ),
-                const SizedBox(height: 24),
-                const Avatar(name: 'Rider', variant: 3, size: 112),
-                const SizedBox(height: 20),
+                const SizedBox(height: 12),
                 Text(
-                  'Rider',
-                  style: AppTextStyles.screenTitleSm
-                      .copyWith(color: context.text),
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  _state == _CallState.ringing ? 'Ringing…' : '$mm:$ss',
-                  style: AppTextStyles.mono.copyWith(
-                    fontSize: 14,
-                    color: context.textDim,
-                    letterSpacing: 1.2,
+                  status,
+                  textAlign: TextAlign.center,
+                  style: AppTextStyles.body.copyWith(
+                    color: state.phase == CallPhase.reconnecting
+                        ? context.amber
+                        : _kIvoryDim,
+                    fontSize: 17,
                   ),
                 ),
-                if (_state == _CallState.ringing) ...<Widget>[
-                  const SizedBox(height: 16),
-                  const _RingingDots(),
-                ],
+                const Spacer(flex: 3),
+                if (inCall || ringing)
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: <Widget>[
+                      RingControl(
+                        icon: state.muted ? DrivioIcons.mute : DrivioIcons.mic,
+                        active: state.muted,
+                        enabled: inCall,
+                        coral: context.coral,
+                        onTap: c.toggleMute,
+                      ),
+                      const SizedBox(width: 26),
+                      RingControl(
+                        icon: DrivioIcons.speaker,
+                        active: state.speakerOn,
+                        enabled: inCall,
+                        coral: context.coral,
+                        onTap: c.toggleSpeaker,
+                      ),
+                    ],
+                  ),
+                const SizedBox(height: 44),
+                if (state.phase.isLive)
+                  EndCallButton(
+                    coral: context.coral,
+                    onTap: () {
+                      if (state.phase == CallPhase.outgoingRinging) {
+                        unawaited(c.cancelOutgoing());
+                      } else {
+                        unawaited(c.hangUp());
+                      }
+                    },
+                  ),
+                const Spacer(),
               ],
             ),
-            Column(
-              children: <Widget>[
-                if (_state == _CallState.active)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 24),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                      children: <Widget>[
-                        _CircleBtn(icon: DrivioIcons.mute, label: 'Mute'),
-                        _CircleBtn(icon: DrivioIcons.speaker, label: 'Speaker'),
-                        _CircleBtn(icon: DrivioIcons.user, label: 'Keypad'),
-                      ],
-                    ),
-                  ),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                  children: <Widget>[
-                    if (_state == _CallState.ringing) ...<Widget>[
-                      _BigBtn(
-                        bg: context.red,
-                        icon: DrivioIcons.callEnd,
-                        onTap: () => AppNavigation.pop(),
-                      ),
-                      _BigBtn(
-                        bg: context.accent,
-                        icon: DrivioIcons.check,
-                        onTap: () {
-                          setState(() => _state = _CallState.active);
-                          _timer = Timer.periodic(const Duration(seconds: 1),
-                              (Timer _) => setState(() => _seconds++));
-                        },
-                      ),
-                    ] else
-                      _BigBtn(
-                        bg: context.red,
-                        icon: DrivioIcons.callEnd,
-                        onTap: () => AppNavigation.pop(),
-                      ),
-                  ],
-                ),
-                const SizedBox(height: 14),
-                Text(
-                  'Your number stays private. Both sides see a relay.',
-                  style: AppTextStyles.captionSm
-                      .copyWith(fontSize: 11, color: context.textDim),
-                ),
-              ],
-            ),
-          ],
+          ),
         ),
       ),
     );
   }
 }
 
-class _RingingDots extends ConsumerStatefulWidget {
-  const _RingingDots();
-  @override
-  ConsumerState<_RingingDots> createState() => _RingingDotsState();
-}
+/// The big brand avatar disc: photo (or serif initial) on a lighter teal
+/// disc, wrapped in a coral ring with a soft glow.
+class GlowAvatar extends StatelessWidget {
+  const GlowAvatar({
+    super.key,
+    required this.url,
+    required this.name,
+    required this.glowing,
+    required this.coral,
+  });
 
-class _RingingDotsState extends ConsumerState<_RingingDots>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _ctrl;
-
-  @override
-  void initState() {
-    super.initState();
-    _ctrl = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 1200),
-    )..repeat();
-  }
-
-  @override
-  void dispose() {
-    _ctrl.dispose();
-    super.dispose();
-  }
+  final String? url;
+  final String name;
+  final bool glowing;
+  final Color coral;
 
   @override
   Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: _ctrl,
-      builder: (BuildContext _, Widget? __) {
-        return Row(
-          mainAxisSize: MainAxisSize.min,
-          children: List<Widget>.generate(3, (int i) {
-            final double t = (_ctrl.value + i * 0.2) % 1;
-            return Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 2),
-              child: Opacity(
-                opacity: 0.3 + (1 - (t - 0.5).abs() * 2) * 0.7,
-                child: Container(
-                  width: 6,
-                  height: 6,
-                  decoration: BoxDecoration(
-                    color: context.accent,
-                    shape: BoxShape.circle,
-                  ),
+    final bool hasPhoto = url != null && url!.isNotEmpty;
+    return Container(
+      width: 196,
+      height: 196,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: _kDisc,
+        border: Border.all(color: coral, width: 3),
+        boxShadow: glowing
+            ? <BoxShadow>[
+                BoxShadow(
+                  color: coral.withValues(alpha: 0.45),
+                  blurRadius: 46,
+                  spreadRadius: 6,
                 ),
-              ),
-            );
-          }),
-        );
-      },
+              ]
+            : null,
+        image: hasPhoto
+            ? DecorationImage(image: NetworkImage(url!), fit: BoxFit.cover)
+            : null,
+      ),
+      alignment: Alignment.center,
+      child: hasPhoto
+          ? null
+          : Text(
+              name.isNotEmpty ? name[0].toUpperCase() : '?',
+              style: AppTextStyles.h1.copyWith(color: _kIvory, fontSize: 88),
+            ),
     );
   }
 }
 
-class _CircleBtn extends ConsumerWidget {
-  const _CircleBtn({required this.icon, required this.label});
-  final IconData icon;
-  final String label;
+/// Thin-outlined circular control, per the brand call screen.
+class RingControl extends StatelessWidget {
+  const RingControl({
+    super.key,
+    required this.icon,
+    required this.active,
+    required this.enabled,
+    required this.coral,
+    required this.onTap,
+  });
 
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    return Column(
-      children: <Widget>[
-        Container(
-          width: 56,
-          height: 56,
-          decoration: BoxDecoration(
-            color: context.surface,
-            shape: BoxShape.circle,
-            border: Border.all(color: context.border),
-          ),
-          alignment: Alignment.center,
-          child: Icon(icon, size: 22, color: context.text),
-        ),
-        const SizedBox(height: 6),
-        Text(
-          label,
-          style: AppTextStyles.micro.copyWith(
-            color: context.textDim,
-            letterSpacing: 0.4,
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _BigBtn extends StatelessWidget {
-  const _BigBtn({required this.bg, required this.icon, required this.onTap});
-  final Color bg;
   final IconData icon;
+  final bool active;
+  final bool enabled;
+  final Color coral;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: bg,
-      shape: const CircleBorder(),
-      elevation: 8,
-      shadowColor: Colors.black.withValues(alpha: 0.4),
-      child: InkWell(
-        customBorder: const CircleBorder(),
-        onTap: onTap,
-        child: SizedBox(
-          width: 64,
-          height: 64,
-          child: Icon(icon, size: 24, color: Colors.white),
+    return GestureDetector(
+      onTap: enabled ? onTap : null,
+      child: Opacity(
+        opacity: enabled ? 1 : 0.35,
+        child: Container(
+          width: 74,
+          height: 74,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: active ? _kIvory : Colors.transparent,
+            border: Border.all(color: active ? _kIvory : _kLine, width: 1.4),
+          ),
+          child: Icon(icon, size: 28, color: active ? _kBg : _kIvory),
+        ),
+      ),
+    );
+  }
+}
+
+/// Coral end-call button with a soft glow.
+class EndCallButton extends StatelessWidget {
+  const EndCallButton({super.key, required this.coral, required this.onTap});
+
+  final Color coral;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 82,
+        height: 82,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: coral,
+          boxShadow: <BoxShadow>[
+            BoxShadow(
+              color: coral.withValues(alpha: 0.5),
+              blurRadius: 34,
+              spreadRadius: 2,
+            ),
+          ],
+        ),
+        child: const Icon(
+          DrivioIcons.callEnd,
+          size: 34,
+          color: Color(0xFF3A1408),
         ),
       ),
     );

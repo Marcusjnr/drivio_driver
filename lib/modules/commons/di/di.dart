@@ -3,6 +3,9 @@ import 'package:get_it/get_it.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'package:drivio_driver/modules/commons/analytics/mixpanel_service.dart';
+import 'package:drivio_driver/modules/commons/data/call_repository.dart';
+import 'package:drivio_driver/modules/commons/data/call_repository_impl.dart';
+import 'package:drivio_driver/modules/commons/push/push_service.dart';
 import 'package:drivio_driver/modules/commons/config/config.dart';
 import 'package:drivio_driver/modules/commons/config/flavor.dart';
 import 'package:drivio_driver/modules/commons/supabase/supabase_module.dart';
@@ -87,6 +90,14 @@ Future<void> setupServiceLocator(Flavor flavor) async {
   locator.registerSingleton<SupabaseModule>(SupabaseModule.fromInstance());
 
   locator.registerLazySingleton<MixpanelService>(() => MixpanelService());
+
+  locator.registerLazySingleton<PushService>(
+    () => PushService(locator<SupabaseModule>()),
+  );
+
+  locator.registerLazySingleton<CallRepository>(
+    () => SupabaseCallRepository(locator<SupabaseModule>()),
+  );
 
   locator.registerLazySingleton<VehicleRepository>(
     () => SupabaseVehicleRepository(locator<SupabaseModule>()),

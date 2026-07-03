@@ -1,5 +1,8 @@
-# Drivio native launch splash — charcoal-teal backdrop + Drivio wordmark,
-# matching the in-app splash (SCR-001). Always dark, regardless of device theme.
+# Drivio native launch splash — charcoal-teal backdrop + the "D." brand mark
+# (full wordmark appears on the in-app splash, SCR-001). Always dark,
+# regardless of device theme.
+# Android 12+ masks the icon into a circle, so it needs the padded variant
+# (1152px canvas, mark inside the centre 768px safe circle).
 # Regenerate after edits:  dart run flutter_native_splash:create
 flutter_native_splash:
   color: "#071919"
@@ -8,9 +11,9 @@ flutter_native_splash:
   image_dark: assets/branding/splash_logo.png
   android_12:
     color: "#071919"
-    image: assets/branding/splash_logo.png
+    image: assets/branding/splash_logo_android12.png
     color_dark: "#071919"
-    image_dark: assets/branding/splash_logo.png
+    image_dark: assets/branding/splash_logo_android12.png
   android: true
   ios: true
   web: false

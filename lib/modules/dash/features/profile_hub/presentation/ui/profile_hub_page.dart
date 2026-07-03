@@ -480,7 +480,6 @@ class _AccountGroup extends StatelessWidget {
     final (String subSubtitle, String pillText, PillTone pillTone) = _subStatus(
       sub,
     );
-    final String referralValue = state.profile?.referralCode ?? '—';
     return _Group(
       title: 'ACCOUNT',
       children: <Widget>[
@@ -535,12 +534,8 @@ class _AccountGroup extends StatelessWidget {
           ),
         ),
         FieldRow(
-          label: 'Manage payment',
+          label: 'Subscription & billing',
           onTap: () => AppNavigation.push(AppRoutes.paymentMethods),
-        ),
-        FieldRow(
-          label: 'Withdraw earnings',
-          onTap: () => AppNavigation.push(AppRoutes.withdraw),
         ),
         // FieldRow(
         //   label: 'Referral code',

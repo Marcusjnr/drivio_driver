@@ -2,16 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:drivio_driver/modules/commons/all.dart';
-import 'package:drivio_driver/modules/commons/types/payout_account.dart';
 import 'package:drivio_driver/modules/commons/types/wallet.dart';
 import 'package:drivio_driver/modules/commons/widgets/detail_scaffold.dart';
 import 'package:drivio_driver/modules/profile/features/payment_methods/presentation/logic/controller/payout_account_controller.dart';
-import 'package:drivio_driver/modules/profile/features/payment_methods/presentation/ui/payout_account_sheet.dart';
 
-/// Per Q2: cards-on-file are removed (we can't securely store cards
-/// in v1). The page now manages a single payout bank account and
-/// shows subscription billing history derived from
-/// `wallet_ledger.subscription_debit` entries.
+/// Trips are paid in cash — the driver collects the fare directly, so there
+/// is no in-app balance and nothing to pay out to a bank. This page is now
+/// purely a record of the driver's own Drivio subscription charges, derived
+/// from `wallet_ledger.subscription_debit` entries.
 class PaymentMethodsPage extends ConsumerWidget {
   const PaymentMethodsPage({super.key});
 
@@ -19,12 +17,10 @@ class PaymentMethodsPage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final PayoutAccountState state =
         ref.watch(payoutAccountControllerProvider);
-    final PayoutAccountController c =
-        ref.read(payoutAccountControllerProvider.notifier);
 
     return DetailScaffold(
-      title: 'Manage payment',
-      subtitle: 'Payouts & billing',
+      title: 'Subscription & billing',
+      subtitle: 'Your Drivio subscription charges',
       children: <Widget>[
         if (state.isLoading)
           const Padding(
@@ -32,21 +28,30 @@ class PaymentMethodsPage extends ConsumerWidget {
             child: Center(child: CircularProgressIndicator()),
           )
         else ...<Widget>[
-          Text(
-            'PAYOUT ACCOUNT',
-            style: AppTextStyles.eyebrow.copyWith(color: context.textDim),
-          ),
-          const SizedBox(height: 8),
-          if (state.account == null)
-            _NoAccountCard(
-              onAdd: () => _openSheet(context, ref, existing: null),
-            )
-          else
-            _AccountCard(
-              account: state.account!,
-              onEdit: () => _openSheet(context, ref, existing: state.account),
-              onRemove: () => _confirmRemove(context, c),
+          Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: context.surface,
+              borderRadius: AppRadius.base,
+              border: Border.all(color: context.border),
             ),
+            child: Row(
+              children: <Widget>[
+                const Text('💵', style: TextStyle(fontSize: 18)),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    'Riders pay you in cash at the end of each trip — you keep '
+                    '100%. Your subscription is the only thing Drivio charges.',
+                    style: AppTextStyles.captionSm.copyWith(
+                      color: context.textDim,
+                      height: 1.5,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
           const SizedBox(height: 24),
           Text(
             'BILLING HISTORY',
@@ -63,226 +68,6 @@ class PaymentMethodsPage extends ConsumerWidget {
           ],
         ],
       ],
-    );
-  }
-
-  Future<void> _openSheet(
-    BuildContext context,
-    WidgetRef ref, {
-    required PayoutAccount? existing,
-  }) async {
-    final PayoutDraft? draft = await showPayoutAccountSheet(
-      context,
-      existing: existing,
-      loadBanks: () =>
-          ref.read(payoutAccountControllerProvider.notifier).loadBanks(),
-    );
-    if (draft == null) return;
-    final String? accountName = await ref
-        .read(payoutAccountControllerProvider.notifier)
-        .saveAccount(
-          bankName: draft.bankName,
-          bankCode: draft.bankCode,
-          accountNumber: draft.accountNumber,
-        );
-    if (accountName == null) {
-      final String? err =
-          ref.read(payoutAccountControllerProvider).error;
-      AppNotifier.error(
-        message: err ?? "Couldn't save bank details. Try again in a moment.",
-      );
-    } else {
-      AppNotifier.success(message: 'Bank account verified — $accountName.');
-    }
-  }
-
-  Future<void> _confirmRemove(
-      BuildContext context, PayoutAccountController c) async {
-    final bool? yes = await showModalBottomSheet<bool>(
-      context: context,
-      backgroundColor: Colors.transparent,
-      builder: (BuildContext ctx) => Container(
-        decoration: BoxDecoration(
-          color: ctx.surface,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-        ),
-        padding: const EdgeInsets.fromLTRB(20, 14, 20, 24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: <Widget>[
-            Container(
-              width: 40,
-              height: 4,
-              decoration: BoxDecoration(
-                color: ctx.textMuted,
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-            const SizedBox(height: 16),
-            Text(
-              'Remove payout account?',
-              style: AppTextStyles.h2.copyWith(color: ctx.text),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              "We won't be able to send your earnings until you add another account.",
-              textAlign: TextAlign.center,
-              style: AppTextStyles.caption.copyWith(
-                color: ctx.textDim,
-                height: 1.5,
-              ),
-            ),
-            const SizedBox(height: 16),
-            DrivioButton(
-              label: 'Remove',
-              variant: DrivioButtonVariant.danger,
-              onPressed: () => Navigator.of(ctx).pop(true),
-            ),
-            const SizedBox(height: 8),
-            DrivioButton(
-              label: 'Cancel',
-              variant: DrivioButtonVariant.ghost,
-              onPressed: () => Navigator.of(ctx).pop(false),
-            ),
-          ],
-        ),
-      ),
-    );
-    if (yes == true) {
-      await c.removeAccount();
-    }
-  }
-}
-
-// ── Payout account card (filled state) ─────────────────────────────────
-
-class _AccountCard extends StatelessWidget {
-  const _AccountCard({
-    required this.account,
-    required this.onEdit,
-    required this.onRemove,
-  });
-
-  final PayoutAccount account;
-  final VoidCallback onEdit;
-  final VoidCallback onRemove;
-
-  @override
-  Widget build(BuildContext context) {
-    final (String pillText, PillTone pillTone) =
-        account.isVerified
-            ? ('VERIFIED', PillTone.accent)
-            : ('VERIFYING', PillTone.amber);
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: context.surface,
-        borderRadius: AppRadius.base,
-        border: Border.all(color: context.border),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[
-          Row(
-            children: <Widget>[
-              Container(
-                width: 44,
-                height: 44,
-                decoration: BoxDecoration(
-                  color: context.surface2,
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                alignment: Alignment.center,
-                child: const Text('🏦', style: TextStyle(fontSize: 18)),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: <Widget>[
-                    Text(
-                      account.displayLabel,
-                      style: AppTextStyles.bodySm.copyWith(
-                        color: context.text,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      account.accountName,
-                      style: AppTextStyles.captionSm
-                          .copyWith(fontSize: 11, color: context.textDim),
-                    ),
-                  ],
-                ),
-              ),
-              Pill(text: pillText, tone: pillTone),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Row(
-            children: <Widget>[
-              Expanded(
-                child: DrivioButton(
-                  label: 'Edit',
-                  variant: DrivioButtonVariant.ghost,
-                  onPressed: onEdit,
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: DrivioButton(
-                  label: 'Remove',
-                  variant: DrivioButtonVariant.danger,
-                  onPressed: onRemove,
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _NoAccountCard extends StatelessWidget {
-  const _NoAccountCard({required this.onAdd});
-  final VoidCallback onAdd;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: context.surface,
-        borderRadius: AppRadius.base,
-        border: Border.all(color: context.border),
-      ),
-      child: Column(
-        children: <Widget>[
-          Text(
-            'No payout account on file',
-            style: AppTextStyles.caption.copyWith(
-              color: context.text,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            "Add your bank details so we can pay your earnings.",
-            textAlign: TextAlign.center,
-            style: AppTextStyles.caption.copyWith(
-              color: context.textDim,
-              height: 1.5,
-            ),
-          ),
-          const SizedBox(height: 12),
-          DrivioButton(
-            label: '+ Add bank account',
-            onPressed: onAdd,
-          ),
-        ],
-      ),
     );
   }
 }
@@ -392,4 +177,3 @@ class _BillingRow extends StatelessWidget {
     return '${m[(t.month - 1).clamp(0, 11)]} ${t.day}, ${t.year}';
   }
 }
-

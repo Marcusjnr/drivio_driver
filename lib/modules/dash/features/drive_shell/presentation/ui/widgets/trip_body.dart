@@ -8,6 +8,7 @@ import 'package:drivio_driver/modules/commons/utils/navigation_launcher.dart';
 import 'package:drivio_driver/modules/dash/features/drive_shell/presentation/logic/controller/drive_shell_controller.dart';
 import 'package:drivio_driver/modules/trip/features/active_trip/presentation/logic/controller/active_trip_controller.dart';
 import 'package:drivio_driver/modules/trip/features/active_trip/presentation/logic/controller/passenger_rating_controller.dart';
+import 'package:drivio_driver/modules/trip/features/call/presentation/ui/call_sheet.dart';
 import 'package:drivio_driver/modules/trip/features/chat/presentation/logic/controller/unread_chat_controller.dart';
 
 /// Bottom-sheet body shown in any trip-like shell mode — SCR-023 through
@@ -380,7 +381,7 @@ class _PrimaryActions extends StatelessWidget {
 
 /// Quiet row of secondary actions kept out of the hero: Call, Chat
 /// (only when it isn't already a primary button), and Navigate.
-class _UtilityRow extends StatelessWidget {
+class _UtilityRow extends ConsumerWidget {
   const _UtilityRow({
     required this.trip,
     required this.navTarget,
@@ -392,7 +393,7 @@ class _UtilityRow extends StatelessWidget {
   final int unreadChats;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     // Chat is a primary button on assigned/arrived — only surface it
     // here on en-route / in-progress so it's always reachable.
     final bool chatInUtility =
@@ -402,7 +403,7 @@ class _UtilityRow extends StatelessWidget {
       _UtilityAction(
         icon: DrivioIcons.phone,
         label: 'Call',
-        onTap: () => AppNavigation.push(AppRoutes.call, arguments: trip.id),
+        onTap: () => showCallSheet(context, ref, tripId: trip.id),
       ),
       if (chatInUtility)
         _UtilityAction(
@@ -843,7 +844,20 @@ class _CompletedBody extends ConsumerWidget {
           ),
         ],
         const SizedBox(height: 16),
-        DrivioButton(label: 'Done', onPressed: onContinue),
+        DrivioButton(
+          label: rating.isSubmitting ? 'Submitting…' : 'Done',
+          disabled: rating.isSubmitting,
+          onPressed: () async {
+            // Done saves the rating (if one was given and not already saved),
+            // then ends. If the save fails, stay put — the error shows above so
+            // the driver can retry. Rating stays optional: no stars → just end.
+            if (!rating.submitted && rating.canSubmit) {
+              final bool ok = await rc.submit();
+              if (!ok) return;
+            }
+            onContinue();
+          },
+        ),
       ],
     );
   }
@@ -945,28 +959,27 @@ class _RatingPanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.center,
       children: <Widget>[
-        Row(
-          children: <Widget>[
-            Text(
-              state.submitted ? 'You rated $riderLabel' : 'Rate $riderLabel',
-              style: AppTextStyles.h2.copyWith(color: context.text),
-            ),
-            const Spacer(),
-            if (state.submitted)
-              Pill(text: 'Saved · ${state.rating}★', tone: PillTone.accent),
-          ],
+        Text(
+          state.submitted ? 'You rated $riderLabel' : 'Rate $riderLabel',
+          style: AppTextStyles.h2.copyWith(color: context.text),
+          textAlign: TextAlign.center,
         ),
-        const SizedBox(height: 10),
+        if (state.submitted) ...<Widget>[
+          const SizedBox(height: 8),
+          Pill(text: 'Saved · ${state.rating}★', tone: PillTone.accent),
+        ],
+        const SizedBox(height: 12),
         Row(
+          mainAxisAlignment: MainAxisAlignment.center,
           children: List<Widget>.generate(5, (int i) {
             final int value = i + 1;
             final bool filled = value <= state.rating;
             return GestureDetector(
               onTap: state.submitted ? null : () => controller.setRating(value),
               child: Padding(
-                padding: const EdgeInsets.only(right: 10),
+                padding: const EdgeInsets.symmetric(horizontal: 5),
                 child: Icon(
                   DrivioIcons.star,
                   size: 32,
@@ -976,8 +989,9 @@ class _RatingPanel extends StatelessWidget {
             );
           }),
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 14),
         Wrap(
+          alignment: WrapAlignment.center,
           spacing: 6,
           runSpacing: 6,
           children: kPassengerRatingTags.map((String tag) {
@@ -1007,14 +1021,6 @@ class _RatingPanel extends StatelessWidget {
             );
           }).toList(),
         ),
-        if (!state.submitted) ...<Widget>[
-          const SizedBox(height: 12),
-          DrivioButton(
-            label: state.isSubmitting ? 'Submitting…' : 'Submit rating',
-            disabled: !state.canSubmit,
-            onPressed: controller.submit,
-          ),
-        ],
       ],
     );
   }

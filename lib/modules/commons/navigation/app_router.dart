@@ -38,6 +38,7 @@ import 'package:drivio_driver/modules/subscription/features/pick_plan/presentati
 import 'package:drivio_driver/modules/support/features/help_article/presentation/ui/help_article_page.dart';
 import 'package:drivio_driver/modules/support/features/support_chat/presentation/ui/support_chat_page.dart';
 import 'package:drivio_driver/modules/trip/features/call/presentation/ui/call_page.dart';
+import 'package:drivio_driver/modules/trip/features/call/presentation/ui/incoming_call_page.dart';
 import 'package:drivio_driver/modules/trip/features/chat/presentation/ui/chat_page.dart';
 import 'package:drivio_driver/modules/trip/features/safety/presentation/ui/safety_page.dart';
 import 'package:drivio_driver/modules/vehicle/features/preferred_trip_length/presentation/ui/preferred_trip_length_page.dart';
@@ -98,6 +99,8 @@ class AppRouter {
       // (rideRequest + activeTrip handled in the shared block above)
       case AppRoutes.chat:
         return (BuildContext _) => const ChatPage();
+      case AppRoutes.incomingCall:
+        return (BuildContext _) => const IncomingCallPage();
       case AppRoutes.call:
         return (BuildContext _) => const CallPage();
       case AppRoutes.safety:

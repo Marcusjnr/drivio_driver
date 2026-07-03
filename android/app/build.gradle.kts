@@ -1,15 +1,17 @@
 plugins {
     id("com.android.application")
-    // START: FlutterFire Configuration
-    id("com.google.gms.google-services")
-    // END: FlutterFire Configuration
+    // NOTE(Phase B): the FlutterFire google-services plugin was removed while
+    // app IDs moved off com.example — Firebase currently initializes from
+    // explicit Dart FirebaseOptions (lib/firebase_options_stage.dart). Phase B
+    // re-adds the plugin with per-flavor google-services.json files matching
+    // the new application IDs.
     id("kotlin-android")
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id("dev.flutter.flutter-gradle-plugin")
 }
 
 android {
-    namespace = "com.example.drivio_driver"
+    namespace = "com.drivedrivio.drivio_driver"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
 
@@ -23,14 +25,27 @@ android {
     }
 
     defaultConfig {
-        // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
-        applicationId = "com.example.drivio_driver"
+        applicationId = "com.drivedrivio.drivio_driver"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = flutter.minSdkVersion
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+    }
+
+    flavorDimensions += "flavor"
+    productFlavors {
+        create("prod") {
+            dimension = "flavor"
+            applicationId = "com.drivedrivio.drivio_driver"
+            resValue("string", "app_name", "Drivio Driver")
+        }
+        create("staging") {
+            dimension = "flavor"
+            applicationId = "com.drivedrivio.drivio_driver.beta"
+            resValue("string", "app_name", "Drivio Driver Beta")
+        }
     }
 
     buildTypes {

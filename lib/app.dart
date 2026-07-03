@@ -19,7 +19,13 @@ import 'package:drivio_driver/modules/commons/config/config.dart' as cfg;
 class App extends ConsumerStatefulWidget {
   const App({super.key});
 
-  static void run() => runApp(const ProviderScope(child: App()));
+  /// Root Riverpod container — exposed so out-of-widget services (the
+  /// CallKit push bridge) can reach the same providers the UI uses.
+  static final ProviderContainer container = ProviderContainer();
+
+  static void run() => runApp(
+        UncontrolledProviderScope(container: container, child: const App()),
+      );
 
   @override
   ConsumerState<App> createState() => _AppState();

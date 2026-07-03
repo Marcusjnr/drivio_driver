@@ -40,10 +40,22 @@ class RideRequest {
     this.expectedDurationS,
     this.pickupGeohash6,
     this.matchedBidId,
+    this.passengerFirstName,
+    this.passengerAvatarUrl,
+    this.passengerRating,
+    this.passengerRatingCount = 0,
   });
 
   final String id;
   final String passengerId;
+
+  /// Rider identity, surfaced to the driver on the request. First name +
+  /// liveness photo build trust; rating is the average of `passenger_ratings`
+  /// (null = no ratings yet → show "New").
+  final String? passengerFirstName;
+  final String? passengerAvatarUrl;
+  final double? passengerRating;
+  final int passengerRatingCount;
   final double pickupLat;
   final double pickupLng;
   final String? pickupAddress;
@@ -90,6 +102,11 @@ class RideRequest {
       status: RideRequestStatus.fromWire(json['status'] as String),
       pickupGeohash6: json['pickup_geohash6'] as String?,
       matchedBidId: json['matched_bid_id'] as String?,
+      passengerFirstName: json['passenger_first_name'] as String?,
+      passengerAvatarUrl: json['passenger_avatar_url'] as String?,
+      passengerRating: (json['passenger_rating'] as num?)?.toDouble(),
+      passengerRatingCount:
+          (json['passenger_rating_count'] as num?)?.toInt() ?? 0,
       createdAt: DateTime.parse(json['created_at'] as String),
       expiresAt: DateTime.parse(json['expires_at'] as String),
     );

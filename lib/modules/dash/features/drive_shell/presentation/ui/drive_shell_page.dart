@@ -142,20 +142,27 @@ class _DriveShellPageState extends ConsumerState<DriveShellPage>
   /// mount and whenever the app returns to the foreground.
   Future<void> _reconcileActiveTrip() async {
     if (_tripReconcileInFlight || !mounted) return;
-    if (ref.read(driveShellControllerProvider).isTripLike) return;
     _tripReconcileInFlight = true;
     try {
-      final String? tripId = await locator<TripRepository>()
-          .getMyActiveTripId();
-      if (!mounted || tripId == null) return;
-      if (ref.read(driveShellControllerProvider).isTripLike) return;
-      AppNotifier.info(message: 'You have a trip in progress. Resuming it.');
-      ref.read(driveShellControllerProvider.notifier).enterTrip(tripId);
+      if (!ref.read(driveShellControllerProvider).isTripLike) {
+        final String? tripId = await locator<TripRepository>()
+            .getMyActiveTripId();
+        if (!mounted || tripId == null) return;
+        if (!ref.read(driveShellControllerProvider).isTripLike) {
+          AppNotifier.info(
+            message: 'You have a trip in progress. Resuming it.',
+          );
+          ref.read(driveShellControllerProvider.notifier).enterTrip(tripId);
+        }
+      }
       // A driver on a trip must keep streaming location: the rider tracks
-      // them live, and our own trip map needs the fix for the route line +
-      // car marker. A cold start / OEM kill can leave the stream down even
-      // mid-trip, so resume it here (independent of the online toggle).
-      if (!ref.read(presenceControllerProvider).isStreaming) {
+      // them live, and our own trip map needs the fix for the route-ahead
+      // line + car marker. This must run even when the shell was ALREADY
+      // restored into trip mode by another hydration path (cold start
+      // mid-trip) — previously it only ran when THIS method entered the
+      // trip, which left the map with no polyline after a restart.
+      if (ref.read(driveShellControllerProvider).isTripLike &&
+          !ref.read(presenceControllerProvider).isStreaming) {
         unawaited(
           ref
               .read(presenceControllerProvider.notifier)

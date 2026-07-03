@@ -1,4 +1,4 @@
-package com.example.drivio_driver
+package com.drivedrivio.drivio_driver
 
 import io.flutter.embedding.android.FlutterActivity
 

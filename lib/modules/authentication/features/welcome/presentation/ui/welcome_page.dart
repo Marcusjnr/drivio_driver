@@ -1,204 +1,387 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:drivio_driver/modules/commons/all.dart';
 
 /// SCR-002 — Welcome (signed out).
 ///
-/// Light ivory canvas. Top-left wordmark. Hero zone occupies ~60% of
-/// the screen — a brand-pure Coastal Pulse composition (coral sky,
-/// butter radar halo, charcoal-teal city silhouette) standing in until
-/// commissioned photography from the §8.3 photographer roster lands.
-/// Below the hero: eyebrow → Marcellus headline → Albert Sans body →
-/// coral primary CTA + ghost secondary.
-class WelcomePage extends ConsumerWidget {
+/// Full-bleed photo carousel: three cinematic driver photographs graded
+/// into the brand's charcoal-teal world, each carrying one driver USP
+/// (name your price / keep what you earn / verified riders). Slides
+/// auto-advance and can be swiped; the wordmark, dots and CTAs stay
+/// fixed over the photos. Copy sits on a scrim that deepens to the
+/// app backdrop so ivory type and the coral CTA always cut through.
+class WelcomePage extends ConsumerStatefulWidget {
   const WelcomePage({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    return ScreenScaffold(
-      child: SafeArea(
-        bottom: false,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(24, 16, 24, 24),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: <Widget>[
-              // Top-left wordmark — Marcellus "Drivio" + coral dot at
-              // 22pt per SCR-002 mockup.
-              const BrandMark(size: 22),
-              const SizedBox(height: 12),
+  ConsumerState<WelcomePage> createState() => _WelcomePageState();
+}
 
-              // Hero zone — 60% of remaining vertical space.
-              const Expanded(
-                flex: 60,
-                child: _HeroIllustration(),
+class _Slide {
+  const _Slide({
+    required this.asset,
+    required this.eyebrow,
+    required this.title,
+    required this.body,
+  });
+
+  final String asset;
+  final String eyebrow;
+  final String title;
+  final String body;
+}
+
+const List<_Slide> _slides = <_Slide>[
+  _Slide(
+    asset: 'assets/images/onboarding/onboard_1.jpg',
+    eyebrow: 'THE DRIVIO MARKETPLACE',
+    title: 'Your fare.\nYour call.',
+    body: 'Riders request, you offer the price. '
+        'No forced fares, no surprises.',
+  ),
+  _Slide(
+    asset: 'assets/images/onboarding/onboard_2.jpg',
+    eyebrow: 'KEEP WHAT YOU EARN',
+    title: 'No commission\non trips.',
+    body: 'Riders pay you directly. '
+        'The full fare stays in your pocket.',
+  ),
+  _Slide(
+    asset: 'assets/images/onboarding/onboard_3.jpg',
+    eyebrow: 'SAFER PICKUPS',
+    title: 'Know who\nyou carry.',
+    body: 'Every rider is verified, with a real photo '
+        'and rating before you accept.',
+  ),
+];
+
+/// Height reserved under each slide's copy for the fixed dots + CTAs.
+const double _kControlsReserve = 176;
+const Duration _kAutoAdvance = Duration(seconds: 5);
+const Duration _kPageTurn = Duration(milliseconds: 650);
+
+class _WelcomePageState extends ConsumerState<WelcomePage> {
+  final PageController _controller = PageController();
+  Timer? _timer;
+  int _current = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller.addListener(_onPageScroll);
+    _startTimer();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    for (final _Slide s in _slides) {
+      precacheImage(AssetImage(s.asset), context);
+    }
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _onPageScroll() {
+    final int page = (_controller.page ?? 0).round() % _slides.length;
+    if (page != _current) {
+      setState(() => _current = page);
+    }
+  }
+
+  void _startTimer() {
+    _timer?.cancel();
+    _timer = Timer.periodic(_kAutoAdvance, (_) {
+      if (!mounted || !_controller.hasClients) {
+        return;
+      }
+      _controller.nextPage(duration: _kPageTurn, curve: Curves.easeOutQuart);
+    });
+  }
+
+  bool _onScroll(ScrollNotification n) {
+    // A finger on the carousel pauses auto-advance; it resumes (with a
+    // fresh full interval) once the drag settles.
+    if (n is ScrollStartNotification && n.dragDetails != null) {
+      _timer?.cancel();
+    } else if (n is ScrollEndNotification) {
+      _startTimer();
+    }
+    return false;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: AppTheme.darkSystemOverlay,
+      child: Scaffold(
+        backgroundColor: AppColors.appBackdropDark,
+        body: Stack(
+          fit: StackFit.expand,
+          children: <Widget>[
+            NotificationListener<ScrollNotification>(
+              onNotification: _onScroll,
+              child: PageView.builder(
+                controller: _controller,
+                itemBuilder: (BuildContext _, int i) =>
+                    _SlideView(slide: _slides[i % _slides.length]),
               ),
+            ),
 
-              const SizedBox(height: 22),
+            // Top scrim + wordmark — fixed above the swiping photos.
+            Positioned(
+              top: 0,
+              left: 0,
+              right: 0,
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: <Color>[
+                      AppColors.appBackdropDark.withValues(alpha: 0.55),
+                      AppColors.appBackdropDark.withValues(alpha: 0),
+                    ],
+                  ),
+                ),
+                child: const SafeArea(
+                  bottom: false,
+                  child: Padding(
+                    padding: EdgeInsets.fromLTRB(24, 14, 24, 28),
+                    child: Align(
+                      alignment: Alignment.centerLeft,
+                      child: _MarkOnPhoto(),
+                    ),
+                  ),
+                ),
+              ),
+            ),
 
-              // Eyebrow + headline + body. Below the hero, with
-              // generous whitespace per brand §3.3 premium-warm.
-              Expanded(
-                flex: 40,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: <Widget>[
-                    Text(
-                      'DRIVE WITH DRIVIO',
-                      style: AppTextStyles.eyebrow.copyWith(
-                        color: context.textDim,
+            // Fixed bottom controls: dots + CTAs.
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: 0,
+              child: SafeArea(
+                top: false,
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(24, 0, 24, 18),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: <Widget>[
+                      _Dots(current: _current, count: _slides.length),
+                      const SizedBox(height: 18),
+                      DrivioButton(
+                        label: 'Get started',
+                        onPressed: () => AppNavigation.push(AppRoutes.signUp),
                       ),
-                    ),
-                    const SizedBox(height: 14),
-                    Text(
-                      'Set your price.\nKeep what you earn.',
-                      style: AppTextStyles.displayLg.copyWith(
-                        color: context.text,
-                        fontSize: 36,
-                      ),
-                    ),
-                    const SizedBox(height: 14),
-                    Text(
-                      "Drivio doesn't take a per-trip cut. You decide "
-                      'what each ride is worth.',
-                      style: AppTextStyles.bodySm.copyWith(
-                        color: context.textDim,
-                        height: 1.55,
-                      ),
-                    ),
-                    const Spacer(),
-                    DrivioButton(
-                      label: 'Get started',
-                      onPressed: () =>
-                          AppNavigation.push(AppRoutes.signUp),
-                    ),
-                    const SizedBox(height: 6),
-                    SizedBox(
-                      width: double.infinity,
-                      height: 44,
-                      child: TextButton(
-                        onPressed: () =>
-                            AppNavigation.push(AppRoutes.signIn),
-                        style: TextButton.styleFrom(
-                          foregroundColor: context.text,
-                          padding:
-                              const EdgeInsets.symmetric(vertical: 12),
-                        ),
-                        child: Text(
-                          'I already have an account',
-                          style: AppTextStyles.bodySm.copyWith(
-                            color: context.text,
-                            fontWeight: FontWeight.w600,
+                      const SizedBox(height: 10),
+                      SizedBox(
+                        width: double.infinity,
+                        height: 50,
+                        child: OutlinedButton(
+                          onPressed: () =>
+                              AppNavigation.push(AppRoutes.signIn),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: AppColors.ivory,
+                            side: BorderSide(
+                              color: AppColors.ivory.withValues(alpha: 0.55),
+                              width: 1.2,
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(14),
+                            ),
+                          ),
+                          child: Text(
+                            'I already have an account',
+                            style: AppTextStyles.bodySm.copyWith(
+                              color: AppColors.ivory,
+                              fontWeight: FontWeight.w600,
+                            ),
                           ),
                         ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
   }
 }
 
-/// **Placeholder.** Hero illustration painted in pure Coastal Pulse
-/// tokens — coral dawn sky, butter radar halo (echoing the splash
-/// pulse), charcoal-teal city silhouette, teal accent building.
-///
-/// Per brand spec §8 the hero on this surface should eventually be
-/// commissioned photography from the §8.3 photographer roster (Lakin
-/// Ogunbanwo / Stephen Tayo / Aida Muluneh et al). Until then this
-/// painted composition stands in; it uses only palette tokens, no raw
-/// hex, no stock photos that might violate §8.4 sourcing rules.
-class _HeroIllustration extends StatelessWidget {
-  const _HeroIllustration();
+/// One carousel slide: slow-breathing photo, scrim, and the USP copy
+/// block sitting just above the fixed controls.
+class _SlideView extends StatefulWidget {
+  const _SlideView({required this.slide});
+
+  final _Slide slide;
+
+  @override
+  State<_SlideView> createState() => _SlideViewState();
+}
+
+class _SlideViewState extends State<_SlideView>
+    with SingleTickerProviderStateMixin {
+  // Ken Burns drift — a barely-there zoom so the photos feel alive
+  // during the 5s dwell without calling attention to themselves.
+  late final AnimationController _kenBurns = AnimationController(
+    vsync: this,
+    duration: const Duration(seconds: 12),
+  )..repeat(reverse: true);
+
+  late final Animation<double> _scale = Tween<double>(begin: 1.0, end: 1.07)
+      .animate(CurvedAnimation(parent: _kenBurns, curve: Curves.easeInOut));
+
+  @override
+  void dispose() {
+    _kenBurns.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(20),
-      child: CustomPaint(
-        painter: _HeroPainter(),
-        child: const SizedBox.expand(),
-      ),
+    return Stack(
+      fit: StackFit.expand,
+      children: <Widget>[
+        ClipRect(
+          child: ScaleTransition(
+            scale: _scale,
+            child: Image.asset(widget.slide.asset, fit: BoxFit.cover),
+          ),
+        ),
+
+        // Reading scrim — clear up top, settling into the app backdrop
+        // where the copy and CTAs live.
+        DecoratedBox(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              stops: const <double>[0.34, 0.62, 0.86, 1.0],
+              colors: <Color>[
+                AppColors.appBackdropDark.withValues(alpha: 0),
+                AppColors.appBackdropDark.withValues(alpha: 0.45),
+                AppColors.appBackdropDark.withValues(alpha: 0.92),
+                AppColors.appBackdropDark,
+              ],
+            ),
+          ),
+        ),
+
+        // USP copy.
+        Positioned(
+          left: 24,
+          right: 24,
+          bottom: _kControlsReserve,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: <Widget>[
+              Text(
+                widget.slide.eyebrow,
+                style: AppTextStyles.eyebrow.copyWith(color: AppColors.coral),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                widget.slide.title,
+                style: AppTextStyles.displayLg.copyWith(
+                  color: AppColors.ivory,
+                  fontSize: 40,
+                  height: 1.08,
+                ),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                widget.slide.body,
+                style: AppTextStyles.bodySm.copyWith(
+                  color: AppColors.ivory.withValues(alpha: 0.78),
+                  height: 1.55,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 }
 
-class _HeroPainter extends CustomPainter {
+/// Wordmark rendered explicitly in ivory + coral — the photos underneath
+/// are always dark, so this can't defer to the ambient theme the way
+/// [BrandMark] does.
+class _MarkOnPhoto extends StatelessWidget {
+  const _MarkOnPhoto();
+
   @override
-  void paint(Canvas canvas, Size size) {
-    final double w = size.width;
-    final double h = size.height;
-    final Rect frame = Rect.fromLTWH(0, 0, w, h);
-
-    // ── Dawn sky — coral fading to charcoal-teal at the horizon ─────
-    // Mid-stop is derived (not a new token): Color.lerp picks a tint
-    // exactly 55% between coral and charcoal-teal so the gradient
-    // breathes a beat before settling into the dark horizon — no raw
-    // hex, no new palette token.
-    final Color midSky =
-        Color.lerp(AppColors.coral, AppColors.charcoalTeal, 0.55)!;
-    final Paint sky = Paint()
-      ..shader = LinearGradient(
-        begin: Alignment.topCenter,
-        end: Alignment.bottomCenter,
-        colors: <Color>[AppColors.coral, midSky, AppColors.charcoalTeal],
-        stops: const <double>[0.0, 0.55, 1.0],
-      ).createShader(frame);
-    canvas.drawRect(frame, sky);
-
-    // ── Butter radar halo — three concentric rings, top-right ───────
-    // Echoes the splash pulse. Sparing use (§4.4 butter rule) — this
-    // is the one butter moment on the page.
-    final Offset haloCenter = Offset(w * 0.72, h * 0.32);
-    for (int i = 1; i <= 3; i++) {
-      final Paint ring = Paint()
-        ..color = AppColors.butter
-            .withValues(alpha: 0.55 - 0.12 * (i - 1).toDouble())
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 2.0;
-      canvas.drawCircle(haloCenter, w * 0.10 * i, ring);
-    }
-
-    // ── City silhouette — charcoal-teal at the bottom ───────────────
-    final Paint city = Paint()..color = AppColors.charcoalTeal;
-    // (x_frac, width_frac, height_frac) per building.
-    final List<List<double>> buildings = <List<double>>[
-      <double>[0.02, 0.12, 0.18],
-      <double>[0.16, 0.10, 0.28],
-      <double>[0.28, 0.13, 0.22],
-      <double>[0.62, 0.14, 0.25],
-      <double>[0.78, 0.10, 0.32],
-      <double>[0.90, 0.10, 0.20],
-    ];
-    for (final List<double> b in buildings) {
-      final double x = w * b[0];
-      final double bw = w * b[1];
-      final double bh = h * b[2];
-      canvas.drawRect(Rect.fromLTWH(x, h - bh, bw, bh), city);
-    }
-
-    // ── Teal accent — a single taller building, centered foreground ─
-    // The "calm sibling to coral" — the focal point at street level.
-    final Paint tealAccent = Paint()..color = AppColors.teal;
-    canvas.drawRect(
-      Rect.fromLTWH(w * 0.42, h * 0.42, w * 0.18, h * 0.58),
-      tealAccent,
+  Widget build(BuildContext context) {
+    const double size = 24;
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.end,
+      children: <Widget>[
+        Text(
+          'Drivio',
+          style: AppTextStyles.h1.copyWith(
+            fontSize: size,
+            color: AppColors.ivory,
+            height: 1.0,
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.only(left: 2, bottom: 3),
+          child: Container(
+            width: size * 0.13,
+            height: size * 0.13,
+            decoration: const BoxDecoration(
+              color: AppColors.coral,
+              shape: BoxShape.circle,
+            ),
+          ),
+        ),
+      ],
     );
-    // Triangular roof
-    final Path roof = Path()
-      ..moveTo(w * 0.42, h * 0.42)
-      ..lineTo(w * 0.51, h * 0.30)
-      ..lineTo(w * 0.60, h * 0.42)
-      ..close();
-    canvas.drawPath(roof, tealAccent);
   }
+}
+
+class _Dots extends StatelessWidget {
+  const _Dots({required this.current, required this.count});
+
+  final int current;
+  final int count;
 
   @override
-  bool shouldRepaint(covariant _HeroPainter oldDelegate) => false;
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: <Widget>[
+        for (int i = 0; i < count; i++)
+          AnimatedContainer(
+            duration: const Duration(milliseconds: 240),
+            curve: Curves.easeOutQuart,
+            margin: const EdgeInsets.symmetric(horizontal: 3.5),
+            width: i == current ? 22 : 6,
+            height: 6,
+            decoration: BoxDecoration(
+              color: i == current
+                  ? AppColors.coral
+                  : AppColors.ivory.withValues(alpha: 0.35),
+              borderRadius: BorderRadius.circular(3),
+            ),
+          ),
+      ],
+    );
+  }
 }

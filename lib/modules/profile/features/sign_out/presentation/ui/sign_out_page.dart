@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:drivio_driver/modules/commons/push/push_service.dart';
 import 'package:drivio_driver/modules/commons/all.dart';
 import 'package:drivio_driver/modules/commons/data/profile_repository.dart';
 import 'package:drivio_driver/modules/commons/widgets/detail_scaffold.dart';
@@ -26,6 +27,8 @@ class _SignOutPageState extends ConsumerState<SignOutPage> {
 
     setState(() => _isLoading = true);
     try {
+      // Push token must go before signOut — the delete RPC needs the JWT.
+      await locator<PushService>().unregisterDevice();
       await ref.read(mutationQueueProvider.notifier).clearAll();
       await locator<SupabaseModule>().auth.signOut();
     } catch (_) {
@@ -105,6 +108,8 @@ class _SignOutPageState extends ConsumerState<SignOutPage> {
       await locator<ProfileRepository>().requestAccountDeletion();
       // Clear queued mutations & sign out so the auth listener routes the
       // user back to the welcome page.
+      // Push token must go before signOut — the delete RPC needs the JWT.
+      await locator<PushService>().unregisterDevice();
       await ref.read(mutationQueueProvider.notifier).clearAll();
       await locator<SupabaseModule>().auth.signOut();
     } catch (e, s) {

@@ -58,10 +58,6 @@ class _EarningsPageState extends ConsumerState<EarningsPage> {
                 period: state.period,
                 onPeriodChanged: c.setPeriod,
               ),
-              const SizedBox(height: 18),
-
-              // Wallet balance (kept on top per decision).
-              _BalanceCard(state: state),
               const SizedBox(height: 22),
 
               // Earnings hero.
@@ -603,86 +599,6 @@ class _LedgerSection extends StatelessWidget {
           ),
       ],
     );
-  }
-}
-
-class _BalanceCard extends StatelessWidget {
-  const _BalanceCard({required this.state});
-  final WalletState state;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.fromLTRB(18, 16, 18, 16),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: <Color>[
-            context.coral.withValues(alpha: 0.18),
-            context.coral.withValues(alpha: 0.04),
-          ],
-        ),
-        borderRadius: AppRadius.lg,
-        border: Border.all(color: context.coral.withValues(alpha: 0.3)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[
-          Text(
-            'WALLET BALANCE',
-            style: AppTextStyles.eyebrow.copyWith(color: context.coral),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            NairaFormatter.format(state.balanceNaira),
-            style: AppTextStyles.priceHero.copyWith(
-              fontSize: 42,
-              letterSpacing: -1.2,
-              color: context.text,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            state.wallet == null
-                ? 'No payouts yet'
-                : 'Updated ${_relativeTime(state.wallet!.updatedAt)}',
-            style: AppTextStyles.captionSm.copyWith(color: context.textDim),
-          ),
-          const SizedBox(height: 14),
-          Row(
-            children: <Widget>[
-              Expanded(
-                child: DrivioButton(
-                  label: 'Withdraw',
-                  disabled: state.balanceNaira < 1000,
-                  onPressed: () =>
-                      AppNavigation.push<void>(AppRoutes.withdraw),
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: DrivioButton(
-                  label: 'History',
-                  variant: DrivioButtonVariant.ghost,
-                  onPressed: () {},
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  static String _relativeTime(DateTime then) {
-    final Duration delta = DateTime.now().difference(then);
-    if (delta.inSeconds < 30) return 'just now';
-    if (delta.inMinutes < 1) return '${delta.inSeconds}s ago';
-    if (delta.inHours < 1) return '${delta.inMinutes} min ago';
-    if (delta.inDays < 1) return '${delta.inHours} h ago';
-    if (delta.inDays < 7) return '${delta.inDays} d ago';
-    return '${then.year}-${then.month.toString().padLeft(2, '0')}-${then.day.toString().padLeft(2, '0')}';
   }
 }
 

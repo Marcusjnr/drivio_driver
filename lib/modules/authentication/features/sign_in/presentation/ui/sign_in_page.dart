@@ -185,29 +185,29 @@ class _BottomBar extends StatelessWidget {
               disabled: !canSubmit,
               onPressed: canSubmit ? onSignIn : null,
             ),
-            const SizedBox(height: 10),
-            SizedBox(
-              height: 44,
-              child: TextButton.icon(
-                onPressed: onUseFaceId,
-                icon: Icon(
-                  Icons.face_outlined,
-                  size: 18,
-                  color: context.text,
-                ),
-                label: Text(
-                  'Use Face ID',
-                  style: AppTextStyles.bodySm.copyWith(
-                    color: context.text,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                style: TextButton.styleFrom(
-                  foregroundColor: context.text,
-                  padding: const EdgeInsets.symmetric(vertical: 12),
-                ),
-              ),
-            ),
+            // const SizedBox(height: 10),
+            // SizedBox(
+            //   height: 44,
+            //   child: TextButton.icon(
+            //     onPressed: onUseFaceId,
+            //     icon: Icon(
+            //       Icons.face_outlined,
+            //       size: 18,
+            //       color: context.text,
+            //     ),
+            //     label: Text(
+            //       'Use Face ID',
+            //       style: AppTextStyles.bodySm.copyWith(
+            //         color: context.text,
+            //         fontWeight: FontWeight.w600,
+            //       ),
+            //     ),
+            //     style: TextButton.styleFrom(
+            //       foregroundColor: context.text,
+            //       padding: const EdgeInsets.symmetric(vertical: 12),
+            //     ),
+            //   ),
+            // ),
           ],
         ),
       ),

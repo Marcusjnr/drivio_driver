@@ -10,13 +10,13 @@ class Config {
     switch (flavor) {
       case Flavor.prod:
         return 'Drivio Driver';
-      case Flavor.stage:
-        return 'Drivio Driver · Stage';
+      case Flavor.staging:
+        return 'Drivio Driver Beta';
     }
   }
 
   String get supabaseUrl => Env.supabaseUrl;
   String get supabaseAnonKey => Env.supabaseAnonKey;
 
-  bool get isStage => flavor == Flavor.stage;
+  bool get isStaging => flavor == Flavor.staging;
 }

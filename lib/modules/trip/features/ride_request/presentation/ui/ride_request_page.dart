@@ -6,6 +6,7 @@ import 'package:maplibre_gl/maplibre_gl.dart';
 import 'package:drivio_driver/modules/commons/all.dart';
 import 'package:drivio_driver/modules/commons/analytics/analytics_events.dart';
 import 'package:drivio_driver/modules/commons/analytics/mixpanel_service.dart';
+import 'package:drivio_driver/modules/commons/types/ride_request.dart';
 import 'package:drivio_driver/modules/commons/widgets/map/live_map.dart';
 import 'package:drivio_driver/modules/trip/features/ride_request/presentation/logic/controller/ride_request_controller.dart';
 
@@ -154,16 +155,7 @@ class _RideRequestPageState extends ConsumerState<RideRequestPage> {
                       ),
                     ),
                     const SizedBox(width: 10),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 10, vertical: 6),
-                      decoration: BoxDecoration(
-                        color: context.surface.withValues(alpha: 0.9),
-                        borderRadius: BorderRadius.circular(20),
-                        border: Border.all(color: context.border),
-                      ),
-                      child: const Rating(value: 4.8),
-                    ),
+                    _RiderChip(request: state.request!),
                   ],
                 ),
               ),
@@ -924,6 +916,96 @@ class _SentimentBar extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+/// Rider identity pill shown over the map on an incoming request — the
+/// rider's liveness photo, first name, and real rating (or "New" when they
+/// have no ratings yet).
+class _RiderChip extends StatelessWidget {
+  const _RiderChip({required this.request});
+
+  final RideRequest request;
+
+  @override
+  Widget build(BuildContext context) {
+    final String name = request.passengerFirstName ?? 'Rider';
+    final double? rating = request.passengerRating;
+    return Container(
+      padding: const EdgeInsets.fromLTRB(4, 4, 10, 4),
+      decoration: BoxDecoration(
+        color: context.surface.withValues(alpha: 0.9),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: context.border),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: <Widget>[
+          _RiderAvatar(url: request.passengerAvatarUrl, name: name),
+          const SizedBox(width: 7),
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 96),
+            child: Text(
+              name,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: AppTextStyles.bodySm.copyWith(
+                color: context.text,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          if (rating != null)
+            Rating(value: rating)
+          else
+            Text(
+              'New',
+              style: AppTextStyles.captionSm.copyWith(
+                color: context.amber,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _RiderAvatar extends StatelessWidget {
+  const _RiderAvatar({required this.url, required this.name});
+
+  static const double _size = 26;
+
+  final String? url;
+  final String name;
+
+  @override
+  Widget build(BuildContext context) {
+    final bool hasPhoto = url != null && url!.isNotEmpty;
+    final String initial = name.isNotEmpty ? name[0].toUpperCase() : '?';
+    return Container(
+      width: _size,
+      height: _size,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: context.surface2,
+        image: hasPhoto
+            ? DecorationImage(image: NetworkImage(url!), fit: BoxFit.cover)
+            : null,
+      ),
+      alignment: Alignment.center,
+      child: hasPhoto
+          ? null
+          : Text(
+              initial,
+              style: TextStyle(
+                color: context.textDim,
+                fontSize: _size * 0.42,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
     );
   }
 }

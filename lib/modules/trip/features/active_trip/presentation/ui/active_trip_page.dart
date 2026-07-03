@@ -11,6 +11,8 @@ import 'package:drivio_driver/modules/dash/features/drive_shell/presentation/log
 import 'package:drivio_driver/modules/dash/features/home/presentation/logic/controller/presence_controller.dart';
 import 'package:drivio_driver/modules/trip/features/active_trip/presentation/logic/controller/active_trip_controller.dart';
 import 'package:drivio_driver/modules/trip/features/active_trip/presentation/logic/controller/trip_location_recorder.dart';
+import 'package:drivio_driver/modules/trip/features/call/logic/call_controller.dart';
+import 'package:drivio_driver/modules/trip/features/call/presentation/ui/call_sheet.dart';
 
 class ActiveTripPage extends ConsumerStatefulWidget {
   const ActiveTripPage({super.key});
@@ -32,6 +34,10 @@ class _ActiveTripPageState extends ConsumerState<ActiveTripPage>
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      ref.read(activeCallControllerProvider.notifier).startIncomingWatch();
+    });
     WidgetsBinding.instance.addObserver(this);
   }
 
@@ -486,7 +492,7 @@ class _InTripBody extends ConsumerWidget {
               child: _ActionTile(
                 icon: DrivioIcons.phone,
                 label: 'Call',
-                onTap: () => AppNavigation.push(AppRoutes.call),
+                onTap: () => showCallSheet(context, ref, tripId: trip.id),
               ),
             ),
             const SizedBox(width: 8),
