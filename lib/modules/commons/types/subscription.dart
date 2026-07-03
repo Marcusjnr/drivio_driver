@@ -165,7 +165,7 @@ class SubscriptionPlan {
       case SubscriptionInterval.day:
         return 'Pay only when you drive';
       case SubscriptionInterval.week:
-        return 'Save vs daily — for most drivers, most weeks';
+        return 'Save vs daily for most drivers, most weeks';
       case SubscriptionInterval.month:
         return 'Cheapest per-day rate';
     }
