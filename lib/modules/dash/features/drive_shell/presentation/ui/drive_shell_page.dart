@@ -316,7 +316,7 @@ class _DriveShellPageState extends ConsumerState<DriveShellPage>
               final SubscriptionState s = ref.read(
                 subscriptionControllerProvider,
               );
-              if (s.subscription?.status.isHardBlocked ?? false) {
+              if (s.subscription?.isHardBlocked ?? false) {
                 ref
                     .read(homeControllerProvider.notifier)
                     .setStatus(DriverStatus.offline);
@@ -350,7 +350,7 @@ class _DriveShellPageState extends ConsumerState<DriveShellPage>
     // trip is live, we let the trip finish. The post-trip handler
     // (`onTripCompleted`) checks the same condition and offlines then.
     final bool subHardBlocked =
-        subState.subscription?.status.isHardBlocked ?? false;
+        subState.subscription?.isHardBlocked ?? false;
     if (home.isOnline && subHardBlocked && !shell.isTripLike) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;

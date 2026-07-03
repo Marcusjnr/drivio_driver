@@ -29,14 +29,14 @@ class _PaywallPageState extends ConsumerState<PaywallPage> {
     SubscriptionPlan? plan,
     Subscription? sub,
   ) async {
-    if (sub != null && sub.status.unlocksMarketplace) {
+    if (sub != null && sub.unlocksMarketplace) {
       AppNavigation.replaceAll<void>(AppRoutes.home);
       return;
     }
     // Re-activation path. The 3-tier model means we never silently
     // charge a returning driver on whichever plan the controller
     // featured — they pick.
-    if (sub != null && sub.status.isHardBlocked) {
+    if (sub != null && sub.isHardBlocked) {
       AppNavigation.replaceAll<void>(AppRoutes.pickPlan);
       return;
     }
@@ -434,7 +434,7 @@ class _BottomBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final SubscriptionStatus? status = subscription?.status;
+    final SubscriptionStatus? status = subscription?.effectiveStatus;
     final bool covered = status?.unlocksMarketplace ?? false;
     final bool hardBlocked = status?.isHardBlocked ?? false;
     final bool trialing = status == SubscriptionStatus.trialing;

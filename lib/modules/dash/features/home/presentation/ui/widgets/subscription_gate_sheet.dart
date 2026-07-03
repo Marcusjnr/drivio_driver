@@ -18,7 +18,9 @@ class SubscriptionGateSheet extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final _Copy copy = _copyFor(subscription?.status);
+    // Derived status: a lapsed trial must read as expired here so the
+    // sheet sells reactivation, not "you're on a trial".
+    final _Copy copy = _copyFor(subscription?.effectiveStatus);
 
     return Stack(
       fit: StackFit.expand,

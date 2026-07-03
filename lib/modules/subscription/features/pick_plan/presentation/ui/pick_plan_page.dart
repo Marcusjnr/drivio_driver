@@ -93,11 +93,11 @@ class _PickPlanPageState extends ConsumerState<PickPlanPage> {
     //      (no RPC needed, no pending_plan_id to write).
     //   3. Active / past_due → confirm sheet + queue switch for next
     //      renewal anniversary. No charge today.
-    if (sub == null || sub.status.isHardBlocked) {
+    if (sub == null || sub.isHardBlocked) {
       await _onSubmitActivation(plan);
       return;
     }
-    if (sub.status == SubscriptionStatus.trialing) {
+    if (sub.effectiveStatus == SubscriptionStatus.trialing) {
       await _onSubmitTrialChoice(plan);
       return;
     }
@@ -440,7 +440,7 @@ class _Cta extends StatelessWidget {
       label = 'Processing…';
       fineprint = '';
     } else {
-      final SubscriptionStatus? status = subscription?.status;
+      final SubscriptionStatus? status = subscription?.effectiveStatus;
       final bool chargeToday = status == null || status.isHardBlocked;
       final bool trialing = status == SubscriptionStatus.trialing;
 

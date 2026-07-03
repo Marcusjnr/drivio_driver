@@ -224,6 +224,51 @@ class Subscription {
 
   bool get hasPendingSwitch => pendingPlanId != null;
 
+  /// Grace window after a paid period lapses before hard-blocking. The
+  /// server derives the real value from the plan's grace_seconds; this
+  /// client-side default only has to be no more generous than that.
+  static const Duration _defaultGrace = Duration(days: 3);
+
+  /// Status derived from the timestamps. The server has no scheduler
+  /// flipping lapsed rows, so the stored status alone can lie: a trial
+  /// past `trialEndsAt` reads as expired, and a paid period past
+  /// `currentPeriodEnd` reads as pastDue inside the grace window and
+  /// expired beyond it. Server RPCs (`is_driver_active`) apply the same
+  /// derivation — this keeps the UI gates in agreement with them.
+  SubscriptionStatus get effectiveStatus {
+    final DateTime now = DateTime.now();
+    switch (status) {
+      case SubscriptionStatus.trialing:
+        final DateTime? end = trialEndsAt ?? currentPeriodEnd;
+        if (end != null && end.isBefore(now)) {
+          return SubscriptionStatus.expired;
+        }
+        return status;
+      case SubscriptionStatus.active:
+      case SubscriptionStatus.pastDue:
+        final DateTime? end = currentPeriodEnd;
+        if (end == null) {
+          return status;
+        }
+        if (end.add(_defaultGrace).isBefore(now)) {
+          return SubscriptionStatus.expired;
+        }
+        if (end.isBefore(now)) {
+          return SubscriptionStatus.pastDue;
+        }
+        return status;
+      case SubscriptionStatus.paused:
+      case SubscriptionStatus.cancelled:
+      case SubscriptionStatus.expired:
+        return status;
+    }
+  }
+
+  /// Gating conveniences — always derived, never the raw stored status.
+  bool get unlocksMarketplace => effectiveStatus.unlocksMarketplace;
+  bool get isHardBlocked => effectiveStatus.isHardBlocked;
+  bool get canPause => effectiveStatus.canPause;
+
   /// Days remaining in the current period (or trial). Null if no period set.
   /// Frozen at the value captured when the driver paused — the server
   /// shifts the period endpoints forward on resume so this number is
@@ -237,8 +282,8 @@ class Subscription {
     return delta.inHours ~/ 24;
   }
 
-  bool get isTrialing => status == SubscriptionStatus.trialing;
-  bool get isPaused => status == SubscriptionStatus.paused;
+  bool get isTrialing => effectiveStatus == SubscriptionStatus.trialing;
+  bool get isPaused => effectiveStatus == SubscriptionStatus.paused;
 
   factory Subscription.fromJson(Map<String, dynamic> json) {
     DateTime? parse(Object? v) =>

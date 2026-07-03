@@ -40,9 +40,10 @@ class SubscriptionState {
 
   bool get isTrialing => subscription?.isTrialing ?? false;
   bool get isPaused => subscription?.isPaused ?? false;
-  bool get unlocksMarketplace =>
-      subscription?.status.unlocksMarketplace ?? false;
-  bool get canPause => subscription?.status.canPause ?? false;
+  // Derived (date-aware) — a lapsed trial or period gates correctly even
+  // though the stored status string still says trialing/active.
+  bool get unlocksMarketplace => subscription?.unlocksMarketplace ?? false;
+  bool get canPause => subscription?.canPause ?? false;
 
   SubscriptionState copyWith({
     Subscription? subscription,
