@@ -293,10 +293,11 @@ class _ActiveTripPageState extends ConsumerState<ActiveTripPage>
                   ),
                 ),
                 const Spacer(),
-                IconCircleButton(
-                  icon: DrivioIcons.shield,
-                  onTap: () => AppNavigation.push(AppRoutes.safety),
-                ),
+                // Safety entry point is parked for now.
+                // IconCircleButton(
+                //   icon: DrivioIcons.shield,
+                //   onTap: () => AppNavigation.push(AppRoutes.safety),
+                // ),
               ],
             ),
           ),
@@ -503,14 +504,16 @@ class _InTripBody extends ConsumerWidget {
                 onTap: () => AppNavigation.push(AppRoutes.chat),
               ),
             ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: _ActionTile(
-                icon: DrivioIcons.shield,
-                label: 'Safety',
-                onTap: () => AppNavigation.push(AppRoutes.safety),
-              ),
-            ),
+            // Safety entry point is parked for now — Call and Message
+            // stretch to share the freed width.
+            // const SizedBox(width: 8),
+            // Expanded(
+            //   child: _ActionTile(
+            //     icon: DrivioIcons.shield,
+            //     label: 'Safety',
+            //     onTap: () => AppNavigation.push(AppRoutes.safety),
+            //   ),
+            // ),
           ],
         ),
         if (state.error != null) ...<Widget>[

@@ -19,6 +19,10 @@ class BottomSheetCard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // The sheet sits flush against the physical screen edge, so the
+    // caller's bottom padding must clear the gesture bar / home
+    // indicator — measure it from the top of the system inset.
+    final double bottomInset = MediaQuery.paddingOf(context).bottom;
     return Container(
       decoration: BoxDecoration(
         color: context.surface,
@@ -27,7 +31,7 @@ class BottomSheetCard extends ConsumerWidget {
         boxShadow: AppShadows.sheet,
       ),
       child: Padding(
-        padding: padding,
+        padding: padding.add(EdgeInsets.only(bottom: bottomInset)),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: <Widget>[

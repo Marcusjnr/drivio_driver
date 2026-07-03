@@ -112,50 +112,53 @@ class _CallSheetState extends ConsumerState<_CallSheet> {
         borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
       ),
       padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[
-          Center(
-            child: Container(
-              width: 40,
-              height: 4,
-              decoration: BoxDecoration(
-                color: context.textMuted,
-                borderRadius: BorderRadius.circular(2),
+      child: SafeArea(
+        top: false,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            Center(
+              child: Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: context.textMuted,
+                  borderRadius: BorderRadius.circular(2),
+                ),
               ),
             ),
-          ),
-          const SizedBox(height: 16),
-          Text(
-            'Call $who',
-            style: AppTextStyles.h2.copyWith(color: context.text),
-          ),
-          const SizedBox(height: 14),
-          _OptionRow(
-            icon: DrivioIcons.phone,
-            title: 'Regular call',
-            subtitle: _loading
-                ? 'Loading number…'
-                : (_contact?.phoneE164 ?? 'Number unavailable'),
-            trailing: 'Uses your network',
-            enabled: !_loading,
-            onTap: () => Navigator.of(
-              context,
-            ).pop(_CallChoice(_CallKind.regular, _contact)),
-          ),
-          const SizedBox(height: 10),
-          _OptionRow(
-            icon: Icons.wifi_calling_3_rounded,
-            title: 'Free call',
-            subtitle: 'Voice over internet — no airtime used',
-            trailing: 'Free',
-            enabled: true,
-            onTap: () => Navigator.of(
-              context,
-            ).pop(_CallChoice(_CallKind.free, _contact)),
-          ),
-        ],
+            const SizedBox(height: 16),
+            Text(
+              'Call $who',
+              style: AppTextStyles.h2.copyWith(color: context.text),
+            ),
+            const SizedBox(height: 14),
+            _OptionRow(
+              icon: DrivioIcons.phone,
+              title: 'Regular call',
+              subtitle: _loading
+                  ? 'Loading number…'
+                  : (_contact?.phoneE164 ?? 'Number unavailable'),
+              trailing: 'Uses your network',
+              enabled: !_loading,
+              onTap: () => Navigator.of(
+                context,
+              ).pop(_CallChoice(_CallKind.regular, _contact)),
+            ),
+            const SizedBox(height: 10),
+            _OptionRow(
+              icon: Icons.wifi_calling_3_rounded,
+              title: 'Free call',
+              subtitle: 'Voice over internet — no airtime used',
+              trailing: 'Free',
+              enabled: true,
+              onTap: () => Navigator.of(
+                context,
+              ).pop(_CallChoice(_CallKind.free, _contact)),
+            ),
+          ],
+        ),
       ),
     );
   }

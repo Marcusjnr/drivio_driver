@@ -126,9 +126,11 @@ class _PayoutSheetState extends State<_PayoutSheet> {
   @override
   Widget build(BuildContext context) {
     final bool isEdit = widget.existing != null;
-    final double bottomInset = MediaQuery.of(context).viewInsets.bottom;
+    // Keyboard inset while typing; gesture-bar clearance otherwise.
+    final double keyboard = MediaQuery.of(context).viewInsets.bottom;
+    final double safe = MediaQuery.of(context).padding.bottom;
     return Padding(
-      padding: EdgeInsets.only(bottom: bottomInset),
+      padding: EdgeInsets.only(bottom: keyboard > 0 ? keyboard : safe),
       child: Container(
         decoration: BoxDecoration(
           color: context.surface,

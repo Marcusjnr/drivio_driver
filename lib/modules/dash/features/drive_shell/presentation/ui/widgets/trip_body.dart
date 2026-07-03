@@ -338,20 +338,23 @@ class _PrimaryActions extends StatelessWidget {
           ],
         );
       case TripState.inProgress:
-        return Row(
-          children: <Widget>[
-            Expanded(
-              child: DrivioButton(
-                label: 'Safety',
-                variant: DrivioButtonVariant.ghost,
-                onPressed: () =>
-                    AppNavigation.push(AppRoutes.safety, arguments: trip.id),
-              ),
-            ),
-            const SizedBox(width: 10),
-            Expanded(flex: 2, child: primary),
-          ],
-        );
+        // Safety entry point is parked for now — the primary CTA takes
+        // the full width until it returns.
+        // return Row(
+        //   children: <Widget>[
+        //     Expanded(
+        //       child: DrivioButton(
+        //         label: 'Safety',
+        //         variant: DrivioButtonVariant.ghost,
+        //         onPressed: () =>
+        //             AppNavigation.push(AppRoutes.safety, arguments: trip.id),
+        //       ),
+        //     ),
+        //     const SizedBox(width: 10),
+        //     Expanded(flex: 2, child: primary),
+        //   ],
+        // );
+        return primary;
       case TripState.completed:
       case TripState.cancelled:
         return primary;

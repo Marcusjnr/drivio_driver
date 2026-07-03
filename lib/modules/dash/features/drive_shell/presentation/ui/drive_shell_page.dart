@@ -983,13 +983,14 @@ class _DriveShellPageState extends ConsumerState<DriveShellPage>
           children: <Widget>[
             _StagePill(state: state, riderName: riderName),
             const Spacer(),
-            IconCircleButton(
-              icon: DrivioIcons.shield,
-              onTap: () => AppNavigation.push(
-                AppRoutes.safety,
-                arguments: shell.activeTripId,
-              ),
-            ),
+            // Safety entry point is parked for now.
+            // IconCircleButton(
+            //   icon: DrivioIcons.shield,
+            //   onTap: () => AppNavigation.push(
+            //     AppRoutes.safety,
+            //     arguments: shell.activeTripId,
+            //   ),
+            // ),
           ],
         );
     }
