@@ -73,6 +73,11 @@
       <action android:name="android.intent.action.VIEW"/>
       <data android:scheme="google.navigation"/>
     </intent>
+    <!-- WhatsApp support hand-off (Help & support page). -->
+    <intent>
+      <action android:name="android.intent.action.VIEW"/>
+      <data android:scheme="whatsapp"/>
+    </intent>
     <!-- Phone dialer (DRV-062 masked-call hand-off). -->
     <intent>
       <action android:name="android.intent.action.DIAL"/>

@@ -1,0 +1,44 @@
+{
+  "@@locale": "en",
+
+  "helpTitle": "Help & support",
+  "@helpTitle": {
+    "description": "App bar title of the Help & support page"
+  },
+  "helpEyebrow": "SUPPORT",
+  "@helpEyebrow": {
+    "description": "Small uppercase eyebrow label above the help headline"
+  },
+  "helpHeadline": "Talk to a real person.",
+  "@helpHeadline": {
+    "description": "Display headline of the Help & support page"
+  },
+  "helpBody": "Our support team is on WhatsApp. Message us about a trip, your earnings, your vehicle, or anything else. A person replies, not a bot.",
+  "@helpBody": {
+    "description": "Body copy under the help headline"
+  },
+  "helpSupportLineTitle": "Drivio driver support",
+  "@helpSupportLineTitle": {
+    "description": "Title on the tappable support-line card"
+  },
+  "helpWhatsAppPill": "WHATSAPP",
+  "@helpWhatsAppPill": {
+    "description": "Uppercase channel pill on the support-line card"
+  },
+  "helpChatCta": "Chat with us on WhatsApp",
+  "@helpChatCta": {
+    "description": "Label of the primary WhatsApp chat button"
+  },
+  "helpTripHint": "If it’s about a trip, include the rider’s name and the trip time so we can sort it out faster.",
+  "@helpTripHint": {
+    "description": "Caption under the chat button with a tip for faster support"
+  },
+  "helpPrefillMessage": "Hello Drivio, I'm a driver and I need some help.",
+  "@helpPrefillMessage": {
+    "description": "Message prefilled into the WhatsApp chat composer"
+  },
+  "helpWhatsAppError": "Couldn't open WhatsApp on this phone.",
+  "@helpWhatsAppError": {
+    "description": "Toast shown when neither the WhatsApp app nor the wa.me link could be opened"
+  }
+}

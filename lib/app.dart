@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import 'package:drivio_driver/l10n/gen/app_localizations.dart';
 import 'package:drivio_driver/modules/commons/auth/session_guard.dart';
 import 'package:drivio_driver/modules/commons/di/di.dart';
 import 'package:drivio_driver/modules/commons/lifecycle/lifecycle_controller.dart';
@@ -71,6 +72,8 @@ class _AppState extends ConsumerState<App> {
           darkTheme: _withInter(AppTheme.dark),
           themeMode: mode,
           debugShowCheckedModeBanner: false,
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
           navigatorKey: AppNavigation.navigatorKey,
           initialRoute: AppRoutes.splash,
           onGenerateRoute: AppRouter.onGenerateRoute,
