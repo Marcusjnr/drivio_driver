@@ -113,15 +113,9 @@ class _RadarPainter extends CustomPainter {
       canvas.drawCircle(center, radius, stroke);
     }
 
-    // Solid focal dot — small, deliberate, sits dead-centre.
-    final Paint dot = Paint()..color = color;
-    canvas.drawCircle(center, 4.5, dot);
-
-    // Subtle outer glow on the dot for extra presence.
-    final Paint dotGlow = Paint()
-      ..color = color.withValues(alpha: 0.45)
-      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 8);
-    canvas.drawCircle(center, 6, dotGlow);
+    // No centre dot: the wordmark sits over this point, and a coral dot
+    // bleeding through the letters read as a rendering glitch. The
+    // wordmark's own coral full stop is the only dot on this screen.
   }
 
   /// Standard quadratic ease-out — fast at the start, slow at the
