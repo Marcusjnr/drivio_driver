@@ -12,7 +12,7 @@ generate:
 	fvm dart run build_runner build --delete-conflicting-outputs
 
 build-stage-android:
-	fvm flutter build apk -t lib/main.dart --profile
+	fvm flutter build apk -t lib/main_stage.dart --profile
 
 build-preprod-android:
 	fvm flutter build apk -t lib/main_preprod.dart --flavor preprod --profile

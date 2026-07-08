@@ -192,6 +192,30 @@ class OtpController extends StateNotifier<OtpState> {
       state = state.copyWith(isVerifying: false);
       return true;
     } on AuthException catch (e) {
+      // Waitlist shadow account: "already registered" during sign-up may
+      // be the passwordless account the driver opted into on the website.
+      // Claiming sets their chosen password on that record and signs them
+      // in — onboarding then continues exactly like a fresh sign-up.
+      final String raw = e.message.toLowerCase();
+      if (mode == AuthMode.signUp &&
+          (raw.contains('already registered') ||
+              raw.contains('user already'))) {
+        final bool claimed = await _tryClaimWaitlistAccount(
+          phone: phone,
+          password: password,
+          syntheticEmail: syntheticEmail,
+        );
+        if (claimed) {
+          final String? claimedUserId = _supabase.auth.currentUser?.id;
+          final MixpanelService mp = locator<MixpanelService>();
+          if (claimedUserId != null) {
+            mp.identifyUser(claimedUserId);
+          }
+          mp.track(AnalyticsEvents.otpVerified);
+          state = state.copyWith(isVerifying: false);
+          return true;
+        }
+      }
       AppLogger.w('otp.verify AuthException',
           data: <String, dynamic>{'message': e.message});
       locator<MixpanelService>().track(
@@ -215,6 +239,38 @@ class OtpController extends StateNotifier<OtpState> {
         error: 'Verification failed. Check your connection.',
         value: '',
       );
+      return false;
+    }
+  }
+
+  /// Claims a never-claimed waitlist shadow account: the server sets the
+  /// driver's chosen password on the passwordless record (one-shot; a
+  /// claimed or real account is never touched), then we sign in with it.
+  Future<bool> _tryClaimWaitlistAccount({
+    required String phone,
+    required String password,
+    required String syntheticEmail,
+  }) async {
+    try {
+      final dynamic res = await _supabase.client.rpc<dynamic>(
+        'claim_waitlist_account',
+        params: <String, dynamic>{
+          'p_phone': phone,
+          'p_password': password,
+          'p_role': 'driver',
+        },
+      );
+      if (res is! Map || res['claimed'] != true) {
+        return false;
+      }
+      await _supabase.auth.signInWithPassword(
+        email: syntheticEmail,
+        password: password,
+      );
+      AppLogger.i('otp.verify claimed waitlist account');
+      return _supabase.auth.currentSession != null;
+    } catch (e, st) {
+      AppLogger.w('waitlist claim failed', error: e, stackTrace: st);
       return false;
     }
   }

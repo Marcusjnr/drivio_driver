@@ -210,6 +210,27 @@ class _WelcomePageState extends ConsumerState<WelcomePage> {
                           ),
                         ),
                       ),
+                      const SizedBox(height: 2),
+                      SizedBox(
+                        width: double.infinity,
+                        height: 40,
+                        child: TextButton(
+                          onPressed: () => AppNavigation.push(
+                            AppRoutes.signUp,
+                            arguments: true, // fromWaitlist banner
+                          ),
+                          child: Text(
+                            'Joined the waitlist? Finish setting up',
+                            style: AppTextStyles.captionSm.copyWith(
+                              color: AppColors.ivory.withValues(alpha: 0.75),
+                              fontWeight: FontWeight.w600,
+                              decoration: TextDecoration.underline,
+                              decorationColor:
+                                  AppColors.ivory.withValues(alpha: 0.4),
+                            ),
+                          ),
+                        ),
+                      ),
                     ],
                   ),
                 ),

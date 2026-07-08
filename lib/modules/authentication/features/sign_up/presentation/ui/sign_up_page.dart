@@ -61,6 +61,9 @@ class _SignUpPageState extends ConsumerState<SignUpPage> {
   Widget build(BuildContext context) {
     final SignUpState state = ref.watch(signUpControllerProvider);
     final SignUpController c = ref.read(signUpControllerProvider.notifier);
+    // Pushed with `arguments: true` from the "Joined the waitlist?" link.
+    final bool fromWaitlist =
+        ModalRoute.of(context)?.settings.arguments == true;
 
     return ScreenScaffold(
       bottomBar: _BottomBar(
@@ -104,6 +107,32 @@ class _SignUpPageState extends ConsumerState<SignUpPage> {
               ),
             ),
             const SizedBox(height: 26),
+
+            if (fromWaitlist) ...<Widget>[
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 12,
+                ),
+                decoration: BoxDecoration(
+                  color: context.accent.withValues(alpha: 0.10),
+                  borderRadius: AppRadius.base,
+                  border: Border.all(
+                    color: context.accent.withValues(alpha: 0.35),
+                  ),
+                ),
+                child: Text(
+                  'Use the same phone number you joined the waitlist '
+                  "with — we'll pick up the account you started there.",
+                  style: AppTextStyles.captionSm.copyWith(
+                    color: context.text,
+                    height: 1.5,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 18),
+            ],
 
             // Stacked form fields per SCR-003.
             DrivioInput(

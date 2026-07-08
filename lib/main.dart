@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:flutter/foundation.dart' show kReleaseMode;
 import 'package:flutter/widgets.dart';
 
 import 'package:drivio_driver/app.dart';
@@ -34,8 +35,12 @@ Future<void> bootstrap(Flavor flavor, {String? envFile}) async {
 
   await dotenv.load(fileName: envFile ?? '.env.${flavor.name}');
 
-  // Analytics. No-op until a real MIXPANEL_TOKEN is set in the env file.
-  await locator<MixpanelService>().init();
+  // Analytics — prod release builds ONLY. Debug/profile runs and the
+  // staging flavor must never send events into the production Mixpanel
+  // project. Left uninitialised, MixpanelService no-ops everywhere.
+  if (flavor == Flavor.prod && kReleaseMode) {
+    await locator<MixpanelService>().init();
+  }
 
   // Push tokens (device_tokens). Fire-and-forget so the iOS permission
   // prompt never blocks startup.
