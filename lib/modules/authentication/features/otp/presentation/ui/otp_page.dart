@@ -25,6 +25,7 @@ class _OtpPageState extends ConsumerState<OtpPage> {
   String _phone = '';
   String _displayPhone = '';
   bool _initialized = false;
+  AuthMode? _mode;
 
   @override
   void didChangeDependencies() {
@@ -32,9 +33,21 @@ class _OtpPageState extends ConsumerState<OtpPage> {
     if (_initialized) return;
     _initialized = true;
 
-    final String? arg =
-        ModalRoute.of(context)?.settings.arguments as String?;
-    _phone = arg ?? '';
+    // Pushed with {'phone': ..., 'mode': 'signIn'|'signUp'} so this screen
+    // KNOWS which flow launched it. Guessing from leftover sign-up form
+    // state used to hijack sign-in after a failed sign-up in the same
+    // session ("That number already has an account" on the Sign In flow).
+    final Object? arg = ModalRoute.of(context)?.settings.arguments;
+    if (arg is Map) {
+      _phone = (arg['phone'] as String?) ?? '';
+      _mode = arg['mode'] == 'signUp'
+          ? AuthMode.signUp
+          : arg['mode'] == 'signIn'
+              ? AuthMode.signIn
+              : null;
+    } else if (arg is String) {
+      _phone = arg;
+    }
     _displayPhone = _formatPhone(_phone);
     _provider = otpControllerForPhone(_phone);
   }
@@ -52,7 +65,11 @@ class _OtpPageState extends ConsumerState<OtpPage> {
   Future<void> _onVerify() async {
     final OtpController c = ref.read(_provider!.notifier);
     final SignUpState signUpState = ref.read(signUpControllerProvider);
-    final bool isSignUp = signUpState.hasPendingProfile;
+    // Explicit mode from the launching screen; the stale-state guess only
+    // remains as a fallback for a legacy string-only route argument.
+    final bool isSignUp = _mode != null
+        ? _mode == AuthMode.signUp
+        : signUpState.hasPendingProfile;
 
     final String phone;
     final String password;

@@ -157,10 +157,24 @@ class SignUpController extends StateNotifier<SignUpState> {
     } on PostgrestException catch (e) {
       final bool isDuplicate =
           e.code == '23505' || e.message.contains('duplicate');
+      // Name the colliding field — a bare "account already exists" is a
+      // dead end when it's actually the email that's taken.
+      final String duplicateMessage;
+      if (e.message.contains('profiles_email_unique')) {
+        duplicateMessage =
+            'That email is already on another Drivio account. Use a '
+            'different email, or sign in with the number it belongs to.';
+      } else if (e.message.contains('profiles_phone_e164_unique')) {
+        duplicateMessage =
+            'That phone number is already on another account. '
+            'Sign in with it instead.';
+      } else {
+        duplicateMessage = 'Account already exists. Try signing in instead.';
+      }
       state = state.copyWith(
         isLoading: false,
         error: isDuplicate
-            ? 'Account already exists. Try signing in instead.'
+            ? duplicateMessage
             : 'Something went wrong. Please try again.',
       );
       return false;

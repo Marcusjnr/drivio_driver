@@ -18,7 +18,6 @@ import 'package:drivio_driver/modules/commons/data/document_repository_impl.dart
 import 'package:drivio_driver/modules/dash/features/add_vehicle/presentation/logic/data/vehicle_repository.dart';
 import 'package:drivio_driver/modules/dash/features/add_vehicle/presentation/logic/data/vehicle_repository_impl.dart';
 
-const int _minVehicleYear = 2008;
 const int _maxFileBytes = 5 * 1024 * 1024; // 5 MB
 
 enum DocPickerSource { camera, gallery, file }
@@ -85,11 +84,13 @@ class AddVehicleState {
   DocumentSlotState slot(DocumentKind kind) =>
       documents[kind] ?? const DocumentSlotState();
 
+  // No age cutoff — any car is welcome. Only sanity-check that it's a
+  // real year and not in the future (next year's models allowed).
   bool get hasValidYear {
     final int? parsed = int.tryParse(year.trim());
     if (parsed == null) return false;
     final int current = DateTime.now().year;
-    return parsed >= _minVehicleYear && parsed <= current + 1;
+    return parsed >= 1900 && parsed <= current + 1;
   }
 
   bool get hasValidPlate {

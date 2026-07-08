@@ -47,7 +47,7 @@ class _BvnNinPageState extends ConsumerState<BvnNinPage> {
             ),
             const SizedBox(height: 6),
             Text(
-              'We use NIBSS / NIMC to confirm your details. Your number is never shown to riders.',
+              'We use NIBSS / NIMC to confirm your details.',
               style: AppTextStyles.bodySm.copyWith(color: context.textDim),
             ),
             const SizedBox(height: 22),

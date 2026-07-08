@@ -125,6 +125,13 @@ class _AddVehiclePageState extends ConsumerState<AddVehiclePage> {
                 ),
               ],
             ),
+            if (state.year.trim().isNotEmpty && !state.hasValidYear) ...<Widget>[
+              const SizedBox(height: 6),
+              Text(
+                "Enter the vehicle's year, like 2015.",
+                style: AppTextStyles.captionSm.copyWith(color: context.red),
+              ),
+            ],
             const SizedBox(height: 10),
             DrivioInput(
               label: 'Licence plate',
@@ -133,6 +140,13 @@ class _AddVehiclePageState extends ConsumerState<AddVehiclePage> {
               hint: 'LAG 234 AB',
               compact: true,
             ),
+            if (state.plate.trim().isNotEmpty && !state.hasValidPlate) ...<Widget>[
+              const SizedBox(height: 6),
+              Text(
+                'Plate should be 6–10 letters and numbers, like LAG 234 AB.',
+                style: AppTextStyles.captionSm.copyWith(color: context.red),
+              ),
+            ],
             const SizedBox(height: 16),
             Text(
               'DOCUMENTS',

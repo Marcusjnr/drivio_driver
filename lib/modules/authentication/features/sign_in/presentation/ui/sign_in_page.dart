@@ -42,7 +42,10 @@ class _SignInPageState extends ConsumerState<SignInPage> {
     final SignInState state = ref.read(signInControllerProvider);
     final bool success = await c.requestOtp();
     if (success && mounted) {
-      AppNavigation.push(AppRoutes.otp, arguments: state.normalizedPhone);
+      AppNavigation.push(AppRoutes.otp, arguments: <String, String>{
+        'phone': state.normalizedPhone,
+        'mode': 'signIn',
+      });
     }
   }
 

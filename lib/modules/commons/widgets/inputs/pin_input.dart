@@ -34,12 +34,22 @@ class _PinInputState extends ConsumerState<PinInput> {
     _ctrl = TextEditingController(text: widget.initial ?? '');
     _focus = FocusNode();
     _ctrl.addListener(_onTextChanged);
+    // The TextField's own `autofocus` can lose the race against the route
+    // transition, leaving the field focused but the keyboard closed. Take
+    // focus after the first frame and summon the keyboard explicitly.
+    if (widget.autofocus) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _focusInput();
+      });
+    }
   }
 
   @override
   void didUpdateWidget(PinInput old) {
     super.didUpdateWidget(old);
-    if (widget.initial != null && widget.initial != _ctrl.text && !_focus.hasFocus) {
+    if (widget.initial != null &&
+        widget.initial != _ctrl.text &&
+        !_focus.hasFocus) {
       _ctrl.text = widget.initial!;
     }
   }
@@ -61,6 +71,11 @@ class _PinInputState extends ConsumerState<PinInput> {
     if (!_focus.hasFocus) {
       _focus.requestFocus();
     }
+    // requestFocus alone won't reopen a keyboard the user dismissed (the
+    // field never lost focus, so the framework sees nothing to do). Ask
+    // the platform for the keyboard explicitly — harmless when it's
+    // already up.
+    SystemChannels.textInput.invokeMethod<void>('TextInput.show');
   }
 
   @override
@@ -93,57 +108,57 @@ class _PinInputState extends ConsumerState<PinInput> {
           onTap: _focusInput,
           behavior: HitTestBehavior.opaque,
           child: Row(
-            children: List<Widget>.generate(widget.length, (int i) {
-              final bool filled = i < value.length;
-              final bool active = i == value.length && _focus.hasFocus;
-              return Expanded(
-                child: Padding(
-                  padding: EdgeInsets.only(right: i == widget.length - 1 ? 0 : 10),
-                  child: AspectRatio(
-                    // 52 × 64pt cells per SCR-005 mockup. Aspect 52/64
-                    // = 0.8125 ≈ 1/1.23.
-                    aspectRatio: 1 / 1.23,
-                    child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 160),
-                      curve: Curves.easeOutQuart,
-                      decoration: BoxDecoration(
-                        color: context.surface,
-                        borderRadius: AppRadius.md,
-                        border: Border.all(
-                          color: active
-                              ? context.coral
-                              : filled
-                                  ? context.borderStrong
-                                  : context.borderStrong,
-                          width: active ? 1.5 : 1,
-                        ),
-                      ),
-                      alignment: Alignment.center,
-                      // Empty cell: blank. Active cell: a thin coral
-                      // vertical bar reading as a cursor. Filled cell:
-                      // the digit in Albert Sans tabular bold.
-                      child: filled
-                          ? Text(
-                              value[i],
-                              style: AppTextStyles.metricVal.copyWith(
-                                color: context.text,
-                              ),
-                            )
-                          : active
-                              ? Container(
-                                  width: 1.6,
-                                  height: 24,
-                                  color: context.coral,
-                                )
-                              : const SizedBox.shrink(),
-                    ),
-                  ),
-                ),
-              );
-            }),
+            // Gaps live BETWEEN cells (not as padding inside them), so
+            // every Expanded cell renders at exactly the same width.
+            children: <Widget>[
+              for (int i = 0; i < widget.length; i++) ...<Widget>[
+                if (i > 0) const SizedBox(width: 10),
+                _buildCell(i, value),
+              ],
+            ],
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildCell(int i, String value) {
+    final bool filled = i < value.length;
+    final bool active = i == value.length && _focus.hasFocus;
+    return Expanded(
+      child: AspectRatio(
+        // 52 × 64pt cells per SCR-005 mockup. Aspect 52/64
+        // = 0.8125 ≈ 1/1.23.
+        aspectRatio: 1 / 1.23,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 160),
+          curve: Curves.easeOutQuart,
+          decoration: BoxDecoration(
+            color: context.surface,
+            borderRadius: AppRadius.md,
+            border: Border.all(
+              color: active
+                  ? context.coral
+                  : filled
+                  ? context.borderStrong
+                  : context.borderStrong,
+              width: active ? 1.5 : 1,
+            ),
+          ),
+          alignment: Alignment.center,
+          // Empty cell: blank. Active cell: a thin coral
+          // vertical bar reading as a cursor. Filled cell:
+          // the digit in Albert Sans tabular bold.
+          child: filled
+              ? Text(
+                  value[i],
+                  style: AppTextStyles.metricVal.copyWith(color: context.text),
+                )
+              : active
+              ? Container(width: 1.6, height: 24, color: context.coral)
+              : const SizedBox.shrink(),
+        ),
+      ),
     );
   }
 }

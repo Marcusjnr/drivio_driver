@@ -59,8 +59,13 @@ const List<_Slide> _slides = <_Slide>[
   ),
 ];
 
-/// Height reserved under each slide's copy for the fixed dots + CTAs.
-const double _kControlsReserve = 176;
+/// Fixed-height content of the bottom controls: dots (6) + gap (18) +
+/// primary CTA (52) + gap (10) + outlined CTA (50) + gap (2) + waitlist
+/// link (40) + bottom padding (18). The slide copy reserves this plus
+/// the device's safe-area inset and a breathing gap, so text can never
+/// slip under the buttons on tall-inset (gesture-nav) phones.
+const double _kControlsHeight = 196;
+const double _kCopyGap = 18;
 const Duration _kAutoAdvance = Duration(seconds: 5);
 const Duration _kPageTurn = Duration(milliseconds: 650);
 
@@ -302,11 +307,14 @@ class _SlideViewState extends State<_SlideView>
           ),
         ),
 
-        // USP copy.
+        // USP copy — anchored above the real height of the fixed
+        // controls, including this device's bottom safe-area inset.
         Positioned(
           left: 24,
           right: 24,
-          bottom: _kControlsReserve,
+          bottom: _kControlsHeight +
+              MediaQuery.paddingOf(context).bottom +
+              _kCopyGap,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
