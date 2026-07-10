@@ -8,6 +8,7 @@ import 'package:flutter_callkit_incoming/flutter_callkit_incoming.dart';
 import 'package:drivio_driver/modules/commons/data/call_repository.dart';
 import 'package:drivio_driver/modules/commons/di/di.dart';
 import 'package:drivio_driver/modules/commons/navigation/app_navigation.dart';
+import 'package:drivio_driver/modules/commons/push/admin_push.dart';
 import 'package:drivio_driver/modules/commons/supabase/supabase_module.dart';
 import 'package:drivio_driver/modules/commons/navigation/app_routes.dart';
 import 'package:drivio_driver/modules/commons/types/call.dart';
@@ -29,6 +30,10 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 Future<void> callPushBackgroundHandler(RemoteMessage message) async {
   if (message.data['type'] == 'incoming_call') {
     await showNativeIncomingCall(message.data.cast<String, dynamic>());
+  } else if (message.data['type'] == 'go_online_prompt') {
+    // Admin campaign to offline drivers — rendered locally so it can
+    // carry the "Go online" notification action.
+    await showGoOnlinePrompt(message.data.cast<String, dynamic>());
   }
 }
 

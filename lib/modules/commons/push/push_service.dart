@@ -5,6 +5,7 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'package:drivio_driver/modules/commons/logging/app_logger.dart';
+import 'package:drivio_driver/modules/commons/push/admin_push.dart';
 import 'package:drivio_driver/modules/commons/supabase/supabase_module.dart';
 
 /// Registers this device for push notifications: obtains the FCM token and
@@ -34,6 +35,9 @@ class PushService {
   /// token rotation. Never throws — push is best-effort.
   Future<void> init({required String env}) async {
     _env = env;
+    // Admin campaign pushes: local rendering of go-online prompts + the
+    // session snapshot their notification action boots from.
+    unawaited(initAdminPush(_supabase.client));
     _authSub = _supabase.auth.onAuthStateChange.listen((AuthState s) {
       if (s.event == AuthChangeEvent.signedIn) {
         unawaited(registerDevice());
