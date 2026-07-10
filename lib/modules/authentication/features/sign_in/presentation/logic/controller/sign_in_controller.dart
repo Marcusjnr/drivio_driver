@@ -72,9 +72,14 @@ class SignInController extends StateNotifier<SignInState> {
     if (!state.canSubmit) return false;
     state = state.copyWith(isLoading: true, clearError: true);
     await Future<void>.delayed(const Duration(milliseconds: 300));
-    state = state.copyWith(isLoading: false);
+    // Success: stay loading until the OTP page is on screen; the page
+    // calls [endLoading] once navigation settles.
     return true;
   }
+
+  /// Called by pages after navigation completes, so the button never
+  /// flashes back to idle while the route transition is running.
+  void endLoading() => state = state.copyWith(isLoading: false);
 }
 
 final StateNotifierProvider<SignInController, SignInState>

@@ -189,7 +189,8 @@ class OtpController extends StateNotifier<OtpState> {
         mp.identifyUser(verifiedUserId);
       }
       mp.track(AnalyticsEvents.otpVerified);
-      state = state.copyWith(isVerifying: false);
+      // Success: stay verifying — navigation (or profile completion)
+      // follows immediately; idle-then-navigate reads as a failure.
       return true;
     } on AuthException catch (e) {
       // Waitlist shadow account: "already registered" during sign-up may
@@ -212,7 +213,6 @@ class OtpController extends StateNotifier<OtpState> {
             mp.identifyUser(claimedUserId);
           }
           mp.track(AnalyticsEvents.otpVerified);
-          state = state.copyWith(isVerifying: false);
           return true;
         }
       }

@@ -138,7 +138,8 @@ class DocumentCaptureController extends StateNotifier<DocumentCaptureState> {
     state = state.copyWith(isRegistering: true, clearError: true);
     try {
       await _docs.registerDocument(kind: kind, filePath: filePath);
-      state = state.copyWith(isRegistering: false);
+      // Success: stay in the registering state — the page refreshes the
+      // checklist and pops; flipping to idle first reads as a failure.
       return true;
     } catch (_) {
       state = state.copyWith(

@@ -74,12 +74,24 @@ class _KycHomePageState extends ConsumerState<KycHomePage> {
                 ...state.steps.map(
                   (KycStep s) => Padding(
                     padding: const EdgeInsets.only(bottom: 10),
-                    child: _StepRow(step: s),
+                    child: _StepRow(
+                      step: s,
+                      onReturned: () =>
+                          ref.read(kycControllerProvider.notifier).refresh(),
+                    ),
                   ),
                 ),
               const SizedBox(height: 18),
-              if (state.overall == KycOverallStatus.pendingReview)
-                _ReviewBanner(text: 'Your application is being reviewed.')
+              // No submit button: review starts by itself the moment the
+              // last step lands (server-side auto-submit). This close is
+              // pure status.
+              if (state.overall == KycOverallStatus.pendingReview ||
+                  (state.canSubmitForReview && state.allRequiredSubmitted))
+                _ReviewBanner(
+                  text:
+                      "Everything's in. We'll notify you as soon as review "
+                      'is done, usually the same day.',
+                )
               else if (state.overall == KycOverallStatus.approved &&
                   !state.livenessPassed)
                 _ReviewBanner(
@@ -87,21 +99,7 @@ class _KycHomePageState extends ConsumerState<KycHomePage> {
                       'One step left: finish the face check above to go live.',
                 )
               else if (state.overall == KycOverallStatus.approved)
-                _ReviewBanner(text: 'You\'re approved. Welcome to Drivio!')
-              else
-                DrivioButton(
-                  label: state.isSubmitting
-                      ? 'Submitting…'
-                      : 'Submit for review',
-                  disabled: !state.canSubmitForReview || state.isSubmitting,
-                  onPressed: () async {
-                    final bool ok = await c.submitForReview();
-                    if (!ok) return;
-                    AppNotifier.success(
-                      message: "Submitted. We'll notify you when reviewed.",
-                    );
-                  },
-                ),
+                _ReviewBanner(text: 'You\'re approved. Welcome to Drivio!'),
             ],
           ),
         ),
@@ -156,8 +154,12 @@ class _OverallPill extends StatelessWidget {
 }
 
 class _StepRow extends StatelessWidget {
-  const _StepRow({required this.step});
+  const _StepRow({required this.step, this.onReturned});
   final KycStep step;
+
+  /// Fired after the pushed step page pops, so the checklist refreshes
+  /// with whatever the driver just uploaded or added.
+  final VoidCallback? onReturned;
 
   @override
   Widget build(BuildContext context) {
@@ -198,7 +200,11 @@ class _StepRow extends StatelessWidget {
       opacity: isInteractive ? 1 : 0.55,
       child: InkWell(
         borderRadius: BorderRadius.circular(12),
-        onTap: isInteractive ? () => _routeForStep(step.kind) : null,
+        onTap: isInteractive
+            ? () => _routeForStep(step.kind).whenComplete(
+                  () => onReturned?.call(),
+                )
+            : null,
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
           decoration: BoxDecoration(
@@ -274,31 +280,23 @@ class _StepRow extends StatelessWidget {
     }
   }
 
-  void _routeForStep(KycStepKind kind) {
+  Future<void> _routeForStep(KycStepKind kind) {
+    // Vehicle registration and insurance upload INSIDE the add-vehicle
+    // flow, so they are not separate checklist steps.
     switch (kind) {
       case KycStepKind.bvnNin:
-        AppNavigation.push<void>(AppRoutes.kycBvnNin);
+        return AppNavigation.push<void>(AppRoutes.kycBvnNin);
       case KycStepKind.selfie:
-        AppNavigation.push<void>(AppRoutes.kycSelfie);
+        return AppNavigation.push<void>(AppRoutes.kycSelfie);
       case KycStepKind.driversLicence:
-        AppNavigation.push<void>(
+        return AppNavigation.push<void>(
           AppRoutes.kycDocumentCapture,
           arguments: DocumentKind.driversLicence,
         );
       case KycStepKind.vehicle:
-        AppNavigation.push<void>(AppRoutes.addVehicle);
-      case KycStepKind.vehicleReg:
-        AppNavigation.push<void>(
-          AppRoutes.kycDocumentCapture,
-          arguments: DocumentKind.vehicleReg,
-        );
-      case KycStepKind.insurance:
-        AppNavigation.push<void>(
-          AppRoutes.kycDocumentCapture,
-          arguments: DocumentKind.insurance,
-        );
+        return AppNavigation.push<void>(AppRoutes.addVehicle);
       case KycStepKind.roadWorthiness:
-        AppNavigation.push<void>(
+        return AppNavigation.push<void>(
           AppRoutes.kycDocumentCapture,
           arguments: DocumentKind.roadWorthiness,
         );

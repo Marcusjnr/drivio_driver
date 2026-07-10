@@ -42,10 +42,13 @@ class _SignInPageState extends ConsumerState<SignInPage> {
     final SignInState state = ref.read(signInControllerProvider);
     final bool success = await c.requestOtp();
     if (success && mounted) {
-      AppNavigation.push(AppRoutes.otp, arguments: <String, String>{
+      // Navigate FIRST; the button only leaves its loading state once the
+      // OTP page is gone again (back), never mid-transition.
+      await AppNavigation.push<void>(AppRoutes.otp, arguments: <String, String>{
         'phone': state.normalizedPhone,
         'mode': 'signIn',
       });
+      if (mounted) c.endLoading();
     }
   }
 

@@ -101,8 +101,10 @@ class _SignUpPageState extends ConsumerState<SignUpPage> {
       // Already authenticated — write the missing profile rows directly.
       final bool created = await c.submitProfile();
       if (created && mounted) {
-        c.reset();
+        // Navigate first — reset only after the transition has covered
+        // this screen, so the button never flashes back to idle.
         AppNavigation.replaceAll<void>(AppRoutes.home);
+        Future<void>.delayed(const Duration(milliseconds: 800), c.reset);
       }
       return;
     }
@@ -110,10 +112,13 @@ class _SignUpPageState extends ConsumerState<SignUpPage> {
     final bool success = await c.requestOtp();
     if (success && mounted) {
       final String phone = ref.read(signUpControllerProvider).normalizedPhone;
-      AppNavigation.push(AppRoutes.otp, arguments: <String, String>{
+      // Navigate FIRST; the button only leaves its loading state once the
+      // OTP page is gone again (back), never mid-transition.
+      await AppNavigation.push<void>(AppRoutes.otp, arguments: <String, String>{
         'phone': phone,
         'mode': 'signUp',
       });
+      if (mounted) c.endLoading();
     }
   }
 

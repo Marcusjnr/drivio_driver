@@ -50,7 +50,7 @@ bool _initialised = false;
 Future<void> ensureAdminPushInitialised() async {
   if (_initialised) return;
   const InitializationSettings settings = InitializationSettings(
-    android: AndroidInitializationSettings('@mipmap/ic_launcher'),
+    android: AndroidInitializationSettings('@drawable/ic_notification'),
     iOS: DarwinInitializationSettings(),
   );
   await _localNotifs.initialize(

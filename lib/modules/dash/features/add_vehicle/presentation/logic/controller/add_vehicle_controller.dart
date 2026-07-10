@@ -280,6 +280,10 @@ class AddVehicleController extends StateNotifier<AddVehicleState> {
     }
   }
 
+  /// Called by the page after navigation completes, so the button never
+  /// flashes back to idle mid-transition (the provider is app-scoped).
+  void endLoading() => state = state.copyWith(isLoading: false);
+
   Future<Vehicle?> submit() async {
     if (!state.canSubmit) return null;
     state = state.copyWith(isLoading: true, clearError: true);
@@ -309,7 +313,8 @@ class AddVehicleController extends StateNotifier<AddVehicleState> {
         properties: <String, dynamic>{'vehicle_type': vehicle.category.name},
       );
 
-      state = state.copyWith(isLoading: false);
+      // Success: stay loading — the page pops back to where the driver
+      // came from; [endLoading] runs after the transition.
       return vehicle;
     } on VehicleAuthException {
       state = state.copyWith(

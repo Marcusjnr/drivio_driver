@@ -109,9 +109,14 @@ class SignUpController extends StateNotifier<SignUpState> {
     locator<MixpanelService>().track(AnalyticsEvents.driverSignupStarted);
     state = state.copyWith(isLoading: true, clearError: true);
     await Future<void>.delayed(const Duration(milliseconds: 300));
-    state = state.copyWith(isLoading: false);
+    // Success: stay loading until the OTP page is on screen; the page
+    // calls [endLoading] once navigation settles.
     return true;
   }
+
+  /// Called by pages after navigation completes, so the button never
+  /// flashes back to idle while the route transition is running.
+  void endLoading() => state = state.copyWith(isLoading: false);
 
   Future<bool> submitProfile() async {
     state = state.copyWith(isLoading: true, clearError: true);
@@ -152,7 +157,7 @@ class SignUpController extends StateNotifier<SignUpState> {
       });
       mp.track(AnalyticsEvents.driverAccountCreated);
 
-      state = state.copyWith(isLoading: false);
+      // Success: stay loading — the page navigates to home next.
       return true;
     } on PostgrestException catch (e) {
       final bool isDuplicate =

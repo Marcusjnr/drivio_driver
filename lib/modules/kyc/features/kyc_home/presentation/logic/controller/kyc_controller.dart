@@ -50,8 +50,6 @@ enum KycStepKind {
   selfie,
   driversLicence,
   vehicle,
-  vehicleReg,
-  insurance,
   roadWorthiness,
 }
 
@@ -210,8 +208,9 @@ class KycController extends StateNotifier<KycState> {
       }
     }
 
-    final KycStepStatus bvnNinStatus =
-        (snap.bvnVerifiedAt != null || snap.ninVerifiedAt != null)
+    // NIN-only: identity is verified against NIMC by its own service,
+    // never by an admin. BVN is no longer part of the flow.
+    final KycStepStatus ninStatus = snap.ninVerifiedAt != null
         ? KycStepStatus.submitted
         : KycStepStatus.required;
     final KycStepStatus selfieStatus = snap.livenessPassedAt != null
@@ -219,16 +218,23 @@ class KycController extends StateNotifier<KycState> {
         : KycStepStatus.required;
 
     final Document? dl = docOf(DocumentKind.driversLicence);
+    final Document? rw = docOf(DocumentKind.roadWorthiness);
+    // Registration + insurance upload inside the add-vehicle flow; the
+    // vehicle step is only "done" once the vehicle AND both its
+    // documents are in, so nothing can be skipped by the merge.
     final Document? reg = docOf(DocumentKind.vehicleReg);
     final Document? ins = docOf(DocumentKind.insurance);
-    final Document? rw = docOf(DocumentKind.roadWorthiness);
+    final bool vehicleDocsIn = reg != null && ins != null;
+    final bool vehicleDocRejected =
+        statusOf(reg) == KycStepStatus.rejected ||
+        statusOf(ins) == KycStepStatus.rejected;
 
     return <KycStep>[
       KycStep(
         kind: KycStepKind.bvnNin,
-        title: 'BVN or NIN',
-        subtitle: 'Verify your identity (NIBSS / NIMC).',
-        status: bvnNinStatus,
+        title: 'NIN',
+        subtitle: 'Verify your identity (NIMC).',
+        status: ninStatus,
       ),
       KycStep(
         kind: KycStepKind.selfie,
@@ -246,24 +252,13 @@ class KycController extends StateNotifier<KycState> {
       KycStep(
         kind: KycStepKind.vehicle,
         title: 'Add a vehicle',
-        subtitle: 'Make, model, plate.',
-        status: snap.hasVehicle
-            ? KycStepStatus.submitted
-            : KycStepStatus.required,
-      ),
-      KycStep(
-        kind: KycStepKind.vehicleReg,
-        title: 'Vehicle registration',
-        subtitle: 'Lagos State or your home state.',
-        status: statusOf(reg),
-        rejectionReason: reg?.rejectionReason,
-      ),
-      KycStep(
-        kind: KycStepKind.insurance,
-        title: 'Proof of insurance',
-        subtitle: 'Comprehensive cover preferred.',
-        status: statusOf(ins),
-        rejectionReason: ins?.rejectionReason,
+        subtitle: 'Make, model, plate, registration & insurance.',
+        status: vehicleDocRejected
+            ? KycStepStatus.rejected
+            : (snap.hasVehicle && vehicleDocsIn)
+                ? KycStepStatus.submitted
+                : KycStepStatus.required,
+        rejectionReason: reg?.rejectionReason ?? ins?.rejectionReason,
       ),
       KycStep(
         kind: KycStepKind.roadWorthiness,

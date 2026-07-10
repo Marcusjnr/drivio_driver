@@ -87,7 +87,7 @@ class SelfieController extends StateNotifier<SelfieState> {
       // 3. Mark the step → sets drivers.liveness_passed_at.
       await _kyc.markStepCompleted('selfie');
       locator<MixpanelService>().track(AnalyticsEvents.livenessCheckPassed);
-      state = state.copyWith(isSubmitting: false);
+      // Success: stay submitting — the page navigates away next frame.
       return true;
     } on DocumentAuthException {
       state = state.copyWith(

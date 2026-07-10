@@ -177,7 +177,19 @@ class _AddVehiclePageState extends ConsumerState<AddVehiclePage> {
                 final Vehicle? vehicle = await c.submit();
                 if (!mounted || vehicle == null) return;
                 ref.read(homeControllerProvider.notifier).setHasVehicle(true);
-                AppNavigation.replaceAll<void>(AppRoutes.home);
+                // Return to wherever the driver came from (KYC checklist,
+                // profile, home) instead of wiping the stack to home. The
+                // button stays in its loading state through the pop; the
+                // app-scoped controller is reset after the transition.
+                if (AppNavigation.canPop()) {
+                  AppNavigation.pop();
+                } else {
+                  AppNavigation.replaceAll<void>(AppRoutes.home);
+                }
+                Future<void>.delayed(
+                  const Duration(milliseconds: 800),
+                  c.endLoading,
+                );
               },
             ),
             const SizedBox(height: 8),

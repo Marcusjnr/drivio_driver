@@ -45,7 +45,15 @@
              (Android 14+) so the online-presence stream is a location FGS.
              Do not rename android:name. -->
     <service android:name="com.pravera.flutter_foreground_task.service.ForegroundService" android:foregroundServiceType="location" android:exported="false" tools:replace="android:foregroundServiceType"/>
-  </application>
+          <!-- Status-bar icon + accent for notifications the FCM SDK
+             renders itself (admin_message campaigns, chat). -->
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_icon"
+            android:resource="@drawable/ic_notification" />
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_color"
+            android:resource="@color/notification_color" />
+    </application>
   <!-- Required for url_launcher / canLaunchUrl probing. Android 11+
          restricts visibility of installed apps; without these <queries>
          entries every canLaunchUrl returns false even for installed

@@ -108,8 +108,10 @@ class _OtpPageState extends ConsumerState<OtpPage> {
       final bool profileCreated = await signUpC.submitProfile();
       if (!mounted) return;
       if (profileCreated) {
-        signUpC.reset();
+        // Navigate first; reset the (app-scoped) sign-up state once the
+        // transition has covered this screen.
         AppNavigation.replaceAll<void>(AppRoutes.home);
+        Future<void>.delayed(const Duration(milliseconds: 800), signUpC.reset);
         return;
       }
       final String? signUpError =
