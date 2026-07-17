@@ -42,12 +42,11 @@ enum SubscriptionStatus {
   /// control lives) instead of trying to sell them a fresh plan.
   bool get isPaused => this == SubscriptionStatus.paused;
 
-  /// Pause is offered while a subscription is in a normal "running"
-  /// state. Past-due / cancelled / expired need a payment action, not
+  /// Pause is offered only on a paid, running subscription. Trials
+  /// can't pause — the free window keeps counting down either way —
+  /// and past-due / cancelled / expired need a payment action, not
   /// a pause.
-  bool get canPause =>
-      this == SubscriptionStatus.trialing ||
-      this == SubscriptionStatus.active;
+  bool get canPause => this == SubscriptionStatus.active;
 }
 
 enum SubscriptionInterval {

@@ -605,6 +605,20 @@ class _PauseResumeButton extends StatelessWidget {
       );
     }
     if (!sub.canPause) {
+      if (sub.isTrialing) {
+        // Trials can't pause — say so quietly instead of leaving the
+        // driver hunting for a button other drivers talk about.
+        return Center(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 4),
+            child: Text(
+              'Pause becomes available once your free trial ends.',
+              textAlign: TextAlign.center,
+              style: AppTextStyles.captionSm.copyWith(color: context.textDim),
+            ),
+          ),
+        );
+      }
       // Past-due / cancelled / expired — no point offering pause; the
       // paywall flow is the right action.
       return const SizedBox.shrink();

@@ -288,7 +288,10 @@ const Map<String, String> _knownCodes = <String, String>{
   'not_paused':
       "This plan isn't paused — you're good to go online.",
   'not_pause_eligible':
-      'Renew your plan first. Pause works on active or trial plans only.',
+      'Renew your plan first. Pause works on an active plan only.',
+  'trial_not_pausable':
+      "Free trials can't be paused — pause becomes available once your "
+          'trial ends.',
 
   // Wallet / payments.
   'insufficient_balance':
