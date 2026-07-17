@@ -19,16 +19,16 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get helpBody =>
-      'Our support team is on WhatsApp. Message us about a trip, your earnings, your vehicle, or anything else. A person replies, not a bot.';
+      'Our support team is one tap away, right inside the app. Start a chat about a trip, your earnings, your vehicle, or anything else. A person replies, not a bot.';
 
   @override
   String get helpSupportLineTitle => 'Drivio driver support';
 
   @override
-  String get helpWhatsAppPill => 'WHATSAPP';
+  String get helpWhatsAppPill => 'LIVE CHAT';
 
   @override
-  String get helpChatCta => 'Chat with us on WhatsApp';
+  String get helpChatCta => 'Chat with support';
 
   @override
   String get helpTripHint =>

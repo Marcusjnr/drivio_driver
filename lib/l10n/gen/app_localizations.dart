@@ -115,7 +115,7 @@ abstract class AppLocalizations {
   /// Body copy under the help headline
   ///
   /// In en, this message translates to:
-  /// **'Our support team is on WhatsApp. Message us about a trip, your earnings, your vehicle, or anything else. A person replies, not a bot.'**
+  /// **'Our support team is one tap away, right inside the app. Start a chat about a trip, your earnings, your vehicle, or anything else. A person replies, not a bot.'**
   String get helpBody;
 
   /// Title on the tappable support-line card
@@ -127,13 +127,13 @@ abstract class AppLocalizations {
   /// Uppercase channel pill on the support-line card
   ///
   /// In en, this message translates to:
-  /// **'WHATSAPP'**
+  /// **'LIVE CHAT'**
   String get helpWhatsAppPill;
 
   /// Label of the primary WhatsApp chat button
   ///
   /// In en, this message translates to:
-  /// **'Chat with us on WhatsApp'**
+  /// **'Chat with support'**
   String get helpChatCta;
 
   /// Caption under the chat button with a tip for faster support

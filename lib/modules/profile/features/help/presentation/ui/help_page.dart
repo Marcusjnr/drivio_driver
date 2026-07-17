@@ -1,49 +1,19 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import 'package:drivio_driver/modules/commons/all.dart';
 import 'package:drivio_driver/modules/commons/widgets/detail_scaffold.dart';
 
-// WhatsApp's own green — used only on the chat action so it reads
-// unmistakably as "this opens WhatsApp", never as a brand accent.
-const Color _kWhatsAppGreen = Color(0xFF25D366);
-
-/// Help & support: one channel, a real person on WhatsApp. The page's
+/// Help & support: one channel, a real person on live chat. The page's
 /// whole job is to get the driver into that chat with zero ceremony —
-/// headline, the support line, one green button.
+/// headline, the support line, one button. The chat opens in-app
+/// (tawk.to WebView) already knowing the driver's name and email.
 class HelpPage extends ConsumerWidget {
   const HelpPage({super.key});
 
   static const String _phoneDisplay = '+234 906 846 3168';
-  static const String _phoneWa = '2349068463168';
 
-  Future<void> _openWhatsApp(BuildContext context) async {
-    // Resolve every string before the first await — the context may be
-    // gone by the time a launch attempt fails.
-    final String text = Uri.encodeComponent(context.l10n.helpPrefillMessage);
-    final String errorMessage = context.l10n.helpWhatsAppError;
-
-    // Straight into the app when it's installed…
-    final Uri app = Uri.parse('whatsapp://send?phone=$_phoneWa&text=$text');
-    try {
-      if (await canLaunchUrl(app) && await launchUrl(app)) {
-        return;
-      }
-    } catch (_) {
-      // fall through to the universal link
-    }
-    // …otherwise the universal link (browser → WhatsApp / WhatsApp Web).
-    final Uri web = Uri.parse('https://wa.me/$_phoneWa?text=$text');
-    try {
-      final bool ok = await launchUrl(web, mode: LaunchMode.externalApplication);
-      if (!ok) {
-        AppNotifier.error(message: errorMessage);
-      }
-    } catch (_) {
-      AppNotifier.error(message: errorMessage);
-    }
-  }
+  void _openChat() => AppNavigation.push<void>(AppRoutes.supportChat);
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -78,7 +48,7 @@ class HelpPage extends ConsumerWidget {
         // The support line — tappable, same action as the button, and
         // the number is visible so drivers can save it.
         InkWell(
-          onTap: () => _openWhatsApp(context),
+          onTap: _openChat,
           borderRadius: AppRadius.base.resolve(TextDirection.ltr),
           child: Container(
             padding: const EdgeInsets.all(14),
@@ -94,13 +64,13 @@ class HelpPage extends ConsumerWidget {
                   height: 42,
                   alignment: Alignment.center,
                   decoration: BoxDecoration(
-                    color: _kWhatsAppGreen.withValues(alpha: 0.14),
+                    color: context.accent.withValues(alpha: 0.14),
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  child: const Icon(
+                  child: Icon(
                     DrivioIcons.chat,
                     size: 20,
-                    color: _kWhatsAppGreen,
+                    color: context.accent,
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -137,10 +107,8 @@ class HelpPage extends ConsumerWidget {
           width: double.infinity,
           height: AppDimensions.buttonHeight,
           child: FilledButton(
-            onPressed: () => _openWhatsApp(context),
+            onPressed: _openChat,
             style: FilledButton.styleFrom(
-              backgroundColor: _kWhatsAppGreen,
-              foregroundColor: Colors.white,
               shape: RoundedRectangleBorder(borderRadius: AppRadius.base),
             ),
             child: Text(

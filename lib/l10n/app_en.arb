@@ -13,7 +13,7 @@
   "@helpHeadline": {
     "description": "Display headline of the Help & support page"
   },
-  "helpBody": "Our support team is on WhatsApp. Message us about a trip, your earnings, your vehicle, or anything else. A person replies, not a bot.",
+  "helpBody": "Our support team is one tap away, right inside the app. Start a chat about a trip, your earnings, your vehicle, or anything else. A person replies, not a bot.",
   "@helpBody": {
     "description": "Body copy under the help headline"
   },
@@ -21,11 +21,11 @@
   "@helpSupportLineTitle": {
     "description": "Title on the tappable support-line card"
   },
-  "helpWhatsAppPill": "WHATSAPP",
+  "helpWhatsAppPill": "LIVE CHAT",
   "@helpWhatsAppPill": {
     "description": "Uppercase channel pill on the support-line card"
   },
-  "helpChatCta": "Chat with us on WhatsApp",
+  "helpChatCta": "Chat with support",
   "@helpChatCta": {
     "description": "Label of the primary WhatsApp chat button"
   },

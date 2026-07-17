@@ -21,7 +21,6 @@ import 'package:drivio_driver/modules/kyc/features/document_capture/presentation
 import 'package:drivio_driver/modules/kyc/features/kyc_home/presentation/ui/kyc_home_page.dart';
 import 'package:drivio_driver/modules/kyc/features/selfie/presentation/ui/selfie_page.dart';
 import 'package:drivio_driver/modules/profile/features/appearance/presentation/ui/appearance_page.dart';
-import 'package:drivio_driver/modules/profile/features/help/presentation/ui/help_page.dart';
 import 'package:drivio_driver/modules/profile/features/notifications_inbox/presentation/ui/notifications_inbox_page.dart';
 import 'package:drivio_driver/modules/profile/features/profile_edit/presentation/ui/profile_edit_page.dart';
 import 'package:drivio_driver/modules/profile/features/payment_methods/presentation/ui/add_payout_account_page.dart';
@@ -37,7 +36,7 @@ import 'package:drivio_driver/modules/subscription/features/manage/presentation/
 import 'package:drivio_driver/modules/subscription/features/paywall/presentation/ui/paywall_page.dart';
 import 'package:drivio_driver/modules/subscription/features/pick_plan/presentation/ui/pick_plan_page.dart';
 import 'package:drivio_driver/modules/support/features/help_article/presentation/ui/help_article_page.dart';
-import 'package:drivio_driver/modules/support/features/support_chat/presentation/ui/support_chat_page.dart';
+import 'package:drivio_driver/modules/support/features/support_chat/presentation/ui/live_chat_page.dart';
 import 'package:drivio_driver/modules/trip/features/call/presentation/ui/call_page.dart';
 import 'package:drivio_driver/modules/trip/features/call/presentation/ui/incoming_call_page.dart';
 import 'package:drivio_driver/modules/trip/features/chat/presentation/ui/chat_page.dart';
@@ -126,8 +125,10 @@ class AppRouter {
         return (BuildContext _) => const NotificationsInboxPage();
       case AppRoutes.profileEdit:
         return (BuildContext _) => const ProfileEditPage();
+      // Help & support goes straight into the live chat — the old
+      // interstitial HelpPage is bypassed (file kept for easy revert).
       case AppRoutes.help:
-        return (BuildContext _) => const HelpPage();
+        return (BuildContext _) => const LiveChatPage();
       case AppRoutes.appearance:
         return (BuildContext _) => const AppearancePage();
       case AppRoutes.signOut:
@@ -141,7 +142,7 @@ class AppRouter {
       case AppRoutes.helpArticle:
         return (BuildContext _) => const HelpArticlePage();
       case AppRoutes.supportChat:
-        return (BuildContext _) => const SupportChatPage();
+        return (BuildContext _) => const LiveChatPage();
       case AppRoutes.edgeNoRequests:
         return (BuildContext _) => const EdgeNoRequestsPage();
       case AppRoutes.edgeOffline:
