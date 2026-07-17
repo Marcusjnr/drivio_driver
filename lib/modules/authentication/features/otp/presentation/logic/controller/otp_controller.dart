@@ -3,18 +3,12 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import 'package:drivio_driver/modules/authentication/data/otp_service.dart';
 import 'package:drivio_driver/modules/commons/analytics/analytics_events.dart';
 import 'package:drivio_driver/modules/commons/analytics/mixpanel_service.dart';
 import 'package:drivio_driver/modules/commons/di/di.dart';
 import 'package:drivio_driver/modules/commons/logging/app_logger.dart';
 import 'package:drivio_driver/modules/commons/supabase/supabase_module.dart';
-
-/// Hardcoded dev-mode OTP. Skips real SMS. Replace this whole shortcut
-/// with `supabase.auth.signInWithOtp(phone:)` + `verifyOTP(...)` once
-/// the project has an SMS provider configured (Termii / Twilio /
-/// MessageBird). Until then, drivers entering this six-digit code on
-/// SCR-005 are considered phone-verified.
-const String _devOtpCode = '123456';
 
 enum AuthMode { signIn, signUp }
 
@@ -65,6 +59,7 @@ class OtpController extends StateNotifier<OtpState> {
 
   Timer? _timer;
   final SupabaseModule _supabase = locator<SupabaseModule>();
+  final OtpService _otp = locator<OtpService>();
 
   void _startTimer() {
     _timer?.cancel();
@@ -77,12 +72,25 @@ class OtpController extends StateNotifier<OtpState> {
     });
   }
 
-  /// Dev stub — no real SMS resend. Just resets the countdown so the UI
-  /// keeps behaving correctly while we wait on real SMS provider wiring.
+  /// Re-sends the OTP via Termii, then restarts the 30s countdown. In
+  /// dev mode no SMS goes out — the countdown just resets so the UI
+  /// behaves. On a real send failure the countdown is NOT restarted, so
+  /// the driver can retry immediately, and the error is surfaced.
   Future<void> resend() async {
-    if (!state.canResend) return;
-    state = state.copyWith(resendSeconds: 30, clearError: true);
-    _startTimer();
+    if (!state.canResend || state.isVerifying) return;
+    if (otpDevModeEnabled()) {
+      state = state.copyWith(resendSeconds: 30, clearError: true);
+      _startTimer();
+      return;
+    }
+    state = state.copyWith(clearError: true);
+    try {
+      await _otp.send(state.phone);
+      state = state.copyWith(resendSeconds: 30, clearError: true);
+      _startTimer();
+    } on OtpSendException catch (e) {
+      state = state.copyWith(error: e.message);
+    }
   }
 
   void setValue(String value) {
@@ -108,7 +116,7 @@ class OtpController extends StateNotifier<OtpState> {
   /// session.
   ///
   /// Dev shortcut: the code itself is checked against the hardcoded
-  /// [_devOtpCode] — no SMS round-trip. Once verified, the actual
+  /// [kDevOtpCode] — no SMS round-trip. Once verified, the actual
   /// Supabase auth call is made using a phone-derived synthetic email
   /// (`<digits>@drivio.internal`) so the phone IS the identifier from
   /// the driver's perspective while Supabase auth records it as an
@@ -126,20 +134,26 @@ class OtpController extends StateNotifier<OtpState> {
   }) async {
     if (!state.isComplete) return false;
 
-    if (state.value != _devOtpCode) {
+    state = state.copyWith(isVerifying: true, clearError: true);
+
+    // Dev shortcut skips Termii entirely; prod verifies the code against
+    // the pinId Termii issued (checked server-side in termii-verify-otp).
+    final bool otpOk = otpDevModeEnabled() && state.value == kDevOtpCode
+        ? true
+        : await _otp.verify(phoneE164: phone, code: state.value);
+
+    if (!otpOk) {
       locator<MixpanelService>().track(
         AnalyticsEvents.otpFailed,
         properties: <String, dynamic>{'failure_reason': 'wrong_code'},
       );
       state = state.copyWith(
         isVerifying: false,
-        error: 'Wrong code. Try again.',
+        error: 'Wrong or expired code. Try again.',
         value: '',
       );
       return false;
     }
-
-    state = state.copyWith(isVerifying: true, clearError: true);
 
     final String syntheticEmail = _phoneToSyntheticEmail(phone);
     AppLogger.i('otp.verify start', data: <String, dynamic>{

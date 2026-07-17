@@ -30,4 +30,12 @@ abstract final class Env {
         !k.startsWith('sk_test_DUMMY') &&
         (k.startsWith('sk_test_') || k.startsWith('sk_live_'));
   }
+
+  /// Offline OTP bypass. Defaults to false so every build sends a real
+  /// Termii SMS OTP. Set `OTP_DEV_BYPASS=true` in `.env` only to accept
+  /// the hardcoded `123456` while developing offline. Never true in a
+  /// shipped build.
+  static bool get otpDevBypass =>
+      dotenv.get('OTP_DEV_BYPASS', fallback: 'false').trim().toLowerCase() ==
+      'true';
 }

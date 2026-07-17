@@ -6,13 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 /// Two terminal states (`tripCompleted`, `tripCancelled`) keep the body on
 /// screen briefly after the trip ends so the driver sees their earnings /
 /// the cancellation reason before the shell flips back to idle.
-enum ShellMode {
-  idle,
-  bidding,
-  trip,
-  tripCompleted,
-  tripCancelled,
-}
+enum ShellMode { idle, bidding, trip, tripCompleted, tripCancelled }
 
 class DriveShellState {
   const DriveShellState({
@@ -48,8 +42,9 @@ class DriveShellState {
       activeRequestId: clearActiveRequestId
           ? null
           : (activeRequestId ?? this.activeRequestId),
-      activeTripId:
-          clearActiveTripId ? null : (activeTripId ?? this.activeTripId),
+      activeTripId: clearActiveTripId
+          ? null
+          : (activeTripId ?? this.activeTripId),
     );
   }
 }
@@ -58,18 +53,12 @@ class DriveShellController extends StateNotifier<DriveShellState> {
   DriveShellController() : super(const DriveShellState());
 
   void enterBidding(String requestId) {
-    state = state.copyWith(
-      mode: ShellMode.bidding,
-      activeRequestId: requestId,
-    );
+    state = state.copyWith(mode: ShellMode.bidding, activeRequestId: requestId);
   }
 
   void exitBidding() {
     if (!state.isBidding) return;
-    state = state.copyWith(
-      mode: ShellMode.idle,
-      clearActiveRequestId: true,
-    );
+    state = state.copyWith(mode: ShellMode.idle, clearActiveRequestId: true);
   }
 
   void enterTrip(String tripId) {
@@ -97,10 +86,7 @@ class DriveShellController extends StateNotifier<DriveShellState> {
 
   void exitTrip() {
     if (!state.isTripLike) return;
-    state = state.copyWith(
-      mode: ShellMode.idle,
-      clearActiveTripId: true,
-    );
+    state = state.copyWith(mode: ShellMode.idle, clearActiveTripId: true);
   }
 
   void resetToIdle() {
@@ -113,7 +99,7 @@ class DriveShellController extends StateNotifier<DriveShellState> {
 }
 
 final StateNotifierProvider<DriveShellController, DriveShellState>
-    driveShellControllerProvider =
+driveShellControllerProvider =
     StateNotifierProvider<DriveShellController, DriveShellState>(
-  (Ref _) => DriveShellController(),
-);
+      (Ref _) => DriveShellController(),
+    );

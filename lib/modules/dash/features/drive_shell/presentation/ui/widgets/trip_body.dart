@@ -6,6 +6,7 @@ import 'package:drivio_driver/modules/commons/types/passenger_rating.dart';
 import 'package:drivio_driver/modules/commons/types/trip.dart';
 import 'package:drivio_driver/modules/commons/utils/navigation_launcher.dart';
 import 'package:drivio_driver/modules/dash/features/drive_shell/presentation/logic/controller/drive_shell_controller.dart';
+import 'package:drivio_driver/modules/dash/features/drive_shell/presentation/ui/widgets/sheet_skeleton.dart';
 import 'package:drivio_driver/modules/trip/features/active_trip/presentation/logic/controller/active_trip_controller.dart';
 import 'package:drivio_driver/modules/trip/features/active_trip/presentation/logic/controller/passenger_rating_controller.dart';
 import 'package:drivio_driver/modules/trip/features/call/presentation/ui/call_sheet.dart';
@@ -33,10 +34,7 @@ class TripBody extends ConsumerWidget {
     );
 
     if (state.isLoading) {
-      return const SizedBox(
-        height: 160,
-        child: Center(child: CircularProgressIndicator()),
-      );
+      return const SheetSkeleton.trip();
     }
     final Trip? trip = state.trip;
     if (trip == null) {

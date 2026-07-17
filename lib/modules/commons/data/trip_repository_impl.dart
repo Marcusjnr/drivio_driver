@@ -13,10 +13,12 @@ class SupabaseTripRepository implements TripRepository {
 
   @override
   Future<Trip?> getTrip(String id) async {
-    final List<dynamic> rows = await _supabase.client.rpc<dynamic>(
-      'get_trip_with_route',
-      params: <String, dynamic>{'p_id': id},
-    ) as List<dynamic>;
+    final List<dynamic> rows =
+        await _supabase.client.rpc<dynamic>(
+              'get_trip_with_route',
+              params: <String, dynamic>{'p_id': id},
+            )
+            as List<dynamic>;
     if (rows.isEmpty) return null;
     return Trip.fromJson(rows.first as Map<String, dynamic>);
   }
@@ -36,8 +38,7 @@ class SupabaseTripRepository implements TripRepository {
       if (res.isEmpty) return null;
       final dynamic first = res.first;
       if (first is Map) {
-        final Map<String, dynamic> row =
-            first.cast<String, dynamic>();
+        final Map<String, dynamic> row = first.cast<String, dynamic>();
         return (row['trip_id'] ?? row['id']) as String?;
       }
     }
@@ -63,9 +64,11 @@ class SupabaseTripRepository implements TripRepository {
             value: tripId,
           ),
           callback: (PostgresChangePayload _) async {
-            // Re-fetch to get the joined route fields.
+            // Re-fetch to get the joined route fields. The subscriber can
+            // cancel (closing `ctrl`) while the fetch is in flight, so
+            // re-check before adding.
             final Trip? fresh = await getTrip(tripId);
-            if (fresh != null) ctrl.add(fresh);
+            if (fresh != null && !ctrl.isClosed) ctrl.add(fresh);
           },
         );
     channel.subscribe();

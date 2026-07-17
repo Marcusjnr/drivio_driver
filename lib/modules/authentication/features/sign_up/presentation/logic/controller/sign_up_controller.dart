@@ -3,6 +3,7 @@ import 'dart:math';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import 'package:drivio_driver/modules/authentication/data/otp_service.dart';
 import 'package:drivio_driver/modules/commons/analytics/analytics_events.dart';
 import 'package:drivio_driver/modules/commons/analytics/mixpanel_service.dart';
 import 'package:drivio_driver/modules/commons/di/di.dart';
@@ -99,16 +100,23 @@ class SignUpController extends StateNotifier<SignUpState> {
   void onReferralChanged(String v) =>
       state = state.copyWith(referralCode: v, clearError: true);
 
-  /// Dev stub — no SMS goes out. The OTP screen accepts the hardcoded
-  /// code (see `OtpController._devOtpCode`), which then triggers the
-  /// real Supabase signUp via the phone-derived synthetic email.
-  /// When a real SMS provider is wired (Termii / Supabase phone auth),
-  /// replace this with the actual send call.
+  /// Sends the phone OTP via Termii, then lets the page navigate to the
+  /// OTP screen. In dev mode no SMS goes out — the screen accepts the
+  /// hardcoded [kDevOtpCode]. A real send failure keeps the driver on
+  /// this screen with an error instead of stranding them on an OTP page
+  /// no code will ever arrive for.
   Future<bool> requestOtp() async {
     if (!state.canSubmit) return false;
     locator<MixpanelService>().track(AnalyticsEvents.driverSignupStarted);
     state = state.copyWith(isLoading: true, clearError: true);
-    await Future<void>.delayed(const Duration(milliseconds: 300));
+    if (!otpDevModeEnabled()) {
+      try {
+        await locator<OtpService>().send(state.normalizedPhone);
+      } on OtpSendException catch (e) {
+        state = state.copyWith(isLoading: false, error: e.message);
+        return false;
+      }
+    }
     // Success: stay loading until the OTP page is on screen; the page
     // calls [endLoading] once navigation settles.
     return true;

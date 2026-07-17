@@ -47,28 +47,26 @@ double snapForRouteCache(double coord) {
 /// Returns an empty list while loading or on any failure so the map
 /// can fall back to the existing straight-line preview.
 final FutureProviderFamily<List<LatLng>, RouteAheadKey>
-routeAheadShapeProvider =
-    FutureProvider.family<List<LatLng>, RouteAheadKey>(
-      (Ref ref, RouteAheadKey key) async {
-        try {
-          final DirectionsResult res =
-              await locator<DirectionsRepository>().route(
-                originLat: key.originLat,
-                originLng: key.originLng,
-                destinationLat: key.destinationLat,
-                destinationLng: key.destinationLng,
-              );
-          return res.points;
-        } on DirectionsNoRoute {
-          AppLogger.i('route_ahead: no route between origin and target');
-          return const <LatLng>[];
-        } on DirectionsNotConfigured {
-          AppLogger.w('route_ahead: directions proxy not configured');
-          return const <LatLng>[];
-        } catch (e, st) {
-          AppLogger.w('route_ahead: directions failed',
-              error: e, stackTrace: st);
-          return const <LatLng>[];
-        }
-      },
+routeAheadShapeProvider = FutureProvider.family<List<LatLng>, RouteAheadKey>((
+  Ref ref,
+  RouteAheadKey key,
+) async {
+  try {
+    final DirectionsResult res = await locator<DirectionsRepository>().route(
+      originLat: key.originLat,
+      originLng: key.originLng,
+      destinationLat: key.destinationLat,
+      destinationLng: key.destinationLng,
     );
+    return res.points;
+  } on DirectionsNoRoute {
+    AppLogger.i('route_ahead: no route between origin and target');
+    return const <LatLng>[];
+  } on DirectionsNotConfigured {
+    AppLogger.w('route_ahead: directions proxy not configured');
+    return const <LatLng>[];
+  } catch (e, st) {
+    AppLogger.w('route_ahead: directions failed', error: e, stackTrace: st);
+    return const <LatLng>[];
+  }
+});

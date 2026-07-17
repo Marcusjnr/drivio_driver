@@ -357,8 +357,7 @@ class _DriveShellPageState extends ConsumerState<DriveShellPage>
     // The trip-in-progress case is sacred: if the sub flips while a
     // trip is live, we let the trip finish. The post-trip handler
     // (`onTripCompleted`) checks the same condition and offlines then.
-    final bool subHardBlocked =
-        subState.subscription?.isHardBlocked ?? false;
+    final bool subHardBlocked = subState.subscription?.isHardBlocked ?? false;
     if (home.isOnline && subHardBlocked && !shell.isTripLike) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
@@ -417,18 +416,27 @@ class _DriveShellPageState extends ConsumerState<DriveShellPage>
             Positioned(top: 76, left: 16, right: 16, child: subTop),
           if (priceBubble != null)
             Positioned(bottom: 240, right: 16, child: priceBubble),
+          // Sheet hand-off: the outgoing sheet accelerates fully off the
+          // bottom edge during the first ~45% of the window, then the
+          // incoming sheet rises with a decelerating easeOutQuint — a
+          // sequenced exit-then-enter rather than a cross-fade, so the
+          // map shows through for a beat between sheets. The exit rides
+          // `switchOutCurve` (played in reverse, so its Interval covers
+          // the start of the wall-clock window). Honors the OS
+          // reduce-motion setting by collapsing to an instant swap.
           AnimatedSwitcher(
-            duration: const Duration(milliseconds: 240),
+            duration: MediaQuery.of(context).disableAnimations
+                ? Duration.zero
+                : const Duration(milliseconds: 380),
+            switchInCurve: const Interval(0.45, 1, curve: Curves.easeOutQuint),
+            switchOutCurve: const Interval(0.55, 1, curve: Curves.easeOutCubic),
             transitionBuilder: (Widget child, Animation<double> a) {
               return SlideTransition(
-                position:
-                    Tween<Offset>(
-                      begin: const Offset(0, 0.15),
-                      end: Offset.zero,
-                    ).animate(
-                      CurvedAnimation(parent: a, curve: Curves.easeOutCubic),
-                    ),
-                child: FadeTransition(opacity: a, child: child),
+                position: Tween<Offset>(
+                  begin: const Offset(0, 1),
+                  end: Offset.zero,
+                ).animate(a),
+                child: child,
               );
             },
             child: Align(
@@ -572,7 +580,8 @@ class _DriveShellPageState extends ConsumerState<DriveShellPage>
     );
     // Re-check even on a bail-out: they may have granted in Settings and
     // then backed out of the explainer instead of tapping through it.
-    final bool has = granted == true ||
+    final bool has =
+        granted == true ||
         await Geolocator.checkPermission() == LocationPermission.always;
     if (!has || !mounted) {
       return false;
@@ -1059,7 +1068,9 @@ class _DriveShellPageState extends ConsumerState<DriveShellPage>
     KycOverallStatus kycStatus,
   ) {
     if (!shell.isIdle) return null;
-    if (home.isOnline) return _DemandBanner();
+    // High-demand highlight hidden for now — the banner used hardcoded
+    // placeholder copy. Re-enable once the real demand signal ships.
+    // if (home.isOnline) return _DemandBanner();
     if (!kycComplete) return _KycBanner(status: kycStatus);
     if (!home.hasVehicle) {
       return _AddVehicleBanner(onAdd: () => setState(() => _gateOpen = true));
@@ -1303,45 +1314,48 @@ class _TimerCard extends StatelessWidget {
   }
 }
 
-class _DemandBanner extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      decoration: BoxDecoration(
-        color: context.surface.withValues(alpha: 0.88),
-        border: Border.all(color: context.amber.withValues(alpha: 0.3)),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Row(
-        children: <Widget>[
-          Icon(DrivioIcons.trendingUp, size: 16, color: context.amber),
-          const SizedBox(width: 10),
-          Expanded(
-            child: RichText(
-              text: TextSpan(
-                style: TextStyle(fontSize: 12, color: context.text),
-                children: <InlineSpan>[
-                  TextSpan(
-                    text: 'High demand',
-                    style: TextStyle(
-                      color: context.amber,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  const TextSpan(
-                    text:
-                        ' near Victoria Island — great time to raise your rate.',
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
+// High-demand highlight — hidden for now (placeholder copy). Restore
+// this widget and its use in `_buildBanner` when the real demand
+// signal ships.
+// class _DemandBanner extends StatelessWidget {
+//   @override
+//   Widget build(BuildContext context) {
+//     return Container(
+//       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+//       decoration: BoxDecoration(
+//         color: context.surface.withValues(alpha: 0.88),
+//         border: Border.all(color: context.amber.withValues(alpha: 0.3)),
+//         borderRadius: BorderRadius.circular(12),
+//       ),
+//       child: Row(
+//         children: <Widget>[
+//           Icon(DrivioIcons.trendingUp, size: 16, color: context.amber),
+//           const SizedBox(width: 10),
+//           Expanded(
+//             child: RichText(
+//               text: TextSpan(
+//                 style: TextStyle(fontSize: 12, color: context.text),
+//                 children: <InlineSpan>[
+//                   TextSpan(
+//                     text: 'High demand',
+//                     style: TextStyle(
+//                       color: context.amber,
+//                       fontWeight: FontWeight.w700,
+//                     ),
+//                   ),
+//                   const TextSpan(
+//                     text:
+//                         ' near Victoria Island — great time to raise your rate.',
+//                   ),
+//                 ],
+//               ),
+//             ),
+//           ),
+//         ],
+//       ),
+//     );
+//   }
+// }
 
 class _KycBanner extends StatelessWidget {
   const _KycBanner({required this.status});

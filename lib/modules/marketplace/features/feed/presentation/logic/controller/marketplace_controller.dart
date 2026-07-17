@@ -103,14 +103,29 @@ class MarketplaceController extends StateNotifier<MarketplaceState> {
   /// a request that's still open across fetches.
   final Set<String> _seenRequestIds = <String>{};
 
+  /// Requests the driver explicitly declined. The server keeps returning
+  /// them from `listNearby` while they're open, so without this the
+  /// declined card pops right back into the feed on the next poll.
+  final Set<String> _dismissedIds = <String>{};
+
+  /// Drop a declined request from the feed — immediately and across all
+  /// future refetches this session.
+  void dismiss(String requestId) {
+    _dismissedIds.add(requestId);
+    state = state.copyWith(
+      requests: state.requests
+          .where((RideRequest r) => r.id != requestId)
+          .toList(growable: false),
+    );
+  }
+
   /// Subscribe to realtime + start the safety-net poll + (if we already
   /// have a fix) do an initial fetch. Idempotent.
   Future<void> start() async {
     if (_eventSub == null) {
       _eventSub = _repo.changes().listen(
         (RideRequestEvent _) => _refetchIfPositioned(),
-        onError: (Object e) =>
-            state = state.copyWith(error: 'Realtime: $e'),
+        onError: (Object e) => state = state.copyWith(error: 'Realtime: $e'),
       );
       _pollTimer ??= Timer.periodic(
         _kPollWindow,
@@ -129,6 +144,7 @@ class MarketplaceController extends StateNotifier<MarketplaceState> {
     _lastFetchLng = null;
     _fetchInFlight = false;
     _seenRequestIds.clear();
+    _dismissedIds.clear();
     state = state.copyWith(requests: const <RideRequest>[]);
   }
 
@@ -145,11 +161,11 @@ class MarketplaceController extends StateNotifier<MarketplaceState> {
   /// the first fix or the driver has moved at least
   /// [_kRefetchOnMoveM].
   void updateDriverPosition(double lat, double lng) {
-    final bool firstFix =
-        state.driverLat == null || state.driverLng == null;
+    final bool firstFix = state.driverLat == null || state.driverLng == null;
     state = state.copyWith(driverLat: lat, driverLng: lng);
 
-    final bool moved = _lastFetchLat == null ||
+    final bool moved =
+        _lastFetchLat == null ||
         _lastFetchLng == null ||
         _haversineM(_lastFetchLat!, _lastFetchLng!, lat, lng) >=
             _kRefetchOnMoveM;
@@ -175,11 +191,20 @@ class MarketplaceController extends StateNotifier<MarketplaceState> {
     _fetchInFlight = true;
     state = state.copyWith(isLoading: true, clearError: true);
     try {
-      final List<RideRequest> next = await _repo.listNearby(
+      final List<RideRequest> fetched = await _repo.listNearby(
         driverLat: lat,
         driverLng: lng,
       );
       if (!mounted) return;
+      // Hide requests the driver declined this session, plus any the
+      // server hasn't reaped yet whose window already ran out — a 0:00
+      // card isn't biddable and just clutters the feed.
+      final List<RideRequest> next = fetched
+          .where(
+            (RideRequest r) =>
+                !_dismissedIds.contains(r.id) && r.secondsRemaining() > 0,
+          )
+          .toList(growable: false);
       _lastFetchLat = lat;
       _lastFetchLng = lng;
 
@@ -216,7 +241,8 @@ class MarketplaceController extends StateNotifier<MarketplaceState> {
     const double r = 6371000;
     final double dLat = (lat2 - lat1) * (math.pi / 180);
     final double dLng = (lng2 - lng1) * (math.pi / 180);
-    final double a = math.sin(dLat / 2) * math.sin(dLat / 2) +
+    final double a =
+        math.sin(dLat / 2) * math.sin(dLat / 2) +
         math.cos(lat1 * (math.pi / 180)) *
             math.cos(lat2 * (math.pi / 180)) *
             math.sin(dLng / 2) *
@@ -233,10 +259,10 @@ class MarketplaceController extends StateNotifier<MarketplaceState> {
 }
 
 final StateNotifierProvider<MarketplaceController, MarketplaceState>
-    marketplaceControllerProvider =
+marketplaceControllerProvider =
     StateNotifierProvider<MarketplaceController, MarketplaceState>(
-  (Ref _) => MarketplaceController(locator<RideRequestRepository>()),
-);
+      (Ref _) => MarketplaceController(locator<RideRequestRepository>()),
+    );
 
 /// What the marketplace UI should actually render — the open-request
 /// list filtered by the driver's saved trip-length preference. The
@@ -244,9 +270,9 @@ final StateNotifierProvider<MarketplaceController, MarketplaceState>
 /// server-side.
 final Provider<List<RideRequest>> visibleRequestsProvider =
     Provider<List<RideRequest>>((Ref ref) {
-  final MarketplaceState m = ref.watch(marketplaceControllerProvider);
-  final PricingProfile? profile = ref.watch(
-    pricingControllerProvider.select((PricingState s) => s.profile),
-  );
-  return m.visibleFor(profile);
-});
+      final MarketplaceState m = ref.watch(marketplaceControllerProvider);
+      final PricingProfile? profile = ref.watch(
+        pricingControllerProvider.select((PricingState s) => s.profile),
+      );
+      return m.visibleFor(profile);
+    });

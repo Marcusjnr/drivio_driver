@@ -154,10 +154,10 @@ class _StatStrip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final String today =
-        notReady ? '—' : NairaFormatter.format(summary.earningsNaira);
-    final String trips =
-        notReady ? '—' : summary.tripsCompleted.toString();
+    final String today = notReady
+        ? '—'
+        : NairaFormatter.format(summary.earningsNaira);
+    final String trips = notReady ? '—' : summary.tripsCompleted.toString();
 
     // Real driver rating from `driver_ratings` (avg, via the dashboard
     // RPC). Until the driver has any ratings, show an honest "New"
@@ -167,26 +167,24 @@ class _StatStrip extends StatelessWidget {
     final String rating = notReady
         ? '—'
         : hasRating
-            ? summary.rating!
-                .toStringAsFixed(1)
-                .replaceAll(RegExp(r'\.0$'), '')
-            : 'New';
+        ? summary.rating!.toStringAsFixed(1).replaceAll(RegExp(r'\.0$'), '')
+        : 'New';
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
         Row(
           children: <Widget>[
-            Expanded(child: _Stat(label: 'TODAY', value: today)),
-            _StatDivider(),
-            Expanded(child: _Stat(label: 'TRIPS', value: trips)),
+            Expanded(
+              child: _Stat(label: 'TODAY', value: today),
+            ),
             _StatDivider(),
             Expanded(
-              child: _Stat(
-                label: 'RATING',
-                value: rating,
-                showStar: hasRating,
-              ),
+              child: _Stat(label: 'TRIPS', value: trips),
+            ),
+            _StatDivider(),
+            Expanded(
+              child: _Stat(label: 'RATING', value: rating, showStar: hasRating),
             ),
           ],
         ),
@@ -200,15 +198,15 @@ class _StatStrip extends StatelessWidget {
                 Flexible(
                   child: Text(
                     error!,
-                    style: AppTextStyles.captionSm
-                        .copyWith(color: context.butter),
+                    style: AppTextStyles.captionSm.copyWith(
+                      color: context.butter,
+                    ),
                   ),
                 ),
                 const SizedBox(width: 6),
                 Text(
                   'TAP TO RETRY',
-                  style:
-                      AppTextStyles.eyebrow.copyWith(color: context.butter),
+                  style: AppTextStyles.eyebrow.copyWith(color: context.butter),
                 ),
               ],
             ),
@@ -296,20 +294,14 @@ class _CoachTipSlot extends ConsumerWidget {
         tip: tip,
         onDismiss: () =>
             ref.read(coachTipControllerProvider.notifier).dismiss(tip.code),
-        onCta: tip.hasCta
-            ? () => AppNavigation.push(tip.ctaRoute!)
-            : null,
+        onCta: tip.hasCta ? () => AppNavigation.push(tip.ctaRoute!) : null,
       ),
     );
   }
 }
 
 class _CoachTipCard extends StatelessWidget {
-  const _CoachTipCard({
-    required this.tip,
-    required this.onDismiss,
-    this.onCta,
-  });
+  const _CoachTipCard({required this.tip, required this.onDismiss, this.onCta});
 
   final CoachTip tip;
   final VoidCallback onDismiss;

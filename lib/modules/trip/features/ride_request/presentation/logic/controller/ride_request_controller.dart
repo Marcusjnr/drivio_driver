@@ -250,6 +250,15 @@ class RideRequestController extends StateNotifier<RideRequestState> {
             phase: BidPhase.lost,
             error: 'Your offer expired before it was accepted.',
           );
+        } else if (state.phase == BidPhase.composing) {
+          // The request window ran out before the driver submitted a bid.
+          // Flip to `lost` so the hosting surface's phase listener kicks
+          // in (toast + back to the idle home shell) instead of leaving
+          // the driver parked on a dead composer at 0:00.
+          state = state.copyWith(
+            phase: BidPhase.lost,
+            error: 'This request expired.',
+          );
         }
       }
     });

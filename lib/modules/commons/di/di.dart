@@ -2,6 +2,7 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:get_it/get_it.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import 'package:drivio_driver/modules/authentication/data/otp_service.dart';
 import 'package:drivio_driver/modules/commons/analytics/mixpanel_service.dart';
 import 'package:drivio_driver/modules/commons/data/call_repository.dart';
 import 'package:drivio_driver/modules/commons/data/call_repository_impl.dart';
@@ -153,6 +154,10 @@ Future<void> setupServiceLocator(Flavor flavor) async {
 
   locator.registerLazySingleton<ProfileRepository>(
     () => SupabaseProfileRepository(locator<SupabaseModule>()),
+  );
+
+  locator.registerLazySingleton<OtpService>(
+    () => OtpService(locator<SupabaseModule>()),
   );
 
   locator.registerLazySingleton<DriverAmenitiesRepository>(

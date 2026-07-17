@@ -1,5 +1,8 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:drivio_driver/modules/authentication/data/otp_service.dart';
+import 'package:drivio_driver/modules/commons/di/di.dart';
+
 const int _minPasswordLength = 8;
 // 10–13 digits after the +234 prefix is stripped — covers NG numbers
 // with or without the leading zero.
@@ -64,14 +67,21 @@ class SignInController extends StateNotifier<SignInState> {
   void onPasswordChanged(String value) =>
       state = state.copyWith(password: value, clearError: true);
 
-  /// Dev stub — no SMS goes out. The OTP screen accepts the hardcoded
-  /// code, which then triggers `signInWithPassword` via the phone-
-  /// derived synthetic email. Replace with a real send call when a
-  /// production SMS provider is wired (Termii / Supabase phone auth).
+  /// Sends the phone OTP via Termii, then lets the page navigate to the
+  /// OTP screen (which then triggers `signInWithPassword`). In dev mode
+  /// no SMS goes out — the screen accepts the hardcoded [kDevOtpCode].
+  /// A real send failure keeps the driver here with an error.
   Future<bool> requestOtp() async {
     if (!state.canSubmit) return false;
     state = state.copyWith(isLoading: true, clearError: true);
-    await Future<void>.delayed(const Duration(milliseconds: 300));
+    if (!otpDevModeEnabled()) {
+      try {
+        await locator<OtpService>().send(state.normalizedPhone);
+      } on OtpSendException catch (e) {
+        state = state.copyWith(isLoading: false, error: e.message);
+        return false;
+      }
+    }
     // Success: stay loading until the OTP page is on screen; the page
     // calls [endLoading] once navigation settles.
     return true;

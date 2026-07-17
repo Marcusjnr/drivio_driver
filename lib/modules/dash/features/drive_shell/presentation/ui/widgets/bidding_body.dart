@@ -4,6 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:drivio_driver/modules/commons/all.dart';
 import 'package:drivio_driver/modules/dash/features/drive_shell/presentation/logic/controller/drive_shell_controller.dart';
+import 'package:drivio_driver/modules/dash/features/drive_shell/presentation/ui/widgets/sheet_skeleton.dart';
+import 'package:drivio_driver/modules/marketplace/features/feed/presentation/logic/controller/marketplace_controller.dart';
 import 'package:drivio_driver/modules/trip/features/ride_request/presentation/logic/controller/ride_request_controller.dart';
 
 /// Bottom-sheet body shown in [ShellMode.bidding].
@@ -20,16 +22,15 @@ class BiddingBody extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final RideRequestState state =
-        ref.watch(rideRequestControllerProvider(requestId));
-    final RideRequestController c =
-        ref.read(rideRequestControllerProvider(requestId).notifier);
+    final RideRequestState state = ref.watch(
+      rideRequestControllerProvider(requestId),
+    );
+    final RideRequestController c = ref.read(
+      rideRequestControllerProvider(requestId).notifier,
+    );
 
     if (state.isLoading) {
-      return const SizedBox(
-        height: 200,
-        child: Center(child: CircularProgressIndicator()),
-      );
+      return const SheetSkeleton.bidding();
     }
     if (state.request == null) {
       return _ErrorPanel(
@@ -42,7 +43,8 @@ class BiddingBody extends ConsumerWidget {
     // SCR-022 — once the bid is placed, the composer gives way to the
     // dark waiting sheet. won/lost are brief transitional states the
     // shell navigates away from, so they ride the same waiting visual.
-    final bool waiting = state.phase == BidPhase.waiting ||
+    final bool waiting =
+        state.phase == BidPhase.waiting ||
         state.phase == BidPhase.won ||
         state.phase == BidPhase.lost;
     if (waiting) {
@@ -81,8 +83,16 @@ class BiddingBody extends ConsumerWidget {
           _ActionRow(
             state: state,
             controller: c,
-            onDecline: () =>
-                ref.read(driveShellControllerProvider.notifier).exitBidding(),
+            onDecline: () {
+              // Drop the declined request from the nearby feed so the
+              // driver lands back on a clean home shell, not the same
+              // card they just declined.
+              final String? id = state.requestId;
+              if (id != null) {
+                ref.read(marketplaceControllerProvider.notifier).dismiss(id);
+              }
+              ref.read(driveShellControllerProvider.notifier).exitBidding();
+            },
           ),
         ],
       ),
@@ -157,8 +167,9 @@ class _WaitingBody extends StatelessWidget {
                     value: state.progressPct.clamp(0.0, 1.0),
                     strokeWidth: 3,
                     backgroundColor: AppColors.ivory.withValues(alpha: 0.10),
-                    valueColor:
-                        const AlwaysStoppedAnimation<Color>(AppColors.coral),
+                    valueColor: const AlwaysStoppedAnimation<Color>(
+                      AppColors.coral,
+                    ),
                   ),
                 ),
                 Column(
@@ -174,8 +185,9 @@ class _WaitingBody extends StatelessWidget {
                     const SizedBox(height: 2),
                     Text(
                       'BID IN',
-                      style: AppTextStyles.eyebrow
-                          .copyWith(color: AppColors.coral),
+                      style: AppTextStyles.eyebrow.copyWith(
+                        color: AppColors.coral,
+                      ),
                     ),
                   ],
                 ),
@@ -196,8 +208,8 @@ class _WaitingBody extends StatelessWidget {
             state.phase == BidPhase.won
                 ? 'You won — loading your trip…'
                 : state.phase == BidPhase.lost
-                    ? 'Another driver was picked.'
-                    : 'Waiting for the rider to choose.',
+                ? 'Another driver was picked.'
+                : 'Waiting for the rider to choose.',
             style: AppTextStyles.bodySm.copyWith(
               color: AppColors.ivory.withValues(alpha: 0.72),
             ),
@@ -343,7 +355,9 @@ class _RouteRow extends StatelessWidget {
                   SizedBox(
                     height: 26,
                     child: VerticalDivider(
-                        color: context.borderStrong, thickness: 2),
+                      color: context.borderStrong,
+                      thickness: 2,
+                    ),
                   ),
                   Container(
                     width: 10,
@@ -480,7 +494,8 @@ class _FareCardState extends State<_FareCard> {
           child: _PriceField(
             controller: _ctrl,
             focusNode: _focus,
-            editable: state.variant == PricingVariant.type &&
+            editable:
+                state.variant == PricingVariant.type &&
                 state.phase == BidPhase.composing,
             onChanged: (String value) {
               final int? n = int.tryParse(value);
@@ -626,9 +641,7 @@ class _VariantSwitcher extends StatelessWidget {
                   decoration: BoxDecoration(
                     color: isActive ? context.surface : Colors.transparent,
                     borderRadius: BorderRadius.circular(6),
-                    border: isActive
-                        ? Border.all(color: context.border)
-                        : null,
+                    border: isActive ? Border.all(color: context.border) : null,
                   ),
                   alignment: Alignment.center,
                   child: Text(
@@ -665,31 +678,32 @@ class _TypeKeys extends StatelessWidget {
       opacity: disabled ? 0.55 : 1,
       child: Row(
         children: deltas
-            .map((int d) => Expanded(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 3),
-                    child: GestureDetector(
-                      onTap:
-                          disabled ? null : () => onChanged(priceNaira + d),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                        decoration: BoxDecoration(
-                          color: context.surface2,
-                          borderRadius: BorderRadius.circular(10),
-                          border: Border.all(color: context.border),
-                        ),
-                        alignment: Alignment.center,
-                        child: Text(
-                          d > 0 ? '+$d' : '$d',
-                          style: AppTextStyles.caption.copyWith(
-                            color: context.text,
-                            fontWeight: FontWeight.w700,
-                          ),
+            .map(
+              (int d) => Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 3),
+                  child: GestureDetector(
+                    onTap: disabled ? null : () => onChanged(priceNaira + d),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      decoration: BoxDecoration(
+                        color: context.surface2,
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: context.border),
+                      ),
+                      alignment: Alignment.center,
+                      child: Text(
+                        d > 0 ? '+$d' : '$d',
+                        style: AppTextStyles.caption.copyWith(
+                          color: context.text,
+                          fontWeight: FontWeight.w700,
                         ),
                       ),
                     ),
                   ),
-                ))
+                ),
+              ),
+            )
             .toList(),
       ),
     );
@@ -713,8 +727,7 @@ class _SliderVariant extends StatelessWidget {
             inactiveTrackColor: context.surface3,
             thumbColor: context.coral,
             trackHeight: 6,
-            overlayShape:
-                const RoundSliderOverlayShape(overlayRadius: 16),
+            overlayShape: const RoundSliderOverlayShape(overlayRadius: 16),
           ),
           child: Slider(
             value: state.priceNaira.toDouble().clamp(min, max),
@@ -731,8 +744,10 @@ class _SliderVariant extends StatelessWidget {
           children: <Widget>[
             Text(
               '60%',
-              style: AppTextStyles.mono
-                  .copyWith(fontSize: 11, color: context.textMuted),
+              style: AppTextStyles.mono.copyWith(
+                fontSize: 11,
+                color: context.textMuted,
+              ),
             ),
             Text(
               'Suggested ${NairaFormatter.format(state.suggestedNaira)}',
@@ -740,8 +755,10 @@ class _SliderVariant extends StatelessWidget {
             ),
             Text(
               '160%',
-              style: AppTextStyles.mono
-                  .copyWith(fontSize: 11, color: context.textMuted),
+              style: AppTextStyles.mono.copyWith(
+                fontSize: 11,
+                color: context.textMuted,
+              ),
             ),
           ],
         ),
