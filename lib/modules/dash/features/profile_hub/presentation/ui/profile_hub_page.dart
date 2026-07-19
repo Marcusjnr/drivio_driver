@@ -609,10 +609,7 @@ class _SettingsGroup extends StatelessWidget {
           label: 'Appearance',
           onTap: () => AppNavigation.push(AppRoutes.appearance),
         ),
-        FieldRow(
-          label: 'Help & support',
-          onTap: () => AppNavigation.push(AppRoutes.help),
-        ),
+        // Help & support moved to the Support tab in the bottom bar.
         FieldRow(
           label: 'Sign out',
           divider: false,

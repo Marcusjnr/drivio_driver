@@ -7,6 +7,7 @@ import 'package:webview_flutter/webview_flutter.dart';
 import 'package:drivio_driver/modules/commons/all.dart';
 import 'package:drivio_driver/modules/commons/data/profile_repository.dart';
 import 'package:drivio_driver/modules/commons/types/profile.dart';
+import 'package:drivio_driver/modules/dash/features/home/presentation/ui/widgets/driver_tab_bar.dart';
 
 /// In-app tawk.to live chat. Loads the hosted direct-chat page in a
 /// WebView and injects `Tawk_API.setAttributes({name, email})` so the
@@ -100,29 +101,38 @@ class _LiveChatPageState extends State<LiveChatPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: context.bg,
-      appBar: AppBar(
-        backgroundColor: context.surface,
-        foregroundColor: context.text,
-        elevation: 0,
-        title: Text(context.l10n.helpSupportLineTitle),
-        leading: IconButton(
-          icon: const Icon(Icons.close_rounded),
-          onPressed: () => AppNavigation.pop(),
-        ),
-        bottom: _loading
-            ? PreferredSize(
-                preferredSize: const Size.fromHeight(2),
-                child: LinearProgressIndicator(
-                  minHeight: 2,
-                  backgroundColor: context.surface,
-                  valueColor: AlwaysStoppedAnimation<Color>(context.accent),
-                ),
-              )
-            : null,
+    // Tab-level page: the Support tab in the bottom bar lands here, so
+    // there's no close button — the other tabs are the way out. (When
+    // reached via push from a help article, the system back still works.)
+    return ScreenScaffold(
+      bottomBar: const DriverTabBar(active: DriverTab.support),
+      child: Column(
+        children: <Widget>[
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.fromLTRB(20, 14, 20, 12),
+            decoration: BoxDecoration(
+              color: context.surface,
+              border: Border(bottom: BorderSide(color: context.border)),
+            ),
+            child: Text(
+              context.l10n.helpSupportLineTitle,
+              style: AppTextStyles.bodySm.copyWith(
+                color: context.text,
+                fontWeight: FontWeight.w700,
+                fontSize: 16,
+              ),
+            ),
+          ),
+          if (_loading)
+            LinearProgressIndicator(
+              minHeight: 2,
+              backgroundColor: context.surface,
+              valueColor: AlwaysStoppedAnimation<Color>(context.accent),
+            ),
+          Expanded(child: WebViewWidget(controller: _controller)),
+        ],
       ),
-      body: WebViewWidget(controller: _controller),
     );
   }
 }
