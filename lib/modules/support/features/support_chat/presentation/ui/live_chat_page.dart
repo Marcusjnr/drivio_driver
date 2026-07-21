@@ -22,11 +22,22 @@ class LiveChatPage extends StatefulWidget {
   State<LiveChatPage> createState() => _LiveChatPageState();
 }
 
-class _LiveChatPageState extends State<LiveChatPage> {
+class _LiveChatPageState extends State<LiveChatPage>
+    with SingleTickerProviderStateMixin {
   late final WebViewController _controller;
   bool _loading = true;
   bool _identified = false;
+  // The veil keeps painting (and bouncing) through its fade-out; only
+  // once the fade ends does it stop existing.
+  bool _veilGone = false;
   Profile? _profile;
+
+  /// Gentle bounce for the loading wordmark — up-and-down on an
+  /// ease-in-out, like the mark is idling at a traffic light.
+  late final AnimationController _bounceCtrl = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 650),
+  )..repeat(reverse: true);
 
   @override
   void initState() {
@@ -67,6 +78,12 @@ class _LiveChatPageState extends State<LiveChatPage> {
         ),
       )
       ..loadRequest(Uri.parse(LiveChatPage._chatUrl));
+  }
+
+  @override
+  void dispose() {
+    _bounceCtrl.dispose();
+    super.dispose();
   }
 
   /// Runs once both the page and the profile are in. Handles tawk's two
@@ -124,13 +141,60 @@ class _LiveChatPageState extends State<LiveChatPage> {
               ),
             ),
           ),
-          if (_loading)
-            LinearProgressIndicator(
-              minHeight: 2,
-              backgroundColor: context.surface,
-              valueColor: AlwaysStoppedAnimation<Color>(context.accent),
+          Expanded(
+            child: Stack(
+              children: <Widget>[
+                WebViewWidget(controller: _controller),
+                // Branded loading veil: the Drivio wordmark bouncing
+                // gently until the chat page is in. Fades out over the
+                // webview once loaded, then stops painting entirely.
+                IgnorePointer(
+                  ignoring: true,
+                  child: AnimatedOpacity(
+                    opacity: _loading ? 1 : 0,
+                    duration: const Duration(milliseconds: 350),
+                    onEnd: () {
+                      if (!_loading && mounted) {
+                        _bounceCtrl.stop();
+                        setState(() => _veilGone = true);
+                      }
+                    },
+                    child: !_veilGone
+                        ? ColoredBox(
+                            color: context.bg,
+                            child: Center(
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: <Widget>[
+                                  AnimatedBuilder(
+                                    animation: _bounceCtrl,
+                                    builder: (BuildContext _, Widget? child) {
+                                      final double t = Curves.easeInOut
+                                          .transform(_bounceCtrl.value);
+                                      return Transform.translate(
+                                        offset: Offset(0, -14 * t),
+                                        child: child,
+                                      );
+                                    },
+                                    child: const BrandMark(size: 44),
+                                  ),
+                                  const SizedBox(height: 18),
+                                  Text(
+                                    'Connecting you to support…',
+                                    style: AppTextStyles.bodySm.copyWith(
+                                      color: context.textDim,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          )
+                        : const SizedBox.shrink(),
+                  ),
+                ),
+              ],
             ),
-          Expanded(child: WebViewWidget(controller: _controller)),
+          ),
         ],
       ),
     );

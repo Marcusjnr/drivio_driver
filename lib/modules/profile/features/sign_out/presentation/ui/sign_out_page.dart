@@ -6,6 +6,7 @@ import 'package:drivio_driver/modules/commons/all.dart';
 import 'package:drivio_driver/modules/commons/data/profile_repository.dart';
 import 'package:drivio_driver/modules/commons/widgets/detail_scaffold.dart';
 import 'package:drivio_driver/modules/dash/features/home/presentation/logic/controller/home_controller.dart';
+import 'package:drivio_driver/modules/dash/features/home/presentation/logic/controller/presence_controller.dart';
 
 class SignOutPage extends ConsumerStatefulWidget {
   const SignOutPage({super.key});
@@ -27,6 +28,10 @@ class _SignOutPageState extends ConsumerState<SignOutPage> {
 
     setState(() => _isLoading = true);
     try {
+      // Presence first: marks the driver offline server-side and clears
+      // the device's intended-online flag, so the NEXT account on this
+      // phone can never inherit "online".
+      await ref.read(presenceControllerProvider.notifier).stopStreaming();
       // Push token must go before signOut — the delete RPC needs the JWT.
       await locator<PushService>().unregisterDevice();
       await ref.read(mutationQueueProvider.notifier).clearAll();
@@ -108,6 +113,10 @@ class _SignOutPageState extends ConsumerState<SignOutPage> {
       await locator<ProfileRepository>().requestAccountDeletion();
       // Clear queued mutations & sign out so the auth listener routes the
       // user back to the welcome page.
+      // Presence first: marks the driver offline server-side and clears
+      // the device's intended-online flag, so the NEXT account on this
+      // phone can never inherit "online".
+      await ref.read(presenceControllerProvider.notifier).stopStreaming();
       // Push token must go before signOut — the delete RPC needs the JWT.
       await locator<PushService>().unregisterDevice();
       await ref.read(mutationQueueProvider.notifier).clearAll();

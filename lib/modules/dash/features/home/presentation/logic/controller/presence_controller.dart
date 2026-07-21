@@ -97,6 +97,12 @@ class PresenceController extends StateNotifier<PresenceState> {
   /// the foreground service kept running). Drives [reconcileOnStart].
   static const String _intendedOnlineKey = 'presence_intended_online';
 
+  /// Which auth user the intended-online flag belongs to. The flag is
+  /// device-local; without this binding, signing out and signing in as a
+  /// DIFFERENT driver on the same phone would silently inherit "online"
+  /// — bypassing every eligibility gate.
+  static const String _intendedOnlineUidKey = 'presence_intended_online_uid';
+
   /// Asks for location permission, then starts background-capable
   /// streaming. Returns true on success.
   ///
@@ -209,6 +215,17 @@ class PresenceController extends StateNotifier<PresenceState> {
     }
     final SharedPreferences prefs = await SharedPreferences.getInstance();
     if (!(prefs.getBool(_intendedOnlineKey) ?? false)) {
+      return false;
+    }
+    // The flag must belong to the CURRENTLY signed-in driver. A stale
+    // flag from a previous account on this device is cleared, never
+    // honoured — otherwise an unverified driver could inherit "online".
+    final String? currentUid =
+        locator<SupabaseModule>().auth.currentUser?.id;
+    final String? flagUid = prefs.getString(_intendedOnlineUidKey);
+    if (currentUid == null || flagUid != currentUid) {
+      await _setIntendedOnline(false);
+      await _bg.stop();
       return false;
     }
     _vehicleId = vehicleId;
@@ -419,6 +436,14 @@ class PresenceController extends StateNotifier<PresenceState> {
     try {
       final SharedPreferences prefs = await SharedPreferences.getInstance();
       await prefs.setBool(_intendedOnlineKey, value);
+      if (value) {
+        final String? uid = locator<SupabaseModule>().auth.currentUser?.id;
+        if (uid != null) {
+          await prefs.setString(_intendedOnlineUidKey, uid);
+        }
+      } else {
+        await prefs.remove(_intendedOnlineUidKey);
+      }
     } catch (_) {
       // Non-fatal: worst case the online state isn't restored on reopen.
     }

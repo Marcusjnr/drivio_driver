@@ -1,19 +1,20 @@
+import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-import 'package:drivio_driver/modules/commons/config/env.dart';
+import 'package:drivio_driver/modules/commons/config/config.dart';
+import 'package:drivio_driver/modules/commons/di/di.dart';
 import 'package:drivio_driver/modules/commons/logging/app_logger.dart';
 import 'package:drivio_driver/modules/commons/supabase/supabase_module.dart';
 
-/// Offline dev shortcut. OFF by default: every build sends a real Termii
-/// SMS OTP. Set `OTP_DEV_BYPASS=true` in `.env` ONLY when you want to
-/// develop offline without spending SMS credits — then the hardcoded
-/// `123456` code is accepted and no SMS goes out. Never enable it in a
-/// shipped build.
+/// Dev OTP shortcut. In any non-release build (debug/profile) — and on
+/// release builds of the STAGING flavor — the hardcoded `123456` code is
+/// accepted and no SMS goes out, so development and internal testing
+/// never spend SMS credits. Release builds of the PROD flavor always go
+/// through the real Termii integration.
 const String kDevOtpCode = '123456';
 
-/// True only when the [kDevOtpCode] shortcut is explicitly enabled via
-/// the `OTP_DEV_BYPASS` env flag. Defaults to false → real Termii OTP.
-bool otpDevModeEnabled() => Env.otpDevBypass;
+/// True when the [kDevOtpCode] shortcut is honoured (no real SMS).
+bool otpDevModeEnabled() => !kReleaseMode || locator<Config>().isStaging;
 
 /// Thrown when an OTP send fails for a reason worth showing the driver.
 class OtpSendException implements Exception {

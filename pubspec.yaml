@@ -1,7 +1,7 @@
 name: drivio_driver
 description: Drivio Driver — marketplace driver app.
 publish_to: 'none'
-version: 1.0.0+4
+version: 1.0.0+5
 
 environment:
   sdk: ^3.11.0

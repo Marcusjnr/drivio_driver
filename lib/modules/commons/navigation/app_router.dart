@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:drivio_driver/modules/authentication/features/otp/presentation/ui/otp_page.dart';
 import 'package:drivio_driver/modules/authentication/features/sign_in/presentation/ui/sign_in_page.dart';
 import 'package:drivio_driver/modules/authentication/features/sign_up/presentation/ui/sign_up_page.dart';
+import 'package:drivio_driver/modules/authentication/features/sign_up/presentation/ui/waitlist_lookup_page.dart';
 import 'package:drivio_driver/modules/authentication/features/welcome/presentation/ui/welcome_page.dart';
 import 'package:drivio_driver/modules/commons/navigation/app_routes.dart';
 import 'package:drivio_driver/modules/dash/features/add_vehicle/presentation/ui/add_vehicle_page.dart';
@@ -65,6 +66,8 @@ class AppRouter {
         return (BuildContext _) => const SignInPage();
       case AppRoutes.signUp:
         return (BuildContext _) => const SignUpPage();
+      case AppRoutes.waitlistLookup:
+        return (BuildContext _) => const WaitlistLookupPage();
       case AppRoutes.otp:
         return (BuildContext _) => const OtpPage();
       case AppRoutes.paywall:

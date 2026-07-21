@@ -37,6 +37,7 @@ class _SignUpPageState extends ConsumerState<SignUpPage> {
 
   bool _showPassword = false;
   bool _completingProfile = false;
+  bool _waitlistPrefillDone = false;
 
   @override
   void initState() {
@@ -84,6 +85,39 @@ class _SignUpPageState extends ConsumerState<SignUpPage> {
     }
   }
 
+  /// Waitlist prefill: the lookup page hands over the details it found
+  /// so the form arrives already filled in (all still editable). Route
+  /// arguments aren't readable in initState, so this runs from the
+  /// first didChangeDependencies, exactly once.
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_waitlistPrefillDone || _completingProfile) return;
+    final Object? args = ModalRoute.of(context)?.settings.arguments;
+    if (args is! Map || args['fromWaitlist'] != 'true') return;
+    _waitlistPrefillDone = true;
+
+    final String name = (args['prefillName'] as String?)?.trim() ?? '';
+    final String email = (args['prefillEmail'] as String?)?.trim() ?? '';
+    final String digits =
+        ((args['prefillPhone'] as String?) ?? '').replaceAll(RegExp(r'\D'), '');
+    final String national = digits
+        .replaceFirst(RegExp(r'^234'), '')
+        .replaceFirst(RegExp(r'^0'), '');
+
+    if (name.isNotEmpty) _fullName.text = name;
+    if (email.isNotEmpty) _email.text = email;
+    if (national.isNotEmpty) _phone.text = national;
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final SignUpController c = ref.read(signUpControllerProvider.notifier);
+      if (name.isNotEmpty) c.onFullNameChanged(name);
+      if (email.isNotEmpty) c.onEmailChanged(email);
+      if (national.isNotEmpty) c.onPhoneChanged(national);
+    });
+  }
+
   @override
   void dispose() {
     _fullName.dispose();
@@ -92,6 +126,23 @@ class _SignUpPageState extends ConsumerState<SignUpPage> {
     _password.dispose();
     _referral.dispose();
     super.dispose();
+  }
+
+  /// Escape hatch from repair mode: abandon the half-created account's
+  /// session and start a clean sign-up. Signing out first matters —
+  /// with a live session the sign-up page would just flip back into
+  /// "Finish setting up".
+  Future<void> _onStartOver() async {
+    try {
+      await locator<SupabaseModule>().auth.signOut();
+    } catch (_) {
+      // Even a failed network sign-out clears the local session.
+    }
+    // SessionGuard reacts to signedOut by routing to Welcome; let that
+    // land first, then put the fresh sign-up form on top of it.
+    await Future<void>.delayed(const Duration(milliseconds: 80));
+    AppNavigation.replaceAll<void>(AppRoutes.welcome);
+    AppNavigation.push<void>(AppRoutes.signUp);
   }
 
   Future<void> _onContinue() async {
@@ -126,9 +177,11 @@ class _SignUpPageState extends ConsumerState<SignUpPage> {
   Widget build(BuildContext context) {
     final SignUpState state = ref.watch(signUpControllerProvider);
     final SignUpController c = ref.read(signUpControllerProvider.notifier);
-    // Pushed with `arguments: true` from the "Joined the waitlist?" link.
-    final bool fromWaitlist =
-        ModalRoute.of(context)?.settings.arguments == true;
+    // From the waitlist lookup page (prefill map) — or the legacy
+    // `arguments: true` form, kept for compatibility.
+    final Object? routeArgs = ModalRoute.of(context)?.settings.arguments;
+    final bool fromWaitlist = routeArgs == true ||
+        (routeArgs is Map && routeArgs['fromWaitlist'] == 'true');
 
     // Repair mode needs no password — the account already has one.
     final bool canSubmit = _completingProfile
@@ -143,6 +196,7 @@ class _SignUpPageState extends ConsumerState<SignUpPage> {
         isLoading: state.isLoading,
         completingProfile: _completingProfile,
         onPressed: _onContinue,
+        onStartOver: _onStartOver,
       ),
       child: SingleChildScrollView(
         padding: const EdgeInsets.fromLTRB(24, 4, 24, 16),
@@ -201,8 +255,8 @@ class _SignUpPageState extends ConsumerState<SignUpPage> {
                   ),
                 ),
                 child: Text(
-                  'Use the same phone number you joined the waitlist '
-                  "with — we'll pick up the account you started there.",
+                  'We pulled in your waitlist details — check them, '
+                  "set a password, and you're in.",
                   style: AppTextStyles.captionSm.copyWith(
                     color: context.text,
                     height: 1.5,
@@ -272,12 +326,14 @@ class _BottomBar extends StatefulWidget {
     required this.isLoading,
     required this.completingProfile,
     required this.onPressed,
+    required this.onStartOver,
   });
 
   final bool canSubmit;
   final bool isLoading;
   final bool completingProfile;
   final VoidCallback onPressed;
+  final VoidCallback onStartOver;
 
   @override
   State<_BottomBar> createState() => _BottomBarState();
@@ -349,8 +405,33 @@ class _BottomBarState extends State<_BottomBar> {
                 ),
               ),
             ),
-            if (!widget.completingProfile) ...<Widget>[
-              const SizedBox(height: 10),
+            const SizedBox(height: 10),
+            if (widget.completingProfile)
+              // Repair mode's way out: ditch the half-created account
+              // and restart sign-up from scratch.
+              Center(
+                child: GestureDetector(
+                  onTap: widget.onStartOver,
+                  child: RichText(
+                    text: TextSpan(
+                      style: AppTextStyles.bodySm.copyWith(
+                        color: context.textDim,
+                      ),
+                      children: <InlineSpan>[
+                        const TextSpan(text: 'Wrong details? '),
+                        TextSpan(
+                          text: 'Sign up again',
+                          style: AppTextStyles.bodySm.copyWith(
+                            color: context.accent,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              )
+            else
               Center(
                 child: RichText(
                   text: TextSpan(
@@ -371,7 +452,6 @@ class _BottomBarState extends State<_BottomBar> {
                   ),
                 ),
               ),
-            ],
           ],
         ),
       ),

@@ -221,8 +221,7 @@ class _WelcomePageState extends ConsumerState<WelcomePage> {
                         height: 40,
                         child: TextButton(
                           onPressed: () => AppNavigation.push(
-                            AppRoutes.signUp,
-                            arguments: true, // fromWaitlist banner
+                            AppRoutes.waitlistLookup,
                           ),
                           child: Text(
                             'Joined the waitlist? Finish setting up',
