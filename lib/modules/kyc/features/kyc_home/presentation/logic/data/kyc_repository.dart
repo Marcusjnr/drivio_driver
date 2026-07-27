@@ -18,8 +18,28 @@ class KycSnapshot {
   final bool hasVehicle;
 }
 
+/// Outcome of a server-side NIN verification (YouVerify).
+enum NinVerifyResult {
+  /// NIN found and its identity matches the driver's profile — verified.
+  verified,
+
+  /// The NIN doesn't exist / couldn't be found at NIMC.
+  notFound,
+
+  /// NIN found, but the name on it doesn't match the driver's profile.
+  mismatch,
+
+  /// Network / server / config failure — retryable.
+  error,
+}
+
 abstract class KycRepository {
   Future<KycSnapshot> loadSnapshot();
   Future<void> markStepCompleted(String step); // 'bvn' | 'nin' | 'selfie'
   Future<String?> submitForReview();
+
+  /// Verifies [nin] against NIMC via the `youverify-verify-nin` edge
+  /// function and, on a match with the driver's profile, stamps
+  /// `drivers.nin_verified_at` server-side.
+  Future<NinVerifyResult> verifyNin(String nin);
 }

@@ -16,12 +16,11 @@ class DriverTabBar extends ConsumerWidget {
     final List<_Tab> tabs = const <_Tab>[
       _Tab(id: DriverTab.drive, label: 'Drive', icon: DrivioIcons.car, route: AppRoutes.home),
       _Tab(id: DriverTab.earnings, label: 'Earnings', icon: DrivioIcons.trendingUp, route: AppRoutes.earnings),
-      // Pricing tab hidden from the bar for now — the page, route, and
-      // enum value all still work (reachable from anywhere that pushes
-      // AppRoutes.pricing). Uncomment to restore.
-      // _Tab(id: DriverTab.pricing, label: 'Pricing', icon: DrivioIcons.bolt, route: AppRoutes.pricing),
+      _Tab(id: DriverTab.pricing, label: 'Pricing', icon: DrivioIcons.bolt, route: AppRoutes.pricing),
       _Tab(id: DriverTab.support, label: 'Support', icon: DrivioIcons.chat, route: AppRoutes.supportChat),
-      _Tab(id: DriverTab.profile, label: 'Profile', icon: DrivioIcons.user, route: AppRoutes.profileHub),
+      // Profile moved to the top-left of the Drive screen — no longer a
+      // bottom-nav tab. Enum value kept so pages can still mark it active.
+      // _Tab(id: DriverTab.profile, label: 'Profile', icon: DrivioIcons.user, route: AppRoutes.profileHub),
     ];
     return Container(
       height: AppDimensions.tabBarHeight,

@@ -7,7 +7,6 @@ import 'package:drivio_driver/modules/commons/types/driver_rating.dart';
 import 'package:drivio_driver/modules/commons/types/profile.dart';
 import 'package:drivio_driver/modules/commons/types/subscription.dart';
 import 'package:drivio_driver/modules/commons/types/vehicle.dart';
-import 'package:drivio_driver/modules/dash/features/home/presentation/ui/widgets/driver_tab_bar.dart';
 import 'package:drivio_driver/modules/dash/features/profile_hub/presentation/logic/controller/profile_hub_controller.dart';
 import 'package:drivio_driver/modules/dash/features/profile_hub/presentation/ui/widgets/profile_hub_shimmer.dart';
 import 'package:drivio_driver/modules/subscription/features/paywall/presentation/logic/controller/subscription_controller.dart';
@@ -43,8 +42,9 @@ class _ProfileHubPageState extends ConsumerState<ProfileHubPage> {
       subscriptionControllerProvider,
     );
 
+    // Profile is its own pushed page now (opened from the Drive screen's
+    // top-left) — no bottom nav; a back button returns home.
     return ScreenScaffold(
-      bottomBar: const DriverTabBar(active: DriverTab.profile),
       child: RefreshIndicator(
         onRefresh: c.refresh,
         child: SingleChildScrollView(
@@ -53,6 +53,12 @@ class _ProfileHubPageState extends ConsumerState<ProfileHubPage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: <Widget>[
+              Row(
+                children: <Widget>[
+                  BackButtonBox(onTap: () => AppNavigation.pop()),
+                ],
+              ),
+              const SizedBox(height: 16),
               if (state.isLoading && state.profile == null)
                 // Shimmer skeleton matches the loaded layout 1:1 so the
                 // page doesn't reflow once data arrives.

@@ -1,5 +1,9 @@
+import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import 'package:drivio_driver/modules/commons/config/config.dart';
+import 'package:drivio_driver/modules/commons/di/di.dart';
+import 'package:drivio_driver/modules/commons/logging/app_logger.dart';
 import 'package:drivio_driver/modules/commons/supabase/supabase_module.dart';
 import 'package:drivio_driver/modules/commons/types/document.dart';
 import 'package:drivio_driver/modules/kyc/features/kyc_home/presentation/logic/data/kyc_repository.dart';
@@ -62,6 +66,39 @@ class SupabaseKycRepository implements KycRepository {
       'submit_kyc_for_review',
     );
     return res as String?;
+  }
+
+  @override
+  Future<NinVerifyResult> verifyNin(String nin) async {
+    // Real YouVerify + name match happens only on prod release builds;
+    // debug/profile and staging hit YouVerify's sandbox (fixed fake
+    // data, no name match) so onboarding can be exercised without
+    // spending real checks or failing on test identities.
+    final bool prod = kReleaseMode && !locator<Config>().isStaging;
+    try {
+      final FunctionResponse res = await _supabase.functions.invoke(
+        'youverify-verify-nin',
+        body: <String, dynamic>{
+          'nin': nin.replaceAll(RegExp(r'\D'), ''),
+          'env': prod ? 'prod' : 'staging',
+        },
+      );
+      final Object? data = res.data;
+      if (data is! Map) return NinVerifyResult.error;
+      if (data['ok'] == true) return NinVerifyResult.verified;
+      switch (data['reason']) {
+        case 'mismatch':
+          return NinVerifyResult.mismatch;
+        case 'not_found':
+        case 'bad_nin':
+          return NinVerifyResult.notFound;
+        default:
+          return NinVerifyResult.error;
+      }
+    } catch (e, st) {
+      AppLogger.w('verifyNin failed', error: e, stackTrace: st);
+      return NinVerifyResult.error;
+    }
   }
 }
 

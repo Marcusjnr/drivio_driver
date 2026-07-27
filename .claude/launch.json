@@ -36,6 +36,42 @@
       ],
       "port": 3100,
       "autoPort": true
+    },
+    {
+      "name": "globbapay-website",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "--prefix",
+        "/Users/ebube.okocha/StudioProjects/globbapay_website",
+        "run",
+        "dev"
+      ],
+      "port": 3010,
+      "autoPort": true
+    },
+    {
+      "name": "cloak-website",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "--prefix",
+        "/Users/ebube.okocha/StudioProjects/cloak_website",
+        "run",
+        "dev"
+      ],
+      "port": 3020,
+      "autoPort": true
+    },
+    {
+      "name": "globbapay-figma-capture",
+      "runtimeExecutable": "python3",
+      "runtimeArgs": [
+        "-m",
+        "http.server",
+        "3055",
+        "--directory",
+        "/private/tmp/claude-502/-Users-ebube-okocha-StudioProjects-drivio-driver/42a35513-4c81-429c-8763-f712588147fd/scratchpad/figma-capture"
+      ],
+      "port": 3055
     }
   ]
 }

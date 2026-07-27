@@ -3,11 +3,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:drivio_driver/modules/commons/di/di.dart';
 import 'package:drivio_driver/modules/kyc/features/kyc_home/presentation/logic/data/kyc_repository.dart';
 
-/// NIN verification (NIMC). Identity is NIN-only — BVN was dropped from
-/// the KYC flow. `verify` is a dev stub today: it stamps the step
-/// completed so the flow can be exercised end to end. The real NIMC
-/// lookup API replaces the repo call when it lands; admins never approve
-/// this step by hand.
+/// NIN verification (NIMC via YouVerify). Identity is NIN-only — BVN was
+/// dropped from the KYC flow. `verify` runs a server-side YouVerify
+/// lookup that also checks the NIN's identity matches the driver's
+/// profile name, and stamps `drivers.nin_verified_at` only on a match.
+/// Admins never approve this step by hand.
 class NinState {
   const NinState({
     this.value = '',
@@ -52,17 +52,34 @@ class NinController extends StateNotifier<NinState> {
   Future<bool> verify() async {
     if (!state.hasValidNumber) return false;
     state = state.copyWith(isVerifying: true, clearError: true);
-    try {
-      await _repo.markStepCompleted('nin');
-      // Success: stay verifying — the page refreshes KYC and pops.
-      state = state.copyWith(completed: true);
-      return true;
-    } catch (_) {
-      state = state.copyWith(
-        isVerifying: false,
-        error: "Couldn't verify. Double-check your NIN and try again.",
-      );
-      return false;
+
+    final NinVerifyResult result = await _repo.verifyNin(state.value);
+    switch (result) {
+      case NinVerifyResult.verified:
+        // Success: stay verifying — the page refreshes KYC and pops.
+        state = state.copyWith(completed: true);
+        return true;
+      case NinVerifyResult.mismatch:
+        state = state.copyWith(
+          isVerifying: false,
+          error: "The details on your NIN don't match your profile. "
+              'Contact support to get this sorted.',
+        );
+        return false;
+      case NinVerifyResult.notFound:
+        state = state.copyWith(
+          isVerifying: false,
+          error: "We couldn't find that NIN. Double-check the number "
+              'and try again.',
+        );
+        return false;
+      case NinVerifyResult.error:
+        state = state.copyWith(
+          isVerifying: false,
+          error: "Couldn't verify right now. Check your connection "
+              'and try again.',
+        );
+        return false;
     }
   }
 }

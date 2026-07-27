@@ -1,6 +1,8 @@
+import 'package:geolocator/geolocator.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'package:drivio_driver/modules/commons/data/pricing_repository.dart';
+import 'package:drivio_driver/modules/commons/logging/app_logger.dart';
 import 'package:drivio_driver/modules/commons/supabase/supabase_module.dart';
 import 'package:drivio_driver/modules/commons/types/pricing_profile.dart';
 
@@ -10,12 +12,46 @@ class SupabasePricingRepository implements PricingRepository {
   final SupabaseModule _supabase;
 
   @override
-  Future<PricingProfile> getOrCreateMyProfile() async {
+  Future<PricingProfile> getOrCreateMyProfile({String? state}) async {
+    final String? trimmed = state?.trim();
     final List<dynamic> rows = await _supabase.client.rpc<dynamic>(
       'get_or_create_my_pricing_profile',
+      params: <String, dynamic>{
+        if (trimmed != null && trimmed.isNotEmpty) 'p_state': trimmed,
+      },
     ) as List<dynamic>;
     if (rows.isEmpty) return PricingProfile.platformDefault;
     return PricingProfile.fromJson(rows.first as Map<String, dynamic>);
+  }
+
+  @override
+  Future<String?> resolveMyState() async {
+    try {
+      // Use only the cached fix — this runs on the Pricing screen and must
+      // never pop a permission dialog. Drivers who have gone online will
+      // have a recent fix; anyone else falls through to the national
+      // default, which is the correct behaviour.
+      final Position? last = await Geolocator.getLastKnownPosition();
+      if (last == null) return null;
+
+      final FunctionResponse res = await _supabase.functions.invoke(
+        'reverse-state',
+        body: <String, dynamic>{
+          'lat': last.latitude,
+          'lng': last.longitude,
+        },
+      );
+      final Object? data = res.data;
+      if (data is! Map) return null;
+      final Object? state = data['state'];
+      if (state is! String) return null;
+      final String trimmed = state.trim();
+      return trimmed.isEmpty ? null : trimmed;
+    } catch (e, st) {
+      // Any failure just means we seed from the national default.
+      AppLogger.w('resolveMyState failed', error: e, stackTrace: st);
+      return null;
+    }
   }
 
   @override

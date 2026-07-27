@@ -979,6 +979,13 @@ class _DriveShellPageState extends ConsumerState<DriveShellPage>
         // mockups), and the bell.
         return Row(
           children: <Widget>[
+            // Profile lives here now (top-left), mirroring the bell on
+            // the right — it was removed from the bottom nav.
+            IconCircleButton(
+              icon: DrivioIcons.user,
+              onTap: () => AppNavigation.push(AppRoutes.profileHub),
+            ),
+            const SizedBox(width: 10),
             const BrandMark(size: 20),
             const SizedBox(width: 10),
             if (home.isOnline) const _OnlineStatusPill(),

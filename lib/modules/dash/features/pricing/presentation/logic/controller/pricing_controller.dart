@@ -54,7 +54,13 @@ class PricingController extends StateNotifier<PricingState> {
 
   Future<void> _hydrate() async {
     try {
-      final PricingProfile p = await _repo.getOrCreateMyProfile();
+      // Resolve the driver's state first so a brand-new profile seeds from
+      // the local default (base fare + per-km) rather than the national
+      // one. Best-effort: null just means "use the national default", and
+      // it never overwrites a driver who has already set their price.
+      final String? resolvedState = await _repo.resolveMyState();
+      final PricingProfile p =
+          await _repo.getOrCreateMyProfile(state: resolvedState);
       if (!mounted) return;
       state = state.copyWith(profile: p, isLoading: false);
     } catch (_) {
