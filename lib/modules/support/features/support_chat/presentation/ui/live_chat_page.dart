@@ -97,6 +97,8 @@ class _LiveChatPageState extends State<LiveChatPage>
     final Map<String, String> attrs = <String, String>{
       'name': p.fullName,
       if (p.email != null && p.email!.isNotEmpty) 'email': p.email!,
+      // Tags the visitor so support can tell drivers from riders.
+      'role': 'driver',
     };
     final String js = '''
 (function () {

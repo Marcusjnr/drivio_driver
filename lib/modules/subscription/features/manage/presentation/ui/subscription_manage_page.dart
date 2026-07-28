@@ -35,6 +35,16 @@ class _SubscriptionManagePageState
   Future<void> _confirmPause(BuildContext context, WidgetRef ref) async {
     final SubscriptionState s = ref.read(subscriptionControllerProvider);
     final int? days = s.subscription?.daysRemaining;
+    final int pauseLeft = s.subscription?.pauseDaysLeft ?? 0;
+    final String frozenLine = days == null
+        ? "Your paid days will stop counting. You won't be able to go "
+              'online until you resume.'
+        : "Your remaining $days day${days == 1 ? '' : 's'} freezes while "
+              "paused. You won't be able to go online until you resume.";
+    final String capLine =
+        'You have $pauseLeft pause day${pauseLeft == 1 ? '' : 's'} left this '
+        "cycle. You'll resume automatically when they run out, and you can "
+        'resume sooner anytime.';
     final bool? ok = await showDialog<bool>(
       context: context,
       builder: (BuildContext ctx) => AlertDialog(
@@ -48,12 +58,7 @@ class _SubscriptionManagePageState
           style: AppTextStyles.h2.copyWith(color: context.text),
         ),
         content: Text(
-          days == null
-              ? "Your paid days will stop counting. You won't be able to "
-                    'go online until you resume.'
-              : "Your remaining $days day${days == 1 ? '' : 's'} freezes "
-                    "until you resume. You won't be able to go online "
-                    'while paused.',
+          '$frozenLine\n\n$capLine',
           style: AppTextStyles.bodySm.copyWith(color: context.textDim),
         ),
         actions: <Widget>[
@@ -189,7 +194,10 @@ class _SubscriptionManagePageState
               ],
               if (sub.isPaused) ...<Widget>[
                 const SizedBox(height: 12),
-                _PausedBanner(daysLeft: sub.subscription?.daysRemaining),
+                _PausedBanner(
+                  pauseDaysLeft: sub.subscription?.pauseDaysLeft ?? 0,
+                  frozenDays: sub.subscription?.daysRemaining,
+                ),
               ],
               if (sub.subscription != null) ...<Widget>[
                 const SizedBox(height: 14),
@@ -280,7 +288,9 @@ class _PlanCard extends StatelessWidget {
         _statusPill(sub?.status);
 
     final DateTime? periodStart = sub?.currentPeriodStart;
-    final DateTime? periodEnd = sub?.currentPeriodEnd ?? sub?.trialEndsAt;
+    // Use the pause-extended end so the progress bar, days-left, and the
+    // "resumes {date}" line all agree while paused.
+    final DateTime? periodEnd = sub?.effectivePeriodEnd ?? sub?.trialEndsAt;
     final double progress = _periodProgress(periodStart, periodEnd);
     final int? daysLeft = sub?.daysRemaining;
 
@@ -533,12 +543,24 @@ class _PendingSwitchBanner extends StatelessWidget {
 // ── Pause / resume controls ────────────────────────────────────────────
 
 class _PausedBanner extends StatelessWidget {
-  const _PausedBanner({required this.daysLeft});
+  const _PausedBanner({required this.pauseDaysLeft, required this.frozenDays});
 
-  final int? daysLeft;
+  /// Pause-days still available before the subscription auto-resumes.
+  final int pauseDaysLeft;
+
+  /// Paid days remaining, frozen while paused.
+  final int? frozenDays;
 
   @override
   Widget build(BuildContext context) {
+    final String title = pauseDaysLeft > 0
+        ? 'Paused · $pauseDaysLeft pause-day'
+              '${pauseDaysLeft == 1 ? '' : 's'} left'
+        : 'Paused';
+    final String frozen = frozenDays == null
+        ? ''
+        : ' Your $frozenDays paid day${frozenDays == 1 ? '' : 's'} '
+              'are frozen.';
     return Container(
       padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
       decoration: BoxDecoration(
@@ -560,10 +582,7 @@ class _PausedBanner extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: <Widget>[
                 Text(
-                  daysLeft == null
-                      ? 'Subscription paused'
-                      : '$daysLeft day${daysLeft == 1 ? '' : 's'} '
-                            'frozen',
+                  title,
                   style: AppTextStyles.bodySm.copyWith(
                     color: context.text,
                     fontWeight: FontWeight.w700,
@@ -571,8 +590,9 @@ class _PausedBanner extends StatelessWidget {
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  "You can't go online or accept rides until you resume. "
-                  'Paid days resume from where they left off.',
+                  "You can't go online or accept rides while paused.$frozen "
+                  "Resume anytime, or you'll resume automatically when your "
+                  'pause days run out.',
                   style: AppTextStyles.captionSm
                       .copyWith(color: context.textDim, height: 1.4),
                 ),
@@ -598,6 +618,7 @@ class _PauseResumeButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final Subscription? s = sub.subscription;
     if (sub.isPaused) {
       return DrivioButton(
         label: sub.isMutating ? 'Resuming…' : 'Resume subscription',
@@ -608,25 +629,58 @@ class _PauseResumeButton extends StatelessWidget {
       if (sub.isTrialing) {
         // Trials can't pause — say so quietly instead of leaving the
         // driver hunting for a button other drivers talk about.
-        return Center(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 4),
-            child: Text(
-              'Pause becomes available once your free trial ends.',
-              textAlign: TextAlign.center,
-              style: AppTextStyles.captionSm.copyWith(color: context.textDim),
-            ),
-          ),
+        return _hint(
+          context,
+          'Pause becomes available once your free trial ends.',
         );
       }
-      // Past-due / cancelled / expired — no point offering pause; the
-      // paywall flow is the right action.
+      // Ran out of pause days this cycle: the plan supports pausing, the
+      // driver is active again, but the cumulative allowance is spent.
+      if (s != null &&
+          s.pausablePlan &&
+          s.effectiveStatus == SubscriptionStatus.active &&
+          s.pauseExhausted) {
+        final int cap = s.maxPauseDays ?? 0;
+        return _hint(
+          context,
+          "You've used all $cap pause day${cap == 1 ? '' : 's'} this cycle. "
+          'Pausing is available again when your plan renews.',
+        );
+      }
+      // Non-pausable plan (Daily/Weekly) or past-due/cancelled/expired —
+      // no pause control; the paywall flow is the right action.
       return const SizedBox.shrink();
     }
-    return DrivioButton(
-      label: sub.isMutating ? 'Pausing…' : 'Pause subscription',
-      variant: DrivioButtonVariant.ghost,
-      onPressed: sub.isMutating ? null : onPause,
+    final int left = s?.pauseDaysLeft ?? 0;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: <Widget>[
+        DrivioButton(
+          label: sub.isMutating ? 'Pausing…' : 'Pause subscription',
+          variant: DrivioButtonVariant.ghost,
+          onPressed: sub.isMutating ? null : onPause,
+        ),
+        const SizedBox(height: 6),
+        Text(
+          'You can pause for up to $left more day${left == 1 ? '' : 's'} '
+          'this cycle.',
+          textAlign: TextAlign.center,
+          style: AppTextStyles.captionSm.copyWith(color: context.textDim),
+        ),
+      ],
+    );
+  }
+
+  Widget _hint(BuildContext context, String text) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 4),
+        child: Text(
+          text,
+          textAlign: TextAlign.center,
+          style: AppTextStyles.captionSm.copyWith(color: context.textDim),
+        ),
+      ),
     );
   }
 }

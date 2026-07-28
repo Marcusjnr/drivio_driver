@@ -292,6 +292,12 @@ const Map<String, String> _knownCodes = <String, String>{
   'trial_not_pausable':
       "Free trials can't be paused — pause becomes available once your "
           'trial ends.',
+  'not_pausable':
+      "Pausing isn't available on this plan. Only the Monthly plan can "
+          'be paused.',
+  'pause_exhausted':
+      "You've used all your pause days this cycle. Pausing is available "
+          'again when your plan renews.',
 
   // Wallet / payments.
   'insufficient_balance':

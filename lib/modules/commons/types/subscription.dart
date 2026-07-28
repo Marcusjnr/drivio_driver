@@ -202,6 +202,8 @@ class Subscription {
     this.currentPeriodStart,
     this.currentPeriodEnd,
     this.pausedAt,
+    this.pauseSecondsUsed = 0,
+    this.maxPauseDays,
     this.paystackSubscriptionCode,
   });
 
@@ -218,10 +220,71 @@ class Subscription {
   final DateTime? currentPeriodStart;
   final DateTime? currentPeriodEnd;
   final DateTime? pausedAt;
+
+  /// Cumulative *finalized* paused time this period, in seconds. The paid
+  /// clock is extended by this (capped at [maxPauseDays]); it resets to 0
+  /// when a new period begins. See the pause-cap design doc.
+  final int pauseSecondsUsed;
+
+  /// The plan's pause allowance in days (embedded from `subscription_plans`).
+  /// Null/0 means the plan can't be paused (Daily/Weekly); Monthly = 14.
+  final int? maxPauseDays;
+
   final String? paystackSubscriptionCode;
   final DateTime createdAt;
 
   bool get hasPendingSwitch => pendingPlanId != null;
+
+  static const int _secondsPerDay = 86400;
+
+  /// Pause allowance for this period in seconds (0 when not pausable).
+  int get _capSeconds => (maxPauseDays ?? 0) * _secondsPerDay;
+
+  /// Seconds of the *current* (in-progress) pause that still count against
+  /// the cap. Zero when not paused or when the allowance is already spent.
+  int get _inProgressPauseSeconds {
+    final DateTime? started = pausedAt;
+    if (started == null) return 0;
+    final int remaining = _capSeconds - pauseSecondsUsed;
+    if (remaining <= 0) return 0;
+    final int elapsed = DateTime.now().difference(started).inSeconds;
+    if (elapsed <= 0) return 0;
+    return elapsed < remaining ? elapsed : remaining;
+  }
+
+  /// Total paused time the paid clock is extended by (finalized +
+  /// in-progress), never more than the cap.
+  int get _effectivePauseSeconds {
+    final int total = pauseSecondsUsed + _inProgressPauseSeconds;
+    return total < _capSeconds ? total : _capSeconds;
+  }
+
+  /// Period end with the pause extension folded in. This is the single
+  /// value gating, countdown, and expiry all derive from (Model B).
+  DateTime? get effectivePeriodEnd {
+    final DateTime? base = currentPeriodEnd;
+    if (base == null) return null;
+    return base.add(Duration(seconds: _effectivePauseSeconds));
+  }
+
+  /// True once the cumulative pause allowance for this period is spent — the
+  /// subscription has "auto-resumed" even if the row still reads paused.
+  bool get pauseExhausted {
+    if (_capSeconds <= 0) return true;
+    return (pauseSecondsUsed + _inProgressPauseSeconds) >= _capSeconds;
+  }
+
+  /// This plan supports pausing at all (Monthly). Daily/Weekly do not.
+  bool get pausablePlan => (maxPauseDays ?? 0) > 0;
+
+  /// Whole pause-days still available this period (rounded up so a partial
+  /// last day still reads as "1 day left"). Zero when spent or not pausable.
+  int get pauseDaysLeft {
+    if (_capSeconds <= 0) return 0;
+    final int left = _capSeconds - pauseSecondsUsed - _inProgressPauseSeconds;
+    if (left <= 0) return 0;
+    return (left / _secondsPerDay).ceil();
+  }
 
   /// Grace window after a paid period lapses before hard-blocking. The
   /// server derives the real value from the plan's grace_seconds; this
@@ -257,6 +320,19 @@ class Subscription {
         }
         return status;
       case SubscriptionStatus.paused:
+        // Derived auto-resume: once the cumulative pause allowance is spent
+        // the paid clock resumes counting against the pause-extended period
+        // end. Nothing flips the row — this is derivation, not an event.
+        if (pauseExhausted) {
+          final DateTime? end = effectivePeriodEnd;
+          if (end == null) return SubscriptionStatus.active;
+          if (end.add(_defaultGrace).isBefore(now)) {
+            return SubscriptionStatus.expired;
+          }
+          if (end.isBefore(now)) return SubscriptionStatus.pastDue;
+          return SubscriptionStatus.active;
+        }
+        return SubscriptionStatus.paused;
       case SubscriptionStatus.cancelled:
       case SubscriptionStatus.expired:
         return status;
@@ -266,17 +342,23 @@ class Subscription {
   /// Gating conveniences — always derived, never the raw stored status.
   bool get unlocksMarketplace => effectiveStatus.unlocksMarketplace;
   bool get isHardBlocked => effectiveStatus.isHardBlocked;
-  bool get canPause => effectiveStatus.canPause;
+
+  /// Pause is offered only on a running, pausable (Monthly) plan that still
+  /// has allowance left this period. Cumulative: a driver can pause, resume
+  /// early, and pause again until [maxPauseDays] days are used.
+  bool get canPause =>
+      effectiveStatus == SubscriptionStatus.active &&
+      pausablePlan &&
+      pauseSecondsUsed < _capSeconds;
 
   /// Days remaining in the current period (or trial). Null if no period set.
-  /// Frozen at the value captured when the driver paused — the server
-  /// shifts the period endpoints forward on resume so this number is
-  /// preserved across pauses without any client-side fudge.
+  /// Derived from [effectivePeriodEnd], so it naturally freezes while paused
+  /// (the pause extension grows in lock-step with elapsed time) and resumes
+  /// counting down once the pause allowance is spent.
   int? get daysRemaining {
-    final DateTime? end = currentPeriodEnd ?? trialEndsAt;
+    final DateTime? end = effectivePeriodEnd ?? trialEndsAt;
     if (end == null) return null;
-    final DateTime reference = pausedAt ?? DateTime.now();
-    final Duration delta = end.difference(reference);
+    final Duration delta = end.difference(DateTime.now());
     if (delta.isNegative) return 0;
     return delta.inHours ~/ 24;
   }
@@ -287,6 +369,13 @@ class Subscription {
   factory Subscription.fromJson(Map<String, dynamic> json) {
     DateTime? parse(Object? v) =>
         v == null ? null : DateTime.parse(v as String);
+    // The plan's pause cap is embedded via PostgREST
+    // (`subscription_plans(max_pause_days)`) when present.
+    int? maxPauseDays;
+    final Object? planEmbed = json['subscription_plans'];
+    if (planEmbed is Map) {
+      maxPauseDays = (planEmbed['max_pause_days'] as num?)?.toInt();
+    }
     return Subscription(
       id: json['id'] as String,
       driverId: json['driver_id'] as String,
@@ -297,6 +386,8 @@ class Subscription {
       currentPeriodStart: parse(json['current_period_start']),
       currentPeriodEnd: parse(json['current_period_end']),
       pausedAt: parse(json['paused_at']),
+      pauseSecondsUsed: (json['pause_seconds_used'] as num?)?.toInt() ?? 0,
+      maxPauseDays: maxPauseDays,
       paystackSubscriptionCode:
           json['paystack_subscription_code'] as String?,
       createdAt: parse(json['created_at'])!,

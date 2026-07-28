@@ -14,9 +14,11 @@ class SupabaseSubscriptionRepository implements SubscriptionRepository {
     final User? user = _supabase.auth.currentUser;
     if (user == null) return null;
 
+    // Embed the plan's pause cap so the Subscription is self-contained for
+    // the pause-cap derivation (effectivePeriodEnd / pauseDaysLeft).
     final List<Map<String, dynamic>> rows = await _supabase
         .db('subscriptions')
-        .select()
+        .select('*, subscription_plans(max_pause_days)')
         .eq('driver_id', user.id)
         .order('created_at', ascending: false)
         .limit(1);

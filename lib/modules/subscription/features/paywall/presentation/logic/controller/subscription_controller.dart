@@ -92,7 +92,23 @@ class SubscriptionController extends StateNotifier<SubscriptionState> {
     }
     try {
       final List<SubscriptionPlan> plans = await _repo.listActivePlans();
-      final Subscription? sub = await _repo.getMySubscription();
+      Subscription? sub = await _repo.getMySubscription();
+
+      // No-scheduler finalization: a subscription that still reads `paused`
+      // but has spent its cumulative pause allowance has already auto-resumed
+      // (we derive that in `effectiveStatus`). Reconcile the row once so the
+      // stored status catches up with what we display and gate on. `resume`
+      // credits only the capped delta, so this can't over-extend the period.
+      if (sub != null &&
+          sub.status == SubscriptionStatus.paused &&
+          sub.effectiveStatus != SubscriptionStatus.paused) {
+        try {
+          await _repo.resumeMine();
+          sub = await _repo.getMySubscription();
+        } catch (_) {
+          // Non-fatal — derivation already presents the resumed state.
+        }
+      }
 
       // Fire once on the real transition into `active`.
       if (sub != null &&
