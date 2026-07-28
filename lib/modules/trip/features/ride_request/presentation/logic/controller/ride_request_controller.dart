@@ -13,6 +13,7 @@ import 'package:drivio_driver/modules/commons/types/pricing_profile.dart'
     show PricingProfile, PricingWindow;
 import 'package:drivio_driver/modules/commons/types/ride_bid.dart';
 import 'package:drivio_driver/modules/commons/types/ride_request.dart';
+import 'package:drivio_driver/modules/commons/types/state_price_guidance.dart';
 import 'package:drivio_driver/modules/commons/types/vehicle.dart';
 import 'package:drivio_driver/modules/dash/features/add_vehicle/presentation/logic/data/vehicle_repository.dart';
 
@@ -24,6 +25,10 @@ const int _kAbsoluteMaxMinor = 10000000; // ₦100,000
 enum PricingVariant { type, slider, chips }
 
 enum BidPhase { composing, submitting, waiting, won, lost }
+
+/// How the driver's bid compares to the market fare for this trip
+/// (state default base + per-km × distance).
+enum BidMarketLevel { none, above, below }
 
 class RideRequestState {
   const RideRequestState({
@@ -40,6 +45,9 @@ class RideRequestState {
     this.tripId,
     this.error,
     this.isLoading = false,
+    this.marketFareMinor = 0,
+    this.warnPct = 0,
+    this.marketWarningDismissed = false,
   });
 
   final String? requestId;
@@ -61,8 +69,43 @@ class RideRequestState {
   final String? error;
   final bool isLoading;
 
+  /// Market fare for this trip = state default base + per-km × distance.
+  /// 0 when the state reference couldn't be loaded (no warning then).
+  final int marketFareMinor;
+
+  /// The state's symmetric warn threshold (%). 0 disables the warning.
+  final int warnPct;
+
+  /// The driver dismissed the market warning for the current bid. Reset
+  /// whenever they change the price again.
+  final bool marketWarningDismissed;
+
   int get priceNaira => priceMinor ~/ 100;
   int get suggestedNaira => suggestedMinor ~/ 100;
+
+  int get marketFareNaira => marketFareMinor ~/ 100;
+
+  /// Where the current bid sits versus the market fare for this trip.
+  BidMarketLevel get marketLevel {
+    if (marketFareMinor <= 0 || warnPct <= 0) return BidMarketLevel.none;
+    final double f = warnPct / 100.0;
+    if (priceMinor >= marketFareMinor * (1 + f)) return BidMarketLevel.above;
+    if (priceMinor <= marketFareMinor * (1 - f)) return BidMarketLevel.below;
+    return BidMarketLevel.none;
+  }
+
+  /// Banner shows only while composing, off-market, and not dismissed.
+  bool get showMarketWarning =>
+      phase == BidPhase.composing &&
+      !marketWarningDismissed &&
+      marketLevel != BidMarketLevel.none;
+
+  /// How far (%) the bid is from the market fare, rounded, always positive.
+  int get marketDeviationPct {
+    if (marketFareMinor <= 0) return 0;
+    return ((priceMinor - marketFareMinor).abs() / marketFareMinor * 100)
+        .round();
+  }
 
   /// In naira (no commission per knowledge.md rule #2).
   int get netToYou => priceNaira;
@@ -116,6 +159,9 @@ class RideRequestState {
     String? error,
     bool clearError = false,
     bool? isLoading,
+    int? marketFareMinor,
+    int? warnPct,
+    bool? marketWarningDismissed,
   }) {
     return RideRequestState(
       requestId: requestId ?? this.requestId,
@@ -133,6 +179,10 @@ class RideRequestState {
       tripId: tripId ?? this.tripId,
       error: clearError ? null : (error ?? this.error),
       isLoading: isLoading ?? this.isLoading,
+      marketFareMinor: marketFareMinor ?? this.marketFareMinor,
+      warnPct: warnPct ?? this.warnPct,
+      marketWarningDismissed:
+          marketWarningDismissed ?? this.marketWarningDismissed,
     );
   }
 }
@@ -183,6 +233,9 @@ class RideRequestController extends StateNotifier<RideRequestState> {
         _requests.getById(state.requestId!),
         _vehicles.listMyVehicles(),
         _pricing.getOrCreateMyProfile(),
+        // Market reference for the "above/below market" bid warning.
+        // Best-effort — a null result just means no warning is shown.
+        _pricing.getStateGuidance(),
       ]);
       if (!mounted) return;
       final RideRequest? req = r[0] as RideRequest?;
@@ -198,8 +251,13 @@ class RideRequestController extends StateNotifier<RideRequestState> {
           .firstWhere((Vehicle? _) => true, orElse: () => null);
       _activeVehicleId = active?.id;
       _pricingProfile = r[2] as PricingProfile;
+      final StatePriceGuidance? guidance = r[3] as StatePriceGuidance?;
 
       final int suggested = _suggestedForRequest(req);
+      // Market fare for this trip from the state reference (base + per-km ×
+      // km). Drives the "above/below market" bid banner.
+      final int marketFare =
+          guidance?.marketFareMinorFor(req.expectedDistanceM ?? 0) ?? 0;
       // Surcharges were removed from the pricing model — the suggested
       // fare is base + per-km only, identical at every hour. No
       // peak/night window is ever active, so the bid composer shows no
@@ -212,6 +270,8 @@ class RideRequestController extends StateNotifier<RideRequestState> {
         suggestedMultiplier: 1.0,
         secondsLeft: req.secondsRemaining(),
         isLoading: false,
+        marketFareMinor: marketFare,
+        warnPct: guidance?.warnPct ?? 0,
       );
       _startTicker();
     } catch (e, s) {
@@ -266,7 +326,20 @@ class RideRequestController extends StateNotifier<RideRequestState> {
 
   void setPriceNaira(int v) {
     final int minor = (v * 100).clamp(_kAbsoluteMinMinor, _kAbsoluteMaxMinor);
-    state = state.copyWith(priceMinor: minor, clearError: true);
+    // A fresh price edit re-arms the market warning so a new deviation
+    // shows even if the driver dismissed the previous one.
+    state = state.copyWith(
+      priceMinor: minor,
+      clearError: true,
+      marketWarningDismissed: false,
+    );
+  }
+
+  /// Hide the "above/below market" bid warning until the price changes.
+  void dismissMarketWarning() {
+    if (!state.marketWarningDismissed) {
+      state = state.copyWith(marketWarningDismissed: true);
+    }
   }
 
   void setVariant(PricingVariant v) =>

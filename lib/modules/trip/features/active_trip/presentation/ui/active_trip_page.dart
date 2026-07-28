@@ -530,16 +530,21 @@ class _InTripBody extends ConsumerWidget {
           disabled: state.isAdvancing,
           onPressed: controller.advance,
         ),
-        const SizedBox(height: 6),
-        TextButton(
-          onPressed: state.isAdvancing
-              ? null
-              : () => _confirmCancel(context, controller),
-          child: Text(
-            'Cancel trip',
-            style: TextStyle(color: context.textDim, fontSize: 12),
+        // Cancelling is only allowed before the driver sets off toward the
+        // rider. Once en route (and through arrived / in progress) the trip
+        // can no longer be cancelled from the driver side.
+        if (trip.state == TripState.assigned) ...<Widget>[
+          const SizedBox(height: 6),
+          TextButton(
+            onPressed: state.isAdvancing
+                ? null
+                : () => _confirmCancel(context, controller),
+            child: Text(
+              'Cancel trip',
+              style: TextStyle(color: context.textDim, fontSize: 12),
+            ),
           ),
-        ),
+        ],
       ],
     );
   }

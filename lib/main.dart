@@ -9,6 +9,7 @@ import 'package:drivio_driver/app.dart';
 import 'package:drivio_driver/modules/commons/analytics/mixpanel_service.dart';
 import 'package:drivio_driver/modules/commons/config/flavor.dart';
 import 'package:drivio_driver/modules/commons/di/di.dart';
+import 'package:drivio_driver/modules/commons/overlay/ride_request_overlay.dart';
 import 'package:drivio_driver/modules/commons/push/call_push_handler.dart';
 import 'package:drivio_driver/modules/commons/push/push_service.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
@@ -19,6 +20,15 @@ import 'firebase_options_stage.dart' as stage_firebase;
 /// Bare `flutter run` (no --flavor) — dev convenience: staging wiring with
 /// the plain `.env` file. Real builds use `main_prod.dart` / `main_stage.dart`.
 Future<void> main() => bootstrap(Flavor.staging, envFile: '.env');
+
+/// Entry point for the Android "display over other apps" bubble
+/// (flutter_overlay_window boots a separate engine on this function when a
+/// background ride alert shows the overlay).
+@pragma('vm:entry-point')
+void overlayMain() {
+  WidgetsFlutterBinding.ensureInitialized();
+  runApp(const RideRequestOverlayApp());
+}
 
 /// Shared startup for every flavor target. Keeping this in one place stops
 /// the entrypoints drifting apart (the old per-flavor mains had already

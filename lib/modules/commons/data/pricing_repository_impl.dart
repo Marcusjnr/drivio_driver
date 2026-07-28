@@ -5,11 +5,18 @@ import 'package:drivio_driver/modules/commons/data/pricing_repository.dart';
 import 'package:drivio_driver/modules/commons/logging/app_logger.dart';
 import 'package:drivio_driver/modules/commons/supabase/supabase_module.dart';
 import 'package:drivio_driver/modules/commons/types/pricing_profile.dart';
+import 'package:drivio_driver/modules/commons/types/state_price_guidance.dart';
 
 class SupabasePricingRepository implements PricingRepository {
   SupabasePricingRepository(this._supabase);
 
   final SupabaseModule _supabase;
+
+  // In-memory cache of the last resolved state guidance. The state and its
+  // admin-set defaults change rarely, so both the Pricing screen and the
+  // per-request bid composer can reuse this within a session.
+  String? _cachedGuidanceState;
+  StatePriceGuidance? _cachedGuidance;
 
   @override
   Future<PricingProfile> getOrCreateMyProfile({String? state}) async {
@@ -50,6 +57,34 @@ class SupabasePricingRepository implements PricingRepository {
     } catch (e, st) {
       // Any failure just means we seed from the national default.
       AppLogger.w('resolveMyState failed', error: e, stackTrace: st);
+      return null;
+    }
+  }
+
+  @override
+  Future<StatePriceGuidance?> getStateGuidance({String? state}) async {
+    try {
+      final String? resolved = (state != null && state.trim().isNotEmpty)
+          ? state.trim()
+          : await resolveMyState();
+      // Key the cache by the resolved state ('' = national default) so a
+      // second surface in the same session skips the round-trip.
+      final String key = resolved ?? '';
+      if (_cachedGuidance != null && _cachedGuidanceState == key) {
+        return _cachedGuidance;
+      }
+      final List<dynamic> rows = await _supabase.client.rpc<dynamic>(
+        'get_state_pricing_default',
+        params: <String, dynamic>{'p_state': resolved ?? ''},
+      ) as List<dynamic>;
+      if (rows.isEmpty) return null;
+      final StatePriceGuidance g =
+          StatePriceGuidance.fromRpc(rows.first as Map<String, dynamic>);
+      _cachedGuidance = g;
+      _cachedGuidanceState = key;
+      return g;
+    } catch (e, st) {
+      AppLogger.w('getStateGuidance failed', error: e, stackTrace: st);
       return null;
     }
   }

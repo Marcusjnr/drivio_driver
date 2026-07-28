@@ -17,9 +17,9 @@ class VehicleGateSheet extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final List<String> reqs = const <String>[
       'Vehicle make, model & year',
-      'Licence plate',
+      'Licence plate & VIN',
       'Vehicle registration document',
-      'Proof of insurance',
+      'Front, back, side & interior photos',
     ];
     return Stack(
       fit: StackFit.expand,

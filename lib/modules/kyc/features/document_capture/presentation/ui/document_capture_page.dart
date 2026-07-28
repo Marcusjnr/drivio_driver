@@ -49,6 +49,11 @@ class _DocumentCapturePageState extends ConsumerState<DocumentCapturePage> {
         return 'Inspection report';
       case DocumentKind.profileSelfie:
         return 'Selfie';
+      case DocumentKind.vehiclePhotoFront:
+      case DocumentKind.vehiclePhotoBack:
+      case DocumentKind.vehiclePhotoSide:
+      case DocumentKind.vehiclePhotoInterior:
+        return 'Vehicle photo';
     }
   }
 

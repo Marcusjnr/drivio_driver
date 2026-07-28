@@ -289,10 +289,7 @@ class _StepRow extends StatelessWidget {
       case KycStepKind.selfie:
         return AppNavigation.push<void>(AppRoutes.kycSelfie);
       case KycStepKind.driversLicence:
-        return AppNavigation.push<void>(
-          AppRoutes.kycDocumentCapture,
-          arguments: DocumentKind.driversLicence,
-        );
+        return AppNavigation.push<void>(AppRoutes.kycDriversLicence);
       case KycStepKind.vehicle:
         return AppNavigation.push<void>(AppRoutes.addVehicle);
       case KycStepKind.roadWorthiness:

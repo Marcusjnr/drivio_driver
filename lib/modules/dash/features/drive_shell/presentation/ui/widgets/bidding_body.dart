@@ -71,6 +71,14 @@ class BiddingBody extends ConsumerWidget {
             onPriceChanged: c.setPriceNaira,
             onVariantChanged: c.setVariant,
           ),
+          if (state.showMarketWarning) ...<Widget>[
+            const SizedBox(height: 10),
+            _MarketWarningBanner(
+              level: state.marketLevel,
+              deviationPct: state.marketDeviationPct,
+              onDismiss: c.dismissMarketWarning,
+            ),
+          ],
           if (state.error != null) ...<Widget>[
             const SizedBox(height: 8),
             Text(
@@ -93,6 +101,85 @@ class BiddingBody extends ConsumerWidget {
               }
               ref.read(driveShellControllerProvider.notifier).exitBidding();
             },
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Dismissable, non-blocking banner shown when the bid sits more than the
+/// state's warn-% away from the market fare for this trip. Above market →
+/// riders less likely to accept (lower it or submit anyway); below market →
+/// possible underpricing. The driver can always still submit.
+class _MarketWarningBanner extends StatelessWidget {
+  const _MarketWarningBanner({
+    required this.level,
+    required this.deviationPct,
+    required this.onDismiss,
+  });
+
+  final BidMarketLevel level;
+  final int deviationPct;
+  final VoidCallback onDismiss;
+
+  @override
+  Widget build(BuildContext context) {
+    final bool above = level == BidMarketLevel.above;
+    final Color tone = above ? context.amber : context.blue;
+    final String title = above
+        ? 'About $deviationPct% above market price'
+        : 'About $deviationPct% below market price';
+    final String body = above
+        ? 'Riders are less likely to accept a bid this high. You can lower '
+            'it, or submit anyway.'
+        : 'You may be underpricing this trip. You can raise it, or submit '
+            'anyway.';
+
+    return Container(
+      padding: const EdgeInsets.fromLTRB(12, 11, 8, 11),
+      decoration: BoxDecoration(
+        color: tone.withValues(alpha: 0.12),
+        borderRadius: AppRadius.sm,
+        border: Border.all(color: tone.withValues(alpha: 0.4)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Icon(
+            above ? Icons.trending_up_rounded : Icons.trending_down_rounded,
+            size: 18,
+            color: tone,
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                Text(
+                  title,
+                  style: AppTextStyles.bodySm.copyWith(
+                    color: context.text,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  body,
+                  style: AppTextStyles.captionSm
+                      .copyWith(color: context.textDim, height: 1.4),
+                ),
+              ],
+            ),
+          ),
+          GestureDetector(
+            onTap: onDismiss,
+            behavior: HitTestBehavior.opaque,
+            child: Padding(
+              padding: const EdgeInsets.all(4),
+              child:
+                  Icon(Icons.close_rounded, size: 16, color: context.textMuted),
+            ),
           ),
         ],
       ),

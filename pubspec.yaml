@@ -39,6 +39,8 @@ dependencies:
   flutter_callkit_incoming: ^2.5.2
   audioplayers: ^6.1.0
   flutter_foreground_task: ^8.17.0
+  # Android "display over other apps" bubble for background ride alerts.
+  flutter_overlay_window: ^0.4.3
   http: ^1.2.2
   webview_flutter: ^4.13.0
   facial_liveness_verification: ^2.1.0

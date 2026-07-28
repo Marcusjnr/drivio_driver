@@ -22,7 +22,8 @@ class SupabaseKycRepository implements KycRepository {
 
     final Map<String, dynamic> driver = await _supabase
         .db('drivers')
-        .select('kyc_status, bvn_verified_at, nin_verified_at, liveness_passed_at')
+        .select('kyc_status, bvn_verified_at, nin_verified_at, '
+            'liveness_passed_at, drivers_licence_verified_at')
         .eq('user_id', user.id)
         .maybeSingle() as Map<String, dynamic>;
 
@@ -47,6 +48,7 @@ class SupabaseKycRepository implements KycRepository {
       bvnVerifiedAt: parse(driver['bvn_verified_at']),
       ninVerifiedAt: parse(driver['nin_verified_at']),
       livenessPassedAt: parse(driver['liveness_passed_at']),
+      driversLicenceVerifiedAt: parse(driver['drivers_licence_verified_at']),
       documents: docs.map(Document.fromJson).toList(growable: false),
       hasVehicle: vehicles.isNotEmpty,
     );
@@ -97,6 +99,37 @@ class SupabaseKycRepository implements KycRepository {
       }
     } catch (e, st) {
       AppLogger.w('verifyNin failed', error: e, stackTrace: st);
+      return NinVerifyResult.error;
+    }
+  }
+
+  @override
+  Future<NinVerifyResult> verifyDriversLicence(String licenceNo) async {
+    // As with NIN, real YouVerify + name match runs only on prod release
+    // builds; debug/profile and staging hit YouVerify's sandbox.
+    final bool prod = kReleaseMode && !locator<Config>().isStaging;
+    try {
+      final FunctionResponse res = await _supabase.functions.invoke(
+        'youverify-verify-drivers-license',
+        body: <String, dynamic>{
+          'licence': licenceNo.replaceAll(RegExp(r'[^A-Za-z0-9]'), ''),
+          'env': prod ? 'prod' : 'staging',
+        },
+      );
+      final Object? data = res.data;
+      if (data is! Map) return NinVerifyResult.error;
+      if (data['ok'] == true) return NinVerifyResult.verified;
+      switch (data['reason']) {
+        case 'mismatch':
+          return NinVerifyResult.mismatch;
+        case 'not_found':
+        case 'bad_licence':
+          return NinVerifyResult.notFound;
+        default:
+          return NinVerifyResult.error;
+      }
+    } catch (e, st) {
+      AppLogger.w('verifyDriversLicence failed', error: e, stackTrace: st);
       return NinVerifyResult.error;
     }
   }

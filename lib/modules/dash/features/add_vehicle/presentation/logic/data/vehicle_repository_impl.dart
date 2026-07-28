@@ -16,11 +16,18 @@ class SupabaseVehicleRepository implements VehicleRepository {
     required int year,
     required String plate,
     String? colour,
+    String? vin,
+    String? transmission,
+    String? fuelType,
+    int? mileageKm,
   }) async {
     final User? user = _supabase.auth.currentUser;
     if (user == null) {
       throw const VehicleAuthException();
     }
+
+    String? clean(String? v) =>
+        (v == null || v.trim().isEmpty) ? null : v.trim();
 
     final Map<String, dynamic> row = await _supabase
         .db('vehicles')
@@ -29,10 +36,12 @@ class SupabaseVehicleRepository implements VehicleRepository {
           'make': make.trim(),
           'model': model.trim(),
           'year': year,
-          'colour': (colour == null || colour.trim().isEmpty)
-              ? null
-              : colour.trim(),
+          'colour': clean(colour),
           'plate': plate.trim().toUpperCase(),
+          'vin': clean(vin)?.toUpperCase(),
+          'transmission': clean(transmission),
+          'fuel_type': clean(fuelType),
+          'mileage_km': mileageKm,
         })
         .select()
         .single();

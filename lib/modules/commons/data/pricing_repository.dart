@@ -1,4 +1,5 @@
 import 'package:drivio_driver/modules/commons/types/pricing_profile.dart';
+import 'package:drivio_driver/modules/commons/types/state_price_guidance.dart';
 
 abstract class PricingRepository {
   /// Fetch (lazy-create on first call) the calling driver's pricing
@@ -16,6 +17,13 @@ abstract class PricingRepository {
   /// permission, network error, unknown state) — the caller then falls
   /// back to the national default. Never prompts for permission.
   Future<String?> resolveMyState();
+
+  /// The admin-set pricing reference (default base + per-km + warn %) for
+  /// the driver's state, used to warn when the driver's price drifts too
+  /// far from the local norm. Resolves the state from GPS when [state] is
+  /// omitted; falls back to the national default. Cached in-memory per
+  /// state. Returns null only if the lookup genuinely fails.
+  Future<StatePriceGuidance?> getStateGuidance({String? state});
 
   /// Persist a partial update. Pass only the fields the caller is
   /// changing to avoid clobbering server-side defaults.

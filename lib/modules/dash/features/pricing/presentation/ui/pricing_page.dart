@@ -114,6 +114,16 @@ class _Body extends StatelessWidget {
             ],
           ),
 
+          if (state.showWarning) ...<Widget>[
+            const SizedBox(height: 12),
+            _PriceWarningBanner(
+              level: state.perKmWarnLevel,
+              driverPerKmMinor: profile.perKmMinor,
+              defaultPerKmMinor: state.guidance?.perKmMinor ?? 0,
+              onDismiss: controller.dismissWarning,
+            ),
+          ],
+
           if (state.error != null) ...<Widget>[
             const SizedBox(height: 12),
             Container(
@@ -138,6 +148,93 @@ class _Body extends StatelessWidget {
             suggestedNaira: exampleNaira,
             baseNaira: baseNaira,
             perKmNaira: perKmNaira,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Dismissable banner shown when the driver's per-km sits more than the
+/// state's warn-% away from the local default — too high (fewer rides) or
+/// too low (underpricing). Dismiss hides it until the per-km changes again.
+class _PriceWarningBanner extends StatelessWidget {
+  const _PriceWarningBanner({
+    required this.level,
+    required this.driverPerKmMinor,
+    required this.defaultPerKmMinor,
+    required this.onDismiss,
+  });
+
+  final PriceWarnLevel level;
+  final int driverPerKmMinor;
+  final int defaultPerKmMinor;
+  final VoidCallback onDismiss;
+
+  @override
+  Widget build(BuildContext context) {
+    final bool high = level == PriceWarnLevel.high;
+    final Color tone = high ? context.amber : context.blue;
+    final int pct = defaultPerKmMinor <= 0
+        ? 0
+        : ((driverPerKmMinor - defaultPerKmMinor).abs() /
+                defaultPerKmMinor *
+                100)
+            .round();
+    final String title = high
+        ? 'Priced above your area'
+        : 'Priced below your area';
+    final String body = high
+        ? "Your per-km is about $pct% above your area's typical rate. "
+            'Pricing this high can mean fewer riders pick you.'
+        : "Your per-km is about $pct% below your area's typical rate. "
+            'You may be underpricing and earning less than you could.';
+
+    return Container(
+      padding: const EdgeInsets.fromLTRB(12, 11, 8, 11),
+      decoration: BoxDecoration(
+        color: tone.withValues(alpha: 0.12),
+        borderRadius: AppRadius.sm,
+        border: Border.all(color: tone.withValues(alpha: 0.4)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Icon(
+            high
+                ? Icons.trending_up_rounded
+                : Icons.trending_down_rounded,
+            size: 18,
+            color: tone,
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                Text(
+                  title,
+                  style: AppTextStyles.bodySm.copyWith(
+                    color: context.text,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  body,
+                  style: AppTextStyles.captionSm
+                      .copyWith(color: context.textDim, height: 1.4),
+                ),
+              ],
+            ),
+          ),
+          GestureDetector(
+            onTap: onDismiss,
+            behavior: HitTestBehavior.opaque,
+            child: Padding(
+              padding: const EdgeInsets.all(4),
+              child: Icon(Icons.close_rounded, size: 16, color: context.textMuted),
+            ),
           ),
         ],
       ),

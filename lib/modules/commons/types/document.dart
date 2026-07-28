@@ -5,7 +5,13 @@ enum DocumentKind {
   roadWorthiness('road_worthiness'),
   lasrra('lasrra'),
   inspectionReport('inspection_report'),
-  profileSelfie('profile_selfie');
+  profileSelfie('profile_selfie'),
+  // Vehicle photos captured during onboarding. Stored as documents (against
+  // the vehicle id) but deliberately NOT part of the required-doc KYC gate.
+  vehiclePhotoFront('vehicle_photo_front'),
+  vehiclePhotoBack('vehicle_photo_back'),
+  vehiclePhotoSide('vehicle_photo_side'),
+  vehiclePhotoInterior('vehicle_photo_interior');
 
   const DocumentKind(this.wire);
   final String wire;

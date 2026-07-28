@@ -5,10 +5,16 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:drivio_driver/modules/commons/data/pricing_repository.dart';
 import 'package:drivio_driver/modules/commons/di/di.dart';
 import 'package:drivio_driver/modules/commons/types/pricing_profile.dart';
+import 'package:drivio_driver/modules/commons/types/state_price_guidance.dart';
+
+/// How the driver's per-km compares to their state's default per-km.
+enum PriceWarnLevel { none, high, low }
 
 class PricingState {
   const PricingState({
     this.profile,
+    this.guidance,
+    this.warningDismissed = false,
     this.isLoading = true,
     this.isSaving = false,
     this.error,
@@ -16,13 +22,41 @@ class PricingState {
   });
 
   final PricingProfile? profile;
+
+  /// The driver's state pricing reference (default per-km + warn %). Null
+  /// while loading or when the lookup fails — no warning is shown then.
+  final StatePriceGuidance? guidance;
+
+  /// The driver dismissed the current warning. Reset whenever they change
+  /// the per-km again, so a fresh deviation re-surfaces it.
+  final bool warningDismissed;
+
   final bool isLoading;
   final bool isSaving;
   final String? error;
   final DateTime? lastSavedAt;
 
+  /// Whether the driver's per-km is far enough from the state default to
+  /// warrant a warning, and in which direction.
+  PriceWarnLevel get perKmWarnLevel {
+    final StatePriceGuidance? g = guidance;
+    final PricingProfile? p = profile;
+    if (g == null || p == null || g.perKmMinor <= 0 || g.warnPct <= 0) {
+      return PriceWarnLevel.none;
+    }
+    if (p.perKmMinor >= g.highPerKmMinor) return PriceWarnLevel.high;
+    if (p.perKmMinor <= g.lowPerKmMinor) return PriceWarnLevel.low;
+    return PriceWarnLevel.none;
+  }
+
+  /// The banner shows only when a deviation exists and hasn't been dismissed.
+  bool get showWarning =>
+      !warningDismissed && perKmWarnLevel != PriceWarnLevel.none;
+
   PricingState copyWith({
     PricingProfile? profile,
+    StatePriceGuidance? guidance,
+    bool? warningDismissed,
     bool? isLoading,
     bool? isSaving,
     String? error,
@@ -31,6 +65,8 @@ class PricingState {
   }) {
     return PricingState(
       profile: profile ?? this.profile,
+      guidance: guidance ?? this.guidance,
+      warningDismissed: warningDismissed ?? this.warningDismissed,
       isLoading: isLoading ?? this.isLoading,
       isSaving: isSaving ?? this.isSaving,
       error: clearError ? null : (error ?? this.error),
@@ -63,6 +99,12 @@ class PricingController extends StateNotifier<PricingState> {
           await _repo.getOrCreateMyProfile(state: resolvedState);
       if (!mounted) return;
       state = state.copyWith(profile: p, isLoading: false);
+      // Load the state reference (default per-km + warn %) so we can flag
+      // an over/under-priced rate. Non-fatal — no reference, no warning.
+      final StatePriceGuidance? g =
+          await _repo.getStateGuidance(state: resolvedState);
+      if (!mounted || g == null) return;
+      state = state.copyWith(guidance: g);
     } catch (_) {
       if (!mounted) return;
       state = state.copyWith(
@@ -78,10 +120,24 @@ class PricingController extends StateNotifier<PricingState> {
         serverFields: <String, dynamic>{'base_minor': v},
       );
 
-  void setPerKmMinor(int v) => _apply(
-        next: (PricingProfile p) => p.copyWith(perKmMinor: v),
-        serverFields: <String, dynamic>{'per_km_minor': v},
-      );
+  void setPerKmMinor(int v) {
+    // A fresh per-km edit re-arms the warning so a new deviation shows even
+    // if the driver dismissed the previous one.
+    if (state.warningDismissed) {
+      state = state.copyWith(warningDismissed: false);
+    }
+    _apply(
+      next: (PricingProfile p) => p.copyWith(perKmMinor: v),
+      serverFields: <String, dynamic>{'per_km_minor': v},
+    );
+  }
+
+  /// Hide the current price-deviation warning until the per-km changes again.
+  void dismissWarning() {
+    if (!state.warningDismissed) {
+      state = state.copyWith(warningDismissed: true);
+    }
+  }
 
   void setPeakMultiplier(double v) => _apply(
         next: (PricingProfile p) => p.copyWith(peakMultiplier: v),

@@ -216,18 +216,20 @@ class KycController extends StateNotifier<KycState> {
     final KycStepStatus selfieStatus = snap.livenessPassedAt != null
         ? KycStepStatus.submitted
         : KycStepStatus.required;
+    // Licence is now a YouVerify (FRSC) number check, not a document —
+    // its step is driven by the verified stamp, exactly like NIN.
+    final KycStepStatus licenceStatus =
+        snap.driversLicenceVerifiedAt != null
+            ? KycStepStatus.submitted
+            : KycStepStatus.required;
 
-    final Document? dl = docOf(DocumentKind.driversLicence);
     final Document? rw = docOf(DocumentKind.roadWorthiness);
-    // Registration + insurance upload inside the add-vehicle flow; the
-    // vehicle step is only "done" once the vehicle AND both its
-    // documents are in, so nothing can be skipped by the merge.
+    // The registration uploads inside the add-vehicle flow; the vehicle
+    // step is only "done" once the vehicle AND its registration are in.
     final Document? reg = docOf(DocumentKind.vehicleReg);
-    final Document? ins = docOf(DocumentKind.insurance);
-    final bool vehicleDocsIn = reg != null && ins != null;
+    final bool vehicleDocsIn = reg != null;
     final bool vehicleDocRejected =
-        statusOf(reg) == KycStepStatus.rejected ||
-        statusOf(ins) == KycStepStatus.rejected;
+        statusOf(reg) == KycStepStatus.rejected;
 
     return <KycStep>[
       KycStep(
@@ -245,20 +247,19 @@ class KycController extends StateNotifier<KycState> {
       KycStep(
         kind: KycStepKind.driversLicence,
         title: "Driver's licence",
-        subtitle: 'FRSC card · front and back.',
-        status: statusOf(dl),
-        rejectionReason: dl?.rejectionReason,
+        subtitle: 'Verify your licence number (FRSC).',
+        status: licenceStatus,
       ),
       KycStep(
         kind: KycStepKind.vehicle,
         title: 'Add a vehicle',
-        subtitle: 'Make, model, plate, registration & insurance.',
+        subtitle: 'Make, model, plate, registration & photos.',
         status: vehicleDocRejected
             ? KycStepStatus.rejected
             : (snap.hasVehicle && vehicleDocsIn)
                 ? KycStepStatus.submitted
                 : KycStepStatus.required,
-        rejectionReason: reg?.rejectionReason ?? ins?.rejectionReason,
+        rejectionReason: reg?.rejectionReason,
       ),
       KycStep(
         kind: KycStepKind.roadWorthiness,

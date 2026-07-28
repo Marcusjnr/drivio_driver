@@ -16,6 +16,9 @@ class Vehicle {
     required this.createdAt,
     this.colour,
     this.vin,
+    this.transmission,
+    this.fuelType,
+    this.mileageKm,
   });
 
   final String id;
@@ -26,6 +29,16 @@ class Vehicle {
   final String? colour;
   final String plate;
   final String? vin;
+
+  /// 'auto' | 'manual'.
+  final String? transmission;
+
+  /// 'diesel' | 'electric' | 'fuel' | 'fuel_cng'.
+  final String? fuelType;
+
+  /// Current odometer reading in kilometres.
+  final int? mileageKm;
+
   final int seats;
   final VehicleCategory category;
   final VehicleStatus status;
@@ -37,6 +50,9 @@ class Vehicle {
       driverId: json['driver_id'] as String,
       make: json['make'] as String,
       model: json['model'] as String,
+      transmission: json['transmission'] as String?,
+      fuelType: json['fuel_type'] as String?,
+      mileageKm: (json['mileage_km'] as num?)?.toInt(),
       year: (json['year'] as num).toInt(),
       colour: json['colour'] as String?,
       plate: json['plate'] as String,
@@ -63,6 +79,9 @@ class Vehicle {
     String? colour,
     String? plate,
     String? vin,
+    String? transmission,
+    String? fuelType,
+    int? mileageKm,
     int? seats,
     VehicleCategory? category,
     VehicleStatus? status,
@@ -77,6 +96,9 @@ class Vehicle {
       colour: colour ?? this.colour,
       plate: plate ?? this.plate,
       vin: vin ?? this.vin,
+      transmission: transmission ?? this.transmission,
+      fuelType: fuelType ?? this.fuelType,
+      mileageKm: mileageKm ?? this.mileageKm,
       seats: seats ?? this.seats,
       category: category ?? this.category,
       status: status ?? this.status,

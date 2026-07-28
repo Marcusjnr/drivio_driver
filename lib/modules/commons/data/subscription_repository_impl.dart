@@ -16,9 +16,13 @@ class SupabaseSubscriptionRepository implements SubscriptionRepository {
 
     // Embed the plan's pause cap so the Subscription is self-contained for
     // the pause-cap derivation (effectivePeriodEnd / pauseDaysLeft).
+    // `subscriptions` has TWO FKs to `subscription_plans` (plan_id +
+    // pending_plan_id), so the embed must name the plan_id constraint or
+    // PostgREST rejects the query as ambiguous (PGRST201).
     final List<Map<String, dynamic>> rows = await _supabase
         .db('subscriptions')
-        .select('*, subscription_plans(max_pause_days)')
+        .select(
+            '*, subscription_plans!subscriptions_plan_id_fkey(max_pause_days)')
         .eq('driver_id', user.id)
         .order('created_at', ascending: false)
         .limit(1);

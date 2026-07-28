@@ -6,6 +6,8 @@ import 'package:flutter_foreground_task/flutter_foreground_task.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:http/http.dart' as http;
 
+import 'package:drivio_driver/modules/commons/push/ride_alert_push.dart';
+
 /// Background driver-presence tracking that runs inside the Android
 /// foreground service isolate.
 ///
@@ -31,6 +33,12 @@ class BgPresenceKeys {
   static const String refreshToken = 'bg_presence_refresh_token';
   static const String expiresAt = 'bg_presence_expires_at'; // epoch seconds
   static const String vehicleId = 'bg_presence_vehicle_id'; // '' when none
+
+  /// Written by the main isolate's LifecycleController on every lifecycle
+  /// transition. The task isolate reads it to decide whether a polled ride
+  /// request should ring (background) or stay silent (the in-app feed is
+  /// already showing it).
+  static const String appForeground = 'bg_app_foreground';
 }
 
 /// Message keys for [FlutterForegroundTask.sendDataToMain] payloads.
@@ -67,6 +75,14 @@ class PresenceTaskHandler extends TaskHandler {
   double? _lastLat;
   double? _lastLng;
   int? _lastAccuracyM;
+
+  /// FCM-independent ride-alert fallback. Google accepting a data push is
+  /// no guarantee the OEM delivers it (battery managers drop/defer them),
+  /// so while online we ALSO poll the nearby feed ourselves and ring
+  /// locally — this service being alive is the one thing we control.
+  Timer? _requestPoll;
+  final Set<String> _alertedRequestIds = <String>{};
+  static const Duration _kRequestPollEvery = Duration(seconds: 12);
 
   @override
   Future<void> onStart(DateTime timestamp, TaskStarter starter) async {
@@ -107,6 +123,72 @@ class PresenceTaskHandler extends TaskHandler {
             });
           },
         );
+
+    _requestPoll?.cancel();
+    _requestPoll = Timer.periodic(
+      _kRequestPollEvery,
+      (Timer _) => unawaited(_pollNearbyRequests()),
+    );
+  }
+
+  /// Poll the same feed RPC the in-app marketplace uses and ring for any
+  /// open request we haven't alerted yet — but only while the app is NOT
+  /// foregrounded (foregrounded drivers see the live feed; ringing over it
+  /// would double up). Every seen id is remembered either way so a request
+  /// that arrived while foregrounded doesn't ring later on backgrounding.
+  Future<void> _pollNearbyRequests() async {
+    final _PresenceUploader? uploader = _uploader;
+    final double? lat = _lastLat;
+    final double? lng = _lastLng;
+    if (uploader == null || lat == null || lng == null) {
+      return;
+    }
+
+    List<dynamic> rows;
+    try {
+      final http.Response? res = await uploader.rpc(
+        'list_nearby_ride_requests',
+        <String, Object?>{'p_lat': lat, 'p_lng': lng, 'p_max': 5},
+      );
+      if (res == null || res.statusCode != 200) {
+        return;
+      }
+      rows = jsonDecode(res.body) as List<dynamic>;
+    } catch (_) {
+      return; // Network blip — next tick retries.
+    }
+
+    final bool foreground = await FlutterForegroundTask.getData<bool>(
+          key: BgPresenceKeys.appForeground,
+        ) ??
+        false;
+
+    for (final dynamic row in rows) {
+      if (row is! Map) {
+        continue;
+      }
+      final String? id = row['id'] as String?;
+      if (id == null || _alertedRequestIds.contains(id)) {
+        continue;
+      }
+      _alertedRequestIds.add(id);
+      if (foreground) {
+        continue;
+      }
+      final int distanceM = (row['expected_distance_m'] as num?)?.toInt() ?? 0;
+      await startRideRequestAlert(<String, dynamic>{
+        'ride_request_id': id,
+        'pickup': (row['pickup_address'] as String?) ?? 'Nearby pickup',
+        'dropoff': (row['dropoff_address'] as String?) ?? 'Destination',
+        'distance_km': (distanceM / 1000).toStringAsFixed(1),
+      });
+      break; // One ring at a time.
+    }
+
+    // Don't let the set grow unbounded across a long shift.
+    if (_alertedRequestIds.length > 200) {
+      _alertedRequestIds.clear();
+    }
   }
 
   /// 30s heartbeat, even when stationary (the stream is silent when the
@@ -146,6 +228,8 @@ class PresenceTaskHandler extends TaskHandler {
 
   @override
   Future<void> onDestroy(DateTime timestamp) async {
+    _requestPoll?.cancel();
+    _requestPoll = null;
     await _positionSub?.cancel();
     _positionSub = null;
     // Best-effort offline marker. If the process is being torn down hard
@@ -283,6 +367,38 @@ class _PresenceUploader {
   Uri get _rpcUri => Uri.parse('$baseUrl/rest/v1/rpc/upsert_driver_presence');
   Uri get _refreshUri =>
       Uri.parse('$baseUrl/auth/v1/token?grant_type=refresh_token');
+
+  /// Generic authenticated PostgREST RPC call with the same token-refresh
+  /// behaviour as [upsert]. Returns null on network failure.
+  Future<http.Response?> rpc(String fn, Map<String, Object?> body) async {
+    await _ensureFreshToken();
+    final Uri uri = Uri.parse('$baseUrl/rest/v1/rpc/$fn');
+    Future<http.Response> post() => http
+        .post(
+          uri,
+          headers: <String, String>{
+            'apikey': anonKey,
+            'Authorization': 'Bearer $_accessToken',
+            'Content-Type': 'application/json',
+          },
+          body: jsonEncode(body),
+        )
+        .timeout(const Duration(seconds: 12));
+    http.Response res;
+    try {
+      res = await post();
+    } catch (_) {
+      return null;
+    }
+    if (res.statusCode == 401 && await _refresh()) {
+      try {
+        res = await post();
+      } catch (_) {
+        return null;
+      }
+    }
+    return res;
+  }
 
   Future<void> upsert({
     required String status,

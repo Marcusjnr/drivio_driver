@@ -12,6 +12,7 @@ class AppRoutes {
 
   static const String kycHome = '/kyc';
   static const String kycBvnNin = '/kyc/bvn-nin';
+  static const String kycDriversLicence = '/kyc/drivers-licence';
   static const String kycSelfie = '/kyc/selfie';
   static const String kycDocumentCapture = '/kyc/document';
 

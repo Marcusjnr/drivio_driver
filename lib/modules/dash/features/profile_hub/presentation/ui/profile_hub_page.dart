@@ -242,11 +242,6 @@ class _VehicleGroup extends StatelessWidget {
               : () => AppNavigation.push(AppRoutes.vehicleDetails),
         ),
         _DocLinkRow(
-          label: 'Insurance',
-          kind: DocumentKind.insurance,
-          doc: state.documentsByKind[DocumentKind.insurance],
-        ),
-        _DocLinkRow(
           label: 'Vehicle inspection',
           kind: DocumentKind.inspectionReport,
           doc: state.documentsByKind[DocumentKind.inspectionReport],

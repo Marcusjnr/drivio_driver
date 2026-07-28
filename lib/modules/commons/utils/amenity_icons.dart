@@ -28,6 +28,22 @@ IconData amenityIcon(String code) {
       return Icons.umbrella_outlined;
     case 'extra_legroom':
       return Icons.airline_seat_legroom_extra;
+    case 'bluetooth':
+      return Icons.bluetooth;
+    case 'usb_charger':
+      return Icons.usb;
+    case 'wifi_hotspot':
+      return Icons.wifi;
+    case 'dashcam':
+      return Icons.videocam_outlined;
+    case 'working_radio':
+      return Icons.radio_outlined;
+    case 'tinted_windows':
+      return Icons.blinds_closed_outlined;
+    case 'four_doors':
+      return Icons.sensor_door_outlined;
+    case 'pet_friendly':
+      return Icons.pets_outlined;
     default:
       return Icons.check_circle_outline;
   }

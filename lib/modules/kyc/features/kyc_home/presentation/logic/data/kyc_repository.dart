@@ -6,6 +6,7 @@ class KycSnapshot {
     required this.bvnVerifiedAt,
     required this.ninVerifiedAt,
     required this.livenessPassedAt,
+    required this.driversLicenceVerifiedAt,
     required this.documents,
     required this.hasVehicle,
   });
@@ -14,6 +15,7 @@ class KycSnapshot {
   final DateTime? bvnVerifiedAt;
   final DateTime? ninVerifiedAt;
   final DateTime? livenessPassedAt;
+  final DateTime? driversLicenceVerifiedAt;
   final List<Document> documents;
   final bool hasVehicle;
 }
@@ -42,4 +44,11 @@ abstract class KycRepository {
   /// function and, on a match with the driver's profile, stamps
   /// `drivers.nin_verified_at` server-side.
   Future<NinVerifyResult> verifyNin(String nin);
+
+  /// Verifies [licenceNo] against FRSC via the
+  /// `youverify-verify-drivers-license` edge function and, on a name match,
+  /// stamps `drivers.drivers_licence_verified_at` server-side. Reuses
+  /// [NinVerifyResult] — the outcomes are identical (verified / not found /
+  /// mismatch / error).
+  Future<NinVerifyResult> verifyDriversLicence(String licenceNo);
 }

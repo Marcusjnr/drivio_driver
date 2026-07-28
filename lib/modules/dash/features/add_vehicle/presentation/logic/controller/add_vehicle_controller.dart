@@ -10,15 +10,24 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'package:drivio_driver/modules/commons/analytics/analytics_events.dart';
 import 'package:drivio_driver/modules/commons/analytics/mixpanel_service.dart';
+import 'package:drivio_driver/modules/commons/data/document_repository.dart';
+import 'package:drivio_driver/modules/commons/data/document_repository_impl.dart';
+import 'package:drivio_driver/modules/commons/data/driver_amenities_repository.dart';
 import 'package:drivio_driver/modules/commons/di/di.dart';
 import 'package:drivio_driver/modules/commons/types/document.dart';
 import 'package:drivio_driver/modules/commons/types/vehicle.dart';
-import 'package:drivio_driver/modules/commons/data/document_repository.dart';
-import 'package:drivio_driver/modules/commons/data/document_repository_impl.dart';
 import 'package:drivio_driver/modules/dash/features/add_vehicle/presentation/logic/data/vehicle_repository.dart';
 import 'package:drivio_driver/modules/dash/features/add_vehicle/presentation/logic/data/vehicle_repository_impl.dart';
 
 const int _maxFileBytes = 5 * 1024 * 1024; // 5 MB
+
+/// The four required vehicle photos, in display order.
+const List<DocumentKind> kVehiclePhotoKinds = <DocumentKind>[
+  DocumentKind.vehiclePhotoFront,
+  DocumentKind.vehiclePhotoBack,
+  DocumentKind.vehiclePhotoSide,
+  DocumentKind.vehiclePhotoInterior,
+];
 
 enum DocPickerSource { camera, gallery, file }
 
@@ -30,15 +39,9 @@ class DocumentSlotState {
     this.error,
   });
 
-  /// True while the file is being uploaded to Storage.
   final bool isUploading;
-
-  /// Storage path once uploaded; null otherwise.
   final String? filePath;
-
-  /// Original file name for display in the UI.
   final String? fileName;
-
   final String? error;
 
   bool get isUploaded => filePath != null;
@@ -67,6 +70,13 @@ class AddVehicleState {
     this.year = '',
     this.colour = '',
     this.plate = '',
+    this.vin = '',
+    this.transmission,
+    this.fuelType,
+    this.mileage = '',
+    this.amenityCatalog = const <AmenityOption>[],
+    this.selectedAmenities = const <String>{},
+    this.amenitiesLoading = true,
     this.documents = const <DocumentKind, DocumentSlotState>{},
     this.isLoading = false,
     this.error,
@@ -77,6 +87,19 @@ class AddVehicleState {
   final String year;
   final String colour;
   final String plate;
+  final String vin;
+
+  /// Wire values ('auto'|'manual'), ('diesel'|'electric'|'fuel'|'fuel_cng').
+  final String? transmission;
+  final String? fuelType;
+
+  /// Current mileage (KM) as raw input.
+  final String mileage;
+
+  final List<AmenityOption> amenityCatalog;
+  final Set<String> selectedAmenities;
+  final bool amenitiesLoading;
+
   final Map<DocumentKind, DocumentSlotState> documents;
   final bool isLoading;
   final String? error;
@@ -84,13 +107,11 @@ class AddVehicleState {
   DocumentSlotState slot(DocumentKind kind) =>
       documents[kind] ?? const DocumentSlotState();
 
-  // No age cutoff — any car is welcome. Only sanity-check that it's a
-  // real year and not in the future (next year's models allowed).
   bool get hasValidYear {
     final int? parsed = int.tryParse(year.trim());
     if (parsed == null) return false;
     final int current = DateTime.now().year;
-    return parsed >= 1900 && parsed <= current + 1;
+    return parsed >= 2004 && parsed <= current;
   }
 
   bool get hasValidPlate {
@@ -99,17 +120,38 @@ class AddVehicleState {
     return stripped.length >= 6 && stripped.length <= 10;
   }
 
+  bool get hasValidVin {
+    // Accept the standard 17-char VIN but stay lenient for older imports —
+    // require a plausible alphanumeric string.
+    final String stripped = vin.replaceAll(RegExp(r'[^A-Za-z0-9]'), '');
+    return stripped.length >= 6 && stripped.length <= 17;
+  }
+
+  int? get mileageValue {
+    final int? parsed = int.tryParse(mileage.trim());
+    if (parsed == null || parsed < 0) return null;
+    return parsed;
+  }
+
   bool _hasUploaded(DocumentKind kind) => slot(kind).isUploaded;
 
-  bool get hasRequiredDocuments =>
-      _hasUploaded(DocumentKind.vehicleReg) &&
-      _hasUploaded(DocumentKind.insurance);
+  bool get hasVehicleReg => _hasUploaded(DocumentKind.vehicleReg);
+
+  bool get hasAllPhotos => kVehiclePhotoKinds.every(_hasUploaded);
+
+  bool get hasRequiredDocuments => hasVehicleReg && hasAllPhotos;
 
   bool get canSubmit =>
       make.trim().length >= 2 &&
       model.trim().length >= 2 &&
       hasValidYear &&
+      colour.trim().isNotEmpty &&
       hasValidPlate &&
+      hasValidVin &&
+      transmission != null &&
+      fuelType != null &&
+      mileageValue != null &&
+      selectedAmenities.isNotEmpty &&
       hasRequiredDocuments;
 
   AddVehicleState copyWith({
@@ -118,6 +160,13 @@ class AddVehicleState {
     String? year,
     String? colour,
     String? plate,
+    String? vin,
+    String? transmission,
+    String? fuelType,
+    String? mileage,
+    List<AmenityOption>? amenityCatalog,
+    Set<String>? selectedAmenities,
+    bool? amenitiesLoading,
     Map<DocumentKind, DocumentSlotState>? documents,
     bool? isLoading,
     String? error,
@@ -129,6 +178,13 @@ class AddVehicleState {
       year: year ?? this.year,
       colour: colour ?? this.colour,
       plate: plate ?? this.plate,
+      vin: vin ?? this.vin,
+      transmission: transmission ?? this.transmission,
+      fuelType: fuelType ?? this.fuelType,
+      mileage: mileage ?? this.mileage,
+      amenityCatalog: amenityCatalog ?? this.amenityCatalog,
+      selectedAmenities: selectedAmenities ?? this.selectedAmenities,
+      amenitiesLoading: amenitiesLoading ?? this.amenitiesLoading,
       documents: documents ?? this.documents,
       isLoading: isLoading ?? this.isLoading,
       error: clearError ? null : (error ?? this.error),
@@ -137,15 +193,32 @@ class AddVehicleState {
 }
 
 class AddVehicleController extends StateNotifier<AddVehicleState> {
-  AddVehicleController(this._vehicles, this._documents)
-      : super(const AddVehicleState());
+  AddVehicleController(this._vehicles, this._documents, this._amenities)
+      : super(const AddVehicleState()) {
+    _loadAmenities();
+  }
 
   final VehicleRepository _vehicles;
   final DocumentRepository _documents;
+  final DriverAmenitiesRepository _amenities;
   final ImagePicker _imagePicker = ImagePicker();
 
-  void onMakeChanged(String v) =>
-      state = state.copyWith(make: v, clearError: true);
+  Future<void> _loadAmenities() async {
+    try {
+      final List<AmenityOption> catalog = await _amenities.catalog();
+      if (!mounted) return;
+      state = state.copyWith(amenityCatalog: catalog, amenitiesLoading: false);
+    } catch (_) {
+      if (!mounted) return;
+      state = state.copyWith(amenitiesLoading: false);
+    }
+  }
+
+  void onMakeChanged(String v) {
+    // Changing the make invalidates the previously chosen model.
+    state = state.copyWith(make: v, model: '', clearError: true);
+  }
+
   void onModelChanged(String v) =>
       state = state.copyWith(model: v, clearError: true);
   void onYearChanged(String v) =>
@@ -154,6 +227,24 @@ class AddVehicleController extends StateNotifier<AddVehicleState> {
       state = state.copyWith(colour: v, clearError: true);
   void onPlateChanged(String v) =>
       state = state.copyWith(plate: v, clearError: true);
+  void onVinChanged(String v) =>
+      state = state.copyWith(vin: v, clearError: true);
+  void onTransmissionChanged(String v) =>
+      state = state.copyWith(transmission: v, clearError: true);
+  void onFuelTypeChanged(String v) =>
+      state = state.copyWith(fuelType: v, clearError: true);
+  void onMileageChanged(String v) =>
+      state = state.copyWith(mileage: v, clearError: true);
+
+  void toggleAmenity(String code) {
+    final Set<String> next = Set<String>.from(state.selectedAmenities);
+    if (next.contains(code)) {
+      next.remove(code);
+    } else {
+      next.add(code);
+    }
+    state = state.copyWith(selectedAmenities: next, clearError: true);
+  }
 
   void _setSlot(DocumentKind kind, DocumentSlotState slot) {
     final Map<DocumentKind, DocumentSlotState> next =
@@ -198,10 +289,7 @@ class AddVehicleController extends StateNotifier<AddVehicleState> {
 
       _setSlot(
         kind,
-        DocumentSlotState(
-          filePath: filePath,
-          fileName: picked.fileName,
-        ),
+        DocumentSlotState(filePath: filePath, fileName: picked.fileName),
       );
     } on DocumentAuthException {
       _setSlot(
@@ -248,7 +336,8 @@ class AddVehicleController extends StateNotifier<AddVehicleState> {
         if (x == null) return null;
         final Uint8List bytes = await x.readAsBytes();
         final String name = p.basename(x.path);
-        final String ext = p.extension(x.path).replaceFirst('.', '').toLowerCase();
+        final String ext =
+            p.extension(x.path).replaceFirst('.', '').toLowerCase();
         final String contentType =
             x.mimeType ?? lookupMimeType(x.path) ?? 'image/jpeg';
         return _PickedFile(
@@ -260,13 +349,20 @@ class AddVehicleController extends StateNotifier<AddVehicleState> {
       case DocPickerSource.file:
         final FilePickerResult? result = await FilePicker.pickFiles(
           type: FileType.custom,
-          allowedExtensions: const <String>['pdf', 'jpg', 'jpeg', 'png', 'heic', 'webp'],
+          allowedExtensions: const <String>[
+            'pdf',
+            'jpg',
+            'jpeg',
+            'png',
+            'heic',
+            'webp',
+          ],
           withData: true,
         );
         if (result == null || result.files.isEmpty) return null;
         final PlatformFile f = result.files.single;
-        final Uint8List? bytes =
-            f.bytes ?? (f.path != null ? await File(f.path!).readAsBytes() : null);
+        final Uint8List? bytes = f.bytes ??
+            (f.path != null ? await File(f.path!).readAsBytes() : null);
         if (bytes == null) return null;
         final String ext = (f.extension ?? '').toLowerCase();
         final String contentType =
@@ -280,8 +376,6 @@ class AddVehicleController extends StateNotifier<AddVehicleState> {
     }
   }
 
-  /// Called by the page after navigation completes, so the button never
-  /// flashes back to idle mid-transition (the provider is app-scoped).
   void endLoading() => state = state.copyWith(isLoading: false);
 
   Future<Vehicle?> submit() async {
@@ -295,9 +389,21 @@ class AddVehicleController extends StateNotifier<AddVehicleState> {
         year: int.parse(state.year.trim()),
         plate: state.plate,
         colour: state.colour,
+        vin: state.vin,
+        transmission: state.transmission,
+        fuelType: state.fuelType,
+        mileageKm: state.mileageValue,
       );
 
-      // Register each uploaded doc against the new vehicle id.
+      // Persist the driver's amenity selection (per-driver set).
+      try {
+        await _amenities.setMyCodes(state.selectedAmenities.toList());
+      } catch (_) {
+        // Non-fatal — the vehicle itself saved; amenities can be edited
+        // later from the profile amenities screen.
+      }
+
+      // Register each uploaded doc/photo against the new vehicle id.
       for (final MapEntry<DocumentKind, DocumentSlotState> entry
           in state.documents.entries) {
         if (entry.value.filePath == null) continue;
@@ -313,8 +419,6 @@ class AddVehicleController extends StateNotifier<AddVehicleState> {
         properties: <String, dynamic>{'vehicle_type': vehicle.category.name},
       );
 
-      // Success: stay loading — the page pops back to where the driver
-      // came from; [endLoading] runs after the transition.
       return vehicle;
     } on VehicleAuthException {
       state = state.copyWith(
@@ -360,5 +464,6 @@ final StateNotifierProvider<AddVehicleController, AddVehicleState>
   (Ref _) => AddVehicleController(
     locator<VehicleRepository>(),
     locator<DocumentRepository>(),
+    locator<DriverAmenitiesRepository>(),
   ),
 );

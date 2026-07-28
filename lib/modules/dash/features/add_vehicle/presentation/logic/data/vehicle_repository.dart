@@ -7,6 +7,10 @@ abstract class VehicleRepository {
     required int year,
     required String plate,
     String? colour,
+    String? vin,
+    String? transmission,
+    String? fuelType,
+    int? mileageKm,
   });
 
   Future<List<Vehicle>> listMyVehicles();
