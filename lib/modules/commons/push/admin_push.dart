@@ -55,6 +55,11 @@ Future<void> ensureAdminPushInitialised() async {
   );
   await _localNotifs.initialize(
     settings,
+    // Both callbacks are needed. Android routes an action tap to the
+    // FOREGROUND callback when the app is already running and to the
+    // background isolate otherwise; wiring only one leaves "Go online"
+    // dead in that half of the cases.
+    onDidReceiveNotificationResponse: adminPushActionBackground,
     onDidReceiveBackgroundNotificationResponse: adminPushActionBackground,
   );
   _initialised = true;

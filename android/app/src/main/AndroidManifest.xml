@@ -67,6 +67,20 @@
         <meta-data
             android:name="com.google.firebase.messaging.default_notification_color"
             android:resource="@color/notification_color" />
+
+        <!-- Delivers notification-action taps to the Dart background
+             handler (`adminPushActionBackground` → headless go-online).
+             flutter_local_notifications ships the receiver CLASS but does
+             NOT declare it in its own manifest, so without this entry
+             Android has nowhere to deliver the action and "Go online"
+             silently does nothing. `enableHeadless` is what lets it run
+             with no Activity — the whole point of the button. -->
+        <receiver
+            android:name="com.dexterous.flutterlocalnotifications.ActionBroadcastReceiver"
+            android:exported="false" />
+        <meta-data
+            android:name="com.dexterous.flutterlocalnotifications.enableHeadless"
+            android:value="true" />
     </application>
   <!-- Required for url_launcher / canLaunchUrl probing. Android 11+
          restricts visibility of installed apps; without these <queries>
