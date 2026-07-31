@@ -21,10 +21,12 @@ import 'package:drivio_driver/modules/commons/overlay/ride_request_overlay.dart'
 ///   * (Android) the overlay bubble is shown separately (see the overlay
 ///     module) — this file owns sound + notification only.
 ///
-/// The alert is deliberately NOT triggered in the foreground: there the live
-/// marketplace feed already surfaces the request in-app (no double alert).
-/// It stops on [stopRideRequestAlert] — called when the app is resumed to
-/// the request, when the driver acts on it, or after [_kMaxAlertWindow].
+/// In the FOREGROUND the live marketplace feed already surfaces the request
+/// in-app, so the notification + overlay layers are skipped — but the same
+/// looping sound rings via [startForegroundRideAlert] until the driver taps
+/// the request. Either alert stops on [stopRideRequestAlert] — called when
+/// the driver opens/acts on the request (feed tap, app resume) or after
+/// [_kMaxAlertWindow].
 
 const String _kChannelId = 'drivio_ride_request';
 const String _kChannelName = 'New trip requests';
@@ -143,12 +145,43 @@ Future<void> startRideRequestAlert(Map<String, dynamic> data) async {
   _autoStop = Timer(_kMaxAlertWindow, () => unawaited(stopRideRequestAlert()));
 }
 
-Future<void> _startLoopingSound() async {
+Future<void> _startLoopingSound() => _playAlertSound(loop: true);
+
+String? _lastForegroundAlertRequestId;
+
+/// The same looping alert for a request that arrives while the app is in
+/// the FOREGROUND (FCM `onMessage`). The feed card is the visual layer
+/// there, so no notification and no overlay — but the sound loops exactly
+/// like the background ring and stops the moment the driver taps the
+/// request (see `enterBidding` → [stopRideRequestAlert]), or after
+/// [_kMaxAlertWindow] when the request window has closed anyway.
+Future<void> startForegroundRideAlert(String? requestId) async {
+  // Duplicate FCM delivery of a request the driver already acted on →
+  // don't re-ring it.
+  if (requestId != null && requestId == _lastForegroundAlertRequestId) {
+    return;
+  }
+  _lastForegroundAlertRequestId = requestId;
+  // A ring is already sounding (background-isolate race around the moment
+  // the app comes to the front) — don't stack a second player.
+  if (_stopPort == null &&
+      IsolateNameServer.lookupPortByName(_kStopPortName) != null) {
+    return;
+  }
+  // Own the ring: lets stopRideRequestAlert() (feed tap, lifecycle) kill
+  // it through the same switch the background ring uses.
+  _registerStopPort();
+  await _playAlertSound(loop: true);
+  _autoStop?.cancel();
+  _autoStop = Timer(_kMaxAlertWindow, () => unawaited(stopRideRequestAlert()));
+}
+
+Future<void> _playAlertSound({required bool loop}) async {
   try {
     await _player?.stop();
     await _player?.dispose();
     final AudioPlayer p = AudioPlayer();
-    await p.setReleaseMode(ReleaseMode.loop);
+    await p.setReleaseMode(loop ? ReleaseMode.loop : ReleaseMode.release);
     await p.setAudioContext(
       AudioContext(
         android: const AudioContextAndroid(

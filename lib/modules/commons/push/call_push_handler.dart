@@ -10,6 +10,7 @@ import 'package:drivio_driver/modules/commons/di/di.dart';
 import 'package:drivio_driver/modules/commons/navigation/app_navigation.dart';
 import 'package:drivio_driver/modules/commons/push/admin_push.dart';
 import 'package:drivio_driver/modules/commons/push/ride_alert_push.dart';
+import 'package:drivio_driver/modules/marketplace/features/feed/presentation/logic/controller/marketplace_controller.dart';
 import 'package:drivio_driver/modules/commons/supabase/supabase_module.dart';
 import 'package:drivio_driver/modules/commons/navigation/app_routes.dart';
 import 'package:drivio_driver/modules/commons/types/call.dart';
@@ -115,6 +116,23 @@ class CallPushBridge {
         final Object? callId = m.data['call_id'];
         if (callId is String) {
           unawaited(_adoptRinging(callId));
+        }
+      } else if (m.data['type'] == 'ride_request') {
+        // App is in the foreground: the marketplace feed shows the card,
+        // so no notification/overlay — but the same looping alert sound
+        // rings until the driver taps the request.
+        unawaited(
+          startForegroundRideAlert(m.data['ride_request_id'] as String?),
+        );
+        // The push consistently beats both the realtime insert and the
+        // feed's 5 s safety poll — so use it as the fetch trigger too.
+        // Without this the driver HEARS the request seconds before the
+        // card appears.
+        final MarketplaceController? feed = _container?.read(
+          marketplaceControllerProvider.notifier,
+        );
+        if (feed != null) {
+          unawaited(feed.refresh());
         }
       }
     });

@@ -98,6 +98,10 @@ class MarketplaceController extends StateNotifier<MarketplaceState> {
   double? _lastFetchLng;
   bool _fetchInFlight = false;
 
+  /// A fetch trigger landed while one was already in flight; run exactly
+  /// one follow-up when it finishes rather than dropping the trigger.
+  bool _refetchQueued = false;
+
   /// Ride-request ids we've already counted as "received", so the 5 s
   /// poll / realtime / move-driven refetches don't re-fire the event for
   /// a request that's still open across fetches.
@@ -185,9 +189,16 @@ class MarketplaceController extends StateNotifier<MarketplaceState> {
 
   Future<void> _fetch(double lat, double lng) async {
     // Single-flight guard. The 5 s poll, the realtime listener, the
-    // move-driven refetch, and pull-to-refresh can all race; we only
-    // ever want one fetch in flight at a time.
-    if (_fetchInFlight) return;
+    // move-driven refetch, pull-to-refresh, and the FCM-triggered refresh
+    // can all race; we only ever want one fetch in flight at a time. But
+    // a swallowed trigger may know something the in-flight fetch started
+    // too early to see (the push for a just-inserted request), so queue
+    // one follow-up instead of dropping it — otherwise the driver hears
+    // the alert seconds before the card can appear.
+    if (_fetchInFlight) {
+      _refetchQueued = true;
+      return;
+    }
     _fetchInFlight = true;
     state = state.copyWith(isLoading: true, clearError: true);
     try {
@@ -229,6 +240,14 @@ class MarketplaceController extends StateNotifier<MarketplaceState> {
       );
     } finally {
       _fetchInFlight = false;
+      // A trigger arrived mid-fetch (typically the FCM push for a request
+      // inserted after this fetch began) — run the follow-up it asked for.
+      if (_refetchQueued && mounted) {
+        _refetchQueued = false;
+        unawaited(_fetch(lat, lng));
+      } else {
+        _refetchQueued = false;
+      }
     }
   }
 

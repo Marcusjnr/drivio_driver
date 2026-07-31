@@ -1,3 +1,6 @@
+import 'dart:async';
+
+import 'package:drivio_driver/modules/commons/push/ride_alert_push.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 /// What the driver is currently doing inside the shell. Drives map markers,
@@ -53,6 +56,9 @@ class DriveShellController extends StateNotifier<DriveShellState> {
   DriveShellController() : super(const DriveShellState());
 
   void enterBidding(String requestId) {
+    // The driver just tapped the request — silence the new-trip alert
+    // (foreground loop or background ring) the moment they engage.
+    unawaited(stopRideRequestAlert());
     state = state.copyWith(mode: ShellMode.bidding, activeRequestId: requestId);
   }
 
