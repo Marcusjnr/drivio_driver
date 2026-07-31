@@ -34,11 +34,20 @@ const int _kGoOnlineNotificationId = 4037;
 // reconciler reads this to keep the driver online across app restarts.
 const String _kIntendedOnlineKey = 'presence_intended_online';
 
+// ...and with PresenceController._intendedOnlineUidKey. The reconciler
+// only honours the flag when it carries the CURRENTLY signed-in driver's
+// id; a flag without a matching uid is treated as a leftover from another
+// account, which makes it clear the flag AND stop the service. Writing
+// only the bool here would take the driver back offline the moment they
+// opened the app.
+const String _kIntendedOnlineUidKey = 'presence_intended_online_uid';
+
 const String _kSnapUrl = 'go_online_snap_url';
 const String _kSnapAnonKey = 'go_online_snap_anon';
 const String _kSnapAccess = 'go_online_snap_access';
 const String _kSnapRefresh = 'go_online_snap_refresh';
 const String _kSnapExpires = 'go_online_snap_expires';
+const String _kSnapUid = 'go_online_snap_uid';
 
 final FlutterLocalNotificationsPlugin _localNotifs =
     FlutterLocalNotificationsPlugin();
@@ -80,6 +89,9 @@ Future<void> initAdminPush(SupabaseClient client) async {
       await prefs.setString(_kSnapAccess, session.accessToken);
       await prefs.setString(_kSnapRefresh, session.refreshToken ?? '');
       await prefs.setInt(_kSnapExpires, session.expiresAt ?? 0);
+      // Needed so the headless path can stamp the intended-online flag
+      // with its owner — see [_kIntendedOnlineUidKey].
+      await prefs.setString(_kSnapUid, session.user.id);
     } catch (e) {
       AppLogger.w('go-online snapshot persist failed', error: e);
     }
@@ -92,9 +104,13 @@ Future<void> initAdminPush(SupabaseClient client) async {
       unawaited(persist(change.session));
     }
     if (change.event == AuthChangeEvent.signedOut) {
-      unawaited(SharedPreferences.getInstance().then(
-        (SharedPreferences p) => p.remove(_kSnapRefresh),
-      ));
+      // Drop the uid with the refresh token: a snapshot naming the
+      // previous account could otherwise take the NEXT driver on this
+      // device online under the wrong identity.
+      unawaited(SharedPreferences.getInstance().then((SharedPreferences p) {
+        p.remove(_kSnapRefresh);
+        p.remove(_kSnapUid);
+      }));
     }
   });
 
@@ -138,6 +154,16 @@ Future<void> showGoOnlinePrompt(Map<String, dynamic> data) async {
           ),
         ],
       ),
+      // No actions on iOS, deliberately. iOS cannot start the presence
+      // foreground service from a notification action, so a "Go online"
+      // button there could only ever open the app — a button that lies
+      // about what it does. Tapping the notification body opens Drivio,
+      // which is the honest iOS behaviour.
+      //
+      // Buttons appear on iOS only via a registered category, so leaving
+      // `categoryIdentifier` unset is what keeps them off. Do not add one
+      // here (or `notificationCategories` in DarwinInitializationSettings)
+      // without first making the action actually work on iOS.
       iOS: DarwinNotificationDetails(),
     ),
   );
@@ -161,14 +187,21 @@ Future<void> _goOnlineHeadless() async {
     final String access = prefs.getString(_kSnapAccess) ?? '';
     final String refresh = prefs.getString(_kSnapRefresh) ?? '';
     final int expires = prefs.getInt(_kSnapExpires) ?? 0;
-    if (url.isEmpty || anon.isEmpty || refresh.isEmpty) {
+    final String uid = prefs.getString(_kSnapUid) ?? '';
+    // No uid means we cannot stamp the flag with its owner, and an
+    // unowned flag makes the reconciler stop the service on next open.
+    // Better to send them into the app than to go online for a few
+    // minutes and be silently dropped.
+    if (url.isEmpty || anon.isEmpty || refresh.isEmpty || uid.isEmpty) {
       await _showFallback();
       return;
     }
 
-    // Same flag the in-app toggle sets — the resume reconciler and the
-    // service watchdog both treat the driver as intentionally online.
+    // Same two keys the in-app toggle sets — the resume reconciler and
+    // the service watchdog both treat the driver as intentionally online,
+    // and the uid proves the flag belongs to this account.
     await prefs.setBool(_kIntendedOnlineKey, true);
+    await prefs.setString(_kIntendedOnlineUidKey, uid);
 
     final bool ok = await BackgroundLocationService().start(
       BgSession(
@@ -181,6 +214,7 @@ Future<void> _goOnlineHeadless() async {
     );
     if (!ok) {
       await prefs.setBool(_kIntendedOnlineKey, false);
+      await prefs.remove(_kIntendedOnlineUidKey);
       await _showFallback();
     }
   } catch (e) {

@@ -214,6 +214,14 @@ class PresenceController extends StateNotifier<PresenceState> {
       return true;
     }
     final SharedPreferences prefs = await SharedPreferences.getInstance();
+    // MUST reload before reading. `shared_preferences` caches values in a
+    // per-isolate Dart map, so writes made by the notification-action
+    // background isolate ("Go online" without opening the app) are
+    // invisible to this isolate's cache no matter how long we wait. Skip
+    // this and the driver comes back to a UI that says offline — and
+    // worse, the uid check below sees a null flagUid, decides the flag is
+    // a leftover from another account, and stops the live service.
+    await prefs.reload();
     if (!(prefs.getBool(_intendedOnlineKey) ?? false)) {
       return false;
     }

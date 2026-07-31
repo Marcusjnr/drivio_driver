@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/widgets.dart';
 import 'package:flutter_foreground_task/flutter_foreground_task.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:drivio_driver/modules/commons/di/di.dart';
 import 'package:drivio_driver/modules/commons/location/presence_background.dart';
@@ -54,6 +55,12 @@ class LifecycleController with WidgetsBindingObserver {
     // The driver has the app in front of them again — silence any new-trip
     // alert that was ringing in the background (the live feed takes over).
     unawaited(stopRideRequestAlert());
+    // Drop this isolate's stale SharedPreferences cache before any screen
+    // reads it. Background isolates (the "Go online" notification action)
+    // write prefs that this isolate's Dart-side cache will otherwise never
+    // see. App-wide because the driver may resume on ANY tab, and only the
+    // drive shell reconciles presence on its own.
+    unawaited(_reloadPrefs());
 
     final DateTime? pausedAt = _lastPausedAt;
     _lastPausedAt = null;
@@ -65,6 +72,14 @@ class LifecycleController with WidgetsBindingObserver {
     // If backgrounded for more than 30 seconds, refresh session
     if (elapsed.inSeconds > 30) {
       _refreshSession();
+    }
+  }
+
+  Future<void> _reloadPrefs() async {
+    try {
+      await (await SharedPreferences.getInstance()).reload();
+    } catch (_) {
+      // Best-effort — reconcileOnStart reloads again before it reads.
     }
   }
 
