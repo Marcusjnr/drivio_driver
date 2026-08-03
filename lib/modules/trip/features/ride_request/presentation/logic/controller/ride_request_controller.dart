@@ -85,12 +85,27 @@ class RideRequestState {
 
   int get marketFareNaira => marketFareMinor ~/ 100;
 
-  /// Where the current bid sits versus the market fare for this trip.
-  BidMarketLevel get marketLevel {
-    if (marketFareMinor <= 0 || warnPct <= 0) return BidMarketLevel.none;
+  /// Hard bid bounds for this trip: the market fare widened by the
+  /// state's warn %. The server rejects anything outside this
+  /// (`price_outside_band`), and the rider was quoted exactly this range
+  /// — so it is a limit, not guidance. Null when the state has no cap.
+  ({int low, int high})? get bidBounds {
+    if (marketFareMinor <= 0 || warnPct <= 0) return null;
     final double f = warnPct / 100.0;
-    if (priceMinor >= marketFareMinor * (1 + f)) return BidMarketLevel.above;
-    if (priceMinor <= marketFareMinor * (1 - f)) return BidMarketLevel.below;
+    return (
+      low: (marketFareMinor * (1 - f)).floor(),
+      high: (marketFareMinor * (1 + f)).ceil(),
+    );
+  }
+
+  /// Where the current bid sits versus the market fare for this trip.
+  /// With the band now hard-capped the price can only sit AT an edge,
+  /// never past it, so this reads as "you're at the ceiling/floor".
+  BidMarketLevel get marketLevel {
+    final ({int low, int high})? b = bidBounds;
+    if (b == null) return BidMarketLevel.none;
+    if (priceMinor >= b.high) return BidMarketLevel.above;
+    if (priceMinor <= b.low) return BidMarketLevel.below;
     return BidMarketLevel.none;
   }
 
@@ -253,11 +268,23 @@ class RideRequestController extends StateNotifier<RideRequestState> {
       _pricingProfile = r[2] as PricingProfile;
       final StatePriceGuidance? guidance = r[3] as StatePriceGuidance?;
 
-      final int suggested = _suggestedForRequest(req);
       // Market fare for this trip from the state reference (base + per-km ×
-      // km). Drives the "above/below market" bid banner.
+      // km). Drives the band and the "at the ceiling/floor" banner.
       final int marketFare =
           guidance?.marketFareMinorFor(req.expectedDistanceM ?? 0) ?? 0;
+      // Seed inside the band. The profile is itself banded, so this
+      // normally already fits — but ₦100 rounding can nudge a rate
+      // sitting exactly on an edge just past it, which would open the
+      // composer on a price the server would refuse.
+      int suggested = _suggestedForRequest(req);
+      final int warn = guidance?.warnPct ?? 0;
+      if (marketFare > 0 && warn > 0) {
+        final double f = warn / 100.0;
+        suggested = suggested.clamp(
+          (marketFare * (1 - f)).floor(),
+          (marketFare * (1 + f)).ceil(),
+        );
+      }
       // Surcharges were removed from the pricing model — the suggested
       // fare is base + per-km only, identical at every hour. No
       // peak/night window is ever active, so the bid composer shows no
@@ -325,7 +352,15 @@ class RideRequestController extends StateNotifier<RideRequestState> {
   }
 
   void setPriceNaira(int v) {
-    final int minor = (v * 100).clamp(_kAbsoluteMinMinor, _kAbsoluteMaxMinor);
+    int minor = (v * 100).clamp(_kAbsoluteMinMinor, _kAbsoluteMaxMinor);
+    // Hard band for this trip. Clamping here (rather than letting the
+    // driver type a number the server will reject) keeps the failure at
+    // the control instead of at submit time, and guarantees the range
+    // the rider was quoted.
+    final ({int low, int high})? b = state.bidBounds;
+    if (b != null) {
+      minor = minor.clamp(b.low, b.high);
+    }
     // A fresh price edit re-arms the market warning so a new deviation
     // shows even if the driver dismissed the previous one.
     state = state.copyWith(

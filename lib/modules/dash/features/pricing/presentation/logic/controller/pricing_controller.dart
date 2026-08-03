@@ -7,14 +7,10 @@ import 'package:drivio_driver/modules/commons/di/di.dart';
 import 'package:drivio_driver/modules/commons/types/pricing_profile.dart';
 import 'package:drivio_driver/modules/commons/types/state_price_guidance.dart';
 
-/// How the driver's per-km compares to their state's default per-km.
-enum PriceWarnLevel { none, high, low }
-
 class PricingState {
   const PricingState({
     this.profile,
     this.guidance,
-    this.warningDismissed = false,
     this.isLoading = true,
     this.isSaving = false,
     this.error,
@@ -23,40 +19,20 @@ class PricingState {
 
   final PricingProfile? profile;
 
-  /// The driver's state pricing reference (default per-km + warn %). Null
-  /// while loading or when the lookup fails — no warning is shown then.
+  /// The driver's state pricing reference (default per-km + warn %).
+  /// Drives the hard per-km band. Null while loading, or when the lookup
+  /// fails — the steppers are then unbounded client-side and the server
+  /// clamps on save.
   final StatePriceGuidance? guidance;
-
-  /// The driver dismissed the current warning. Reset whenever they change
-  /// the per-km again, so a fresh deviation re-surfaces it.
-  final bool warningDismissed;
 
   final bool isLoading;
   final bool isSaving;
   final String? error;
   final DateTime? lastSavedAt;
 
-  /// Whether the driver's per-km is far enough from the state default to
-  /// warrant a warning, and in which direction.
-  PriceWarnLevel get perKmWarnLevel {
-    final StatePriceGuidance? g = guidance;
-    final PricingProfile? p = profile;
-    if (g == null || p == null || g.perKmMinor <= 0 || g.warnPct <= 0) {
-      return PriceWarnLevel.none;
-    }
-    if (p.perKmMinor >= g.highPerKmMinor) return PriceWarnLevel.high;
-    if (p.perKmMinor <= g.lowPerKmMinor) return PriceWarnLevel.low;
-    return PriceWarnLevel.none;
-  }
-
-  /// The banner shows only when a deviation exists and hasn't been dismissed.
-  bool get showWarning =>
-      !warningDismissed && perKmWarnLevel != PriceWarnLevel.none;
-
   PricingState copyWith({
     PricingProfile? profile,
     StatePriceGuidance? guidance,
-    bool? warningDismissed,
     bool? isLoading,
     bool? isSaving,
     String? error,
@@ -66,7 +42,6 @@ class PricingState {
     return PricingState(
       profile: profile ?? this.profile,
       guidance: guidance ?? this.guidance,
-      warningDismissed: warningDismissed ?? this.warningDismissed,
       isLoading: isLoading ?? this.isLoading,
       isSaving: isSaving ?? this.isSaving,
       error: clearError ? null : (error ?? this.error),
@@ -115,28 +90,38 @@ class PricingController extends StateNotifier<PricingState> {
     }
   }
 
-  void setBaseMinor(int v) => _apply(
-        next: (PricingProfile p) => p.copyWith(baseMinor: v),
-        serverFields: <String, dynamic>{'base_minor': v},
-      );
+  /// Clamp a per-km edit into the state's allowed band. The band is a
+  /// HARD limit, not advice: the server clamps to it on save and the
+  /// rider is quoted a range that only holds because of it. Clamping in
+  /// the setter means the driver simply cannot step past the edge,
+  /// rather than entering a number the server silently corrects.
+  ///
+  /// Base fare has no setter — it is admin-owned per state and forced
+  /// server-side, so there is nothing here for the driver to change.
+  int _clampToBand(int value) {
+    final StatePriceGuidance? g = state.guidance;
+    if (g == null || g.warnPct <= 0) {
+      return value;
+    }
+    return value.clamp(g.lowPerKmMinor, g.highPerKmMinor);
+  }
 
   void setPerKmMinor(int v) {
-    // A fresh per-km edit re-arms the warning so a new deviation shows even
-    // if the driver dismissed the previous one.
-    if (state.warningDismissed) {
-      state = state.copyWith(warningDismissed: false);
-    }
+    final int clamped = _clampToBand(v);
     _apply(
-      next: (PricingProfile p) => p.copyWith(perKmMinor: v),
-      serverFields: <String, dynamic>{'per_km_minor': v},
+      next: (PricingProfile p) => p.copyWith(perKmMinor: clamped),
+      serverFields: <String, dynamic>{'per_km_minor': clamped},
     );
   }
 
-  /// Hide the current price-deviation warning until the per-km changes again.
-  void dismissWarning() {
-    if (!state.warningDismissed) {
-      state = state.copyWith(warningDismissed: true);
+  /// Inclusive per-km bounds for the UI (slider min/max, helper text).
+  /// Null when the state has no cap configured.
+  ({int low, int high})? get perKmBounds {
+    final StatePriceGuidance? g = state.guidance;
+    if (g == null || g.warnPct <= 0) {
+      return null;
     }
+    return (low: g.lowPerKmMinor, high: g.highPerKmMinor);
   }
 
   void setPeakMultiplier(double v) => _apply(

@@ -231,6 +231,15 @@ const Map<String, String> _knownCodes = <String, String>{
       'That request expired before you could bid.',
   'request_unavailable':
       'That request is no longer available.',
+  // Hard price band. The app clamps before submitting, so a driver only
+  // reaches these if the admin narrowed the band mid-session or the
+  // request was created under different state pricing.
+  'price_outside_band':
+      'That price is outside the allowed range for this trip. Adjust it and try again.',
+  'per_km_outside_band':
+      'That rate is outside the allowed range for your state.',
+  'base_outside_band':
+      'That base fare is outside the allowed range for your state.',
   'bid_unavailable':
       'That bid is no longer available.',
   'bid_already_accepted':

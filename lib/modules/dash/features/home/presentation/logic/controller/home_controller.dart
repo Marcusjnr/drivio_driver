@@ -13,7 +13,6 @@ class HomeState {
     this.hasAnyVehicle = false,
     this.pendingVehicle,
     this.isVehicleLoaded = false,
-    this.priceTrip = 3800,
     this.todaysEarnings = 24800,
     this.tripsToday = 7,
     this.hoursOnline = 5.2,
@@ -35,7 +34,6 @@ class HomeState {
   final Vehicle? pendingVehicle;
 
   final bool isVehicleLoaded;
-  final int priceTrip;
   final int todaysEarnings;
   final int tripsToday;
   final double hoursOnline;
@@ -51,7 +49,6 @@ class HomeState {
     Vehicle? pendingVehicle,
     bool clearPendingVehicle = false,
     bool? isVehicleLoaded,
-    int? priceTrip,
   }) {
     return HomeState(
       status: status ?? this.status,
@@ -60,7 +57,6 @@ class HomeState {
       pendingVehicle:
           clearPendingVehicle ? null : (pendingVehicle ?? this.pendingVehicle),
       isVehicleLoaded: isVehicleLoaded ?? this.isVehicleLoaded,
-      priceTrip: priceTrip ?? this.priceTrip,
       todaysEarnings: todaysEarnings,
       tripsToday: tripsToday,
       hoursOnline: hoursOnline,

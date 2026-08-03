@@ -46,6 +46,9 @@ class _Body extends StatelessWidget {
         state.profile ?? PricingProfile.platformDefault;
     final int baseNaira = profile.baseNaira;
     final int perKmNaira = profile.perKmNaira;
+    // Hard per-km limits for this driver's state. Null = state has the
+    // cap disabled (warn_pct 0), in which case the steppers are free.
+    final ({int low, int high})? bounds = controller.perKmBounds;
 
     // Example: an 8 km trip, via the exact path the bid composer takes —
     // base + per-km × km, then nearest-₦100 round. Mirrors
@@ -92,35 +95,32 @@ class _Body extends StatelessWidget {
           ),
           const SizedBox(height: 22),
 
-          // DEFAULTS — base fare + per-km steppers.
+          // YOUR RATE — per-km only. Base fare is set by Drivio per state
+          // and is not the driver's to change, so it is shown as a fact in
+          // the example breakdown below rather than as a control.
           _SectionGroup(
-            title: 'DEFAULTS',
+            title: 'YOUR RATE',
             children: <Widget>[
-              _NumberRow(
-                icon: Icons.sell_outlined,
-                label: 'Base fare',
-                value: baseNaira,
-                step: 100,
-                onChanged: (int v) => controller.setBaseMinor(v * 100),
-              ),
               _NumberRow(
                 icon: Icons.straighten_rounded,
                 label: 'Per km',
                 value: perKmNaira,
                 step: 50,
+                min: bounds == null ? null : bounds.low ~/ 100,
+                max: bounds == null ? null : bounds.high ~/ 100,
                 onChanged: (int v) => controller.setPerKmMinor(v * 100),
                 isLast: true,
               ),
             ],
           ),
 
-          if (state.showWarning) ...<Widget>[
-            const SizedBox(height: 12),
-            _PriceWarningBanner(
-              level: state.perKmWarnLevel,
-              driverPerKmMinor: profile.perKmMinor,
-              defaultPerKmMinor: state.guidance?.perKmMinor ?? 0,
-              onDismiss: controller.dismissWarning,
+          if (bounds != null) ...<Widget>[
+            const SizedBox(height: 8),
+            Text(
+              'You can set ${NairaFormatter.format(bounds.low ~/ 100)}'
+              '–${NairaFormatter.format(bounds.high ~/ 100)} per km '
+              'in your area.',
+              style: AppTextStyles.captionSm.copyWith(color: context.textDim),
             ),
           ],
 
@@ -142,99 +142,14 @@ class _Body extends StatelessWidget {
 
           const SizedBox(height: 22),
 
-          // Example — live preview of an 8 km trip's suggested fare.
+          // Example — live preview of an 8 km trip's suggested fare. The
+          // base fare in the breakdown is Drivio's for this state, not a
+          // driver setting; only the per-km half is theirs.
           _ExampleCard(
             km: kExampleKm,
             suggestedNaira: exampleNaira,
             baseNaira: baseNaira,
             perKmNaira: perKmNaira,
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-/// Dismissable banner shown when the driver's per-km sits more than the
-/// state's warn-% away from the local default — too high (fewer rides) or
-/// too low (underpricing). Dismiss hides it until the per-km changes again.
-class _PriceWarningBanner extends StatelessWidget {
-  const _PriceWarningBanner({
-    required this.level,
-    required this.driverPerKmMinor,
-    required this.defaultPerKmMinor,
-    required this.onDismiss,
-  });
-
-  final PriceWarnLevel level;
-  final int driverPerKmMinor;
-  final int defaultPerKmMinor;
-  final VoidCallback onDismiss;
-
-  @override
-  Widget build(BuildContext context) {
-    final bool high = level == PriceWarnLevel.high;
-    final Color tone = high ? context.amber : context.blue;
-    final int pct = defaultPerKmMinor <= 0
-        ? 0
-        : ((driverPerKmMinor - defaultPerKmMinor).abs() /
-                defaultPerKmMinor *
-                100)
-            .round();
-    final String title = high
-        ? 'Priced above your area'
-        : 'Priced below your area';
-    final String body = high
-        ? "Your per-km is about $pct% above your area's typical rate. "
-            'Pricing this high can mean fewer riders pick you.'
-        : "Your per-km is about $pct% below your area's typical rate. "
-            'You may be underpricing and earning less than you could.';
-
-    return Container(
-      padding: const EdgeInsets.fromLTRB(12, 11, 8, 11),
-      decoration: BoxDecoration(
-        color: tone.withValues(alpha: 0.12),
-        borderRadius: AppRadius.sm,
-        border: Border.all(color: tone.withValues(alpha: 0.4)),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[
-          Icon(
-            high
-                ? Icons.trending_up_rounded
-                : Icons.trending_down_rounded,
-            size: 18,
-            color: tone,
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: <Widget>[
-                Text(
-                  title,
-                  style: AppTextStyles.bodySm.copyWith(
-                    color: context.text,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  body,
-                  style: AppTextStyles.captionSm
-                      .copyWith(color: context.textDim, height: 1.4),
-                ),
-              ],
-            ),
-          ),
-          GestureDetector(
-            onTap: onDismiss,
-            behavior: HitTestBehavior.opaque,
-            child: Padding(
-              padding: const EdgeInsets.all(4),
-              child: Icon(Icons.close_rounded, size: 16, color: context.textMuted),
-            ),
           ),
         ],
       ),
@@ -356,6 +271,8 @@ class _NumberRow extends StatelessWidget {
     required this.onChanged,
     this.step = 100,
     this.isLast = false,
+    this.min,
+    this.max,
   });
 
   final IconData icon;
@@ -364,6 +281,12 @@ class _NumberRow extends StatelessWidget {
   final int step;
   final ValueChanged<int> onChanged;
   final bool isLast;
+
+  /// Hard bounds (naira). The steppers stop dead at these — the band is
+  /// enforced server-side, so letting the driver step past it would only
+  /// produce a value the server silently corrects.
+  final int? min;
+  final int? max;
 
   @override
   Widget build(BuildContext context) {
@@ -389,9 +312,11 @@ class _NumberRow extends StatelessWidget {
           ),
           _StepperBtn(
             icon: DrivioIcons.minus,
-            // Floor at 0 (no negative fares); increase is unbounded so
-            // the driver can set any amount they choose.
-            onTap: () => onChanged(value - step < 0 ? 0 : value - step),
+            enabled: min == null || value > min!,
+            onTap: () {
+              final int next = value - step;
+              onChanged(next < (min ?? 0) ? (min ?? 0) : next);
+            },
           ),
           SizedBox(
             width: 84,
@@ -403,7 +328,11 @@ class _NumberRow extends StatelessWidget {
           ),
           _StepperBtn(
             icon: DrivioIcons.plus,
-            onTap: () => onChanged(value + step),
+            enabled: max == null || value < max!,
+            onTap: () {
+              final int next = value + step;
+              onChanged(max != null && next > max! ? max! : next);
+            },
           ),
         ],
       ),
@@ -412,24 +341,35 @@ class _NumberRow extends StatelessWidget {
 }
 
 class _StepperBtn extends StatelessWidget {
-  const _StepperBtn({required this.icon, required this.onTap});
+  const _StepperBtn({
+    required this.icon,
+    required this.onTap,
+    this.enabled = true,
+  });
   final IconData icon;
   final VoidCallback onTap;
+
+  /// A stepper at the edge of the allowed band dims and stops responding,
+  /// so the limit is visible rather than a value that silently snaps back.
+  final bool enabled;
 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width: 32,
-        height: 32,
-        decoration: BoxDecoration(
-          color: context.surface2,
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: context.border),
+      onTap: enabled ? onTap : null,
+      child: Opacity(
+        opacity: enabled ? 1 : 0.35,
+        child: Container(
+          width: 32,
+          height: 32,
+          decoration: BoxDecoration(
+            color: context.surface2,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: context.border),
+          ),
+          alignment: Alignment.center,
+          child: Icon(icon, size: 16, color: context.text),
         ),
-        alignment: Alignment.center,
-        child: Icon(icon, size: 16, color: context.text),
       ),
     );
   }

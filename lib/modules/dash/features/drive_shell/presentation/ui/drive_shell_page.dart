@@ -20,6 +20,7 @@ import 'package:drivio_driver/modules/dash/features/drive_shell/presentation/log
 import 'package:drivio_driver/modules/dash/features/drive_shell/presentation/ui/widgets/bidding_body.dart';
 import 'package:drivio_driver/modules/dash/features/drive_shell/presentation/ui/widgets/home_body.dart';
 import 'package:drivio_driver/modules/dash/features/drive_shell/presentation/ui/widgets/trip_body.dart';
+import 'package:drivio_driver/modules/dash/features/pricing/presentation/logic/controller/pricing_controller.dart';
 import 'package:drivio_driver/modules/dash/features/home/presentation/logic/controller/dashboard_controller.dart';
 import 'package:drivio_driver/modules/dash/features/home/presentation/logic/controller/demand_heatmap_controller.dart';
 import 'package:drivio_driver/modules/dash/features/home/presentation/logic/controller/home_controller.dart';
@@ -388,8 +389,15 @@ class _DriveShellPageState extends ConsumerState<DriveShellPage>
     final Widget topOverlay = _buildTopOverlay(shell, home);
     final Widget? banner = _buildBanner(shell, home, kycComplete, kycStatus);
     final Widget? subTop = _buildSubTopArea(shell);
-    final Widget? priceBubble = shell.isIdle
-        ? _PriceBubble(price: home.priceTrip)
+    // The driver's own per-km rate, straight from their pricing profile —
+    // the same number the Pricing tab edits and the bid composer builds
+    // suggestions from. (It previously read `home.priceTrip`, a hardcoded
+    // placeholder that nothing ever set, so the bubble showed a fixed
+    // figure unrelated to the driver.)
+    final int perKmNaira =
+        ref.watch(pricingControllerProvider).profile?.perKmNaira ?? 0;
+    final Widget? priceBubble = shell.isIdle && perKmNaira > 0
+        ? _PriceBubble(perKmNaira: perKmNaira)
         : null;
 
     // ── Bottom sheet body ───────────────────────────────────────────────
@@ -420,8 +428,8 @@ class _DriveShellPageState extends ConsumerState<DriveShellPage>
             Positioned(top: 76, left: 16, right: 16, child: banner),
           if (subTop != null)
             Positioned(top: 76, left: 16, right: 16, child: subTop),
-          if (priceBubble != null)
-            Positioned(bottom: 240, right: 16, child: priceBubble),
+          // (price bubble is stacked directly above the sheet below, so it
+          // can never be covered by it — see the Column in the switcher)
           // Sheet hand-off: the outgoing sheet accelerates fully off the
           // bottom edge during the first ~45% of the window, then the
           // incoming sheet rises with a decelerating easeOutQuint — a
@@ -451,7 +459,26 @@ class _DriveShellPageState extends ConsumerState<DriveShellPage>
                 '${shell.activeRequestId ?? shell.activeTripId ?? ''}',
               ),
               alignment: Alignment.bottomCenter,
-              child: body,
+              // The price bubble sits in the SAME bottom-aligned column as
+              // the sheet, so layout keeps it clear of whatever height the
+              // sheet happens to be. It was previously
+              // `Positioned(bottom: 240)` — a guess the taller idle sheet
+              // (stats + Go offline) grew past, hiding the bubble entirely.
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: <Widget>[
+                  if (priceBubble != null)
+                    Padding(
+                      padding: const EdgeInsets.only(right: 16, bottom: 12),
+                      child: Align(
+                        alignment: Alignment.centerRight,
+                        child: priceBubble,
+                      ),
+                    ),
+                  body,
+                ],
+              ),
             ),
           ),
           if (_kycGateOpen)
@@ -1681,8 +1708,12 @@ class _TripRouteCard extends StatelessWidget {
 }
 
 class _PriceBubble extends StatelessWidget {
-  const _PriceBubble({required this.price});
-  final int price;
+  const _PriceBubble({required this.perKmNaira});
+
+  /// The driver's own per-km rate. Shown per-km rather than as a whole
+  /// trip price because per-km is what the driver actually sets — a trip
+  /// total depends on a distance nobody knows until a request arrives.
+  final int perKmNaira;
 
   @override
   Widget build(BuildContext context) {
@@ -1706,7 +1737,7 @@ class _PriceBubble extends StatelessWidget {
               Icon(DrivioIcons.wallet, size: 14, color: context.coral),
               const SizedBox(width: 8),
               Text(
-                'Price: ${NairaFormatter.format(price)}/trip',
+                '${NairaFormatter.format(perKmNaira)}/km',
                 style: TextStyle(
                   color: context.text,
                   fontWeight: FontWeight.w600,
