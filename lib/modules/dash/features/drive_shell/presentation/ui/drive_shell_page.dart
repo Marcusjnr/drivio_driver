@@ -25,7 +25,6 @@ import 'package:drivio_driver/modules/dash/features/home/presentation/logic/cont
 import 'package:drivio_driver/modules/dash/features/home/presentation/logic/controller/demand_heatmap_controller.dart';
 import 'package:drivio_driver/modules/dash/features/home/presentation/logic/controller/home_controller.dart';
 import 'package:drivio_driver/modules/dash/features/home/presentation/logic/controller/presence_controller.dart';
-import 'package:drivio_driver/modules/dash/features/home/presentation/ui/widgets/overlay_permission_sheet.dart';
 import 'package:drivio_driver/modules/dash/features/home/presentation/ui/widgets/driver_tab_bar.dart';
 import 'package:drivio_driver/modules/dash/features/home/presentation/ui/widgets/kyc_gate_sheet.dart';
 import 'package:drivio_driver/modules/dash/features/home/presentation/ui/widgets/location_gate_sheet.dart';
@@ -706,12 +705,6 @@ class _DriveShellPageState extends ConsumerState<DriveShellPage>
         homeC.toggleOnline();
         unawaited(ref.read(marketplaceControllerProvider.notifier).start());
         unawaited(ref.read(dashboardControllerProvider.notifier).refresh());
-        // One-time optional pitch for the background ride-alert bubble:
-        // an education sheet (why + illustration + Settings button), never
-        // a bare redirect into system settings.
-        if (mounted) {
-          unawaited(showOverlayPermissionSheetIfNeeded(context));
-        }
       } else {
         final PresenceState ps = ref.read(presenceControllerProvider);
         final LocationPermState reason = _toGateReason(ps.permission);

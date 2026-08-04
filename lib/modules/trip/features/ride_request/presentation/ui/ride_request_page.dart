@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:maplibre_gl/maplibre_gl.dart';
 
@@ -474,32 +473,6 @@ class _FareCard extends ConsumerStatefulWidget {
 }
 
 class _FareCardState extends ConsumerState<_FareCard> {
-  late final TextEditingController _ctrl;
-  late final FocusNode _focus;
-
-  @override
-  void initState() {
-    super.initState();
-    _ctrl = TextEditingController(text: widget.state.priceNaira.toString());
-    _focus = FocusNode();
-  }
-
-  @override
-  void didUpdateWidget(_FareCard old) {
-    super.didUpdateWidget(old);
-    final String incoming = widget.state.priceNaira.toString();
-    if (incoming != _ctrl.text && !_focus.hasFocus) {
-      _ctrl.text = incoming;
-    }
-  }
-
-  @override
-  void dispose() {
-    _ctrl.dispose();
-    _focus.dispose();
-    super.dispose();
-  }
-
   @override
   Widget build(BuildContext context) {
     final RideRequestState state = widget.state;
@@ -527,21 +500,9 @@ class _FareCardState extends ConsumerState<_FareCard> {
             ],
           ),
           const SizedBox(height: 10),
-          Center(
-            child: _PriceField(
-              controller: _ctrl,
-              focusNode: _focus,
-              // Typing removed — the price display is read-only; slider and
-              // chips (band-limited) are the only inputs.
-              editable: false,
-              onChanged: (String value) {
-                final int? n = int.tryParse(value);
-                if (n != null) {
-                  widget.onPriceChanged(n);
-                }
-              },
-            ),
-          ),
+          // Typing removed — the price is a read-only, comma-grouped
+          // display; slider and chips (band-limited) are the only inputs.
+          Center(child: _PriceField(naira: state.priceNaira)),
           const SizedBox(height: 14),
           _VariantSwitcher(
             active: state.variant,
@@ -577,60 +538,31 @@ class _FareCardState extends ConsumerState<_FareCard> {
   }
 }
 
+/// Display-only hero price: dimmed ₦ prefix + comma-grouped amount.
 class _PriceField extends StatelessWidget {
-  const _PriceField({
-    required this.controller,
-    required this.focusNode,
-    required this.editable,
-    required this.onChanged,
-  });
+  const _PriceField({required this.naira});
 
-  final TextEditingController controller;
-  final FocusNode focusNode;
-  final bool editable;
-  final ValueChanged<String> onChanged;
+  final int naira;
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: editable ? () => focusNode.requestFocus() : null,
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: <Widget>[
-          Text(
-            '₦',
-            style: AppTextStyles.priceHero.copyWith(
-              color: context.textDim,
-              fontWeight: FontWeight.w500,
-            ),
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: <Widget>[
+        Text(
+          '₦',
+          style: AppTextStyles.priceHero.copyWith(
+            color: context.textDim,
+            fontWeight: FontWeight.w500,
           ),
-          const SizedBox(width: 4),
-          IntrinsicWidth(
-            child: TextField(
-              controller: controller,
-              focusNode: focusNode,
-              enabled: editable,
-              onChanged: onChanged,
-              keyboardType: TextInputType.number,
-              inputFormatters: <TextInputFormatter>[
-                FilteringTextInputFormatter.digitsOnly,
-              ],
-              textAlign: TextAlign.center,
-              cursorColor: context.accent,
-              style: AppTextStyles.priceHero.copyWith(color: context.text),
-              decoration: const InputDecoration(
-                isDense: true,
-                border: InputBorder.none,
-                enabledBorder: InputBorder.none,
-                focusedBorder: InputBorder.none,
-                disabledBorder: InputBorder.none,
-                contentPadding: EdgeInsets.zero,
-              ),
-            ),
-          ),
-        ],
-      ),
+        ),
+        const SizedBox(width: 4),
+        Text(
+          NairaFormatter.group(naira),
+          style: AppTextStyles.priceHero.copyWith(color: context.text),
+        ),
+      ],
     );
   }
 }

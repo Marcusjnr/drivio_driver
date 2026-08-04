@@ -38,7 +38,7 @@ Future<void> callPushBackgroundHandler(RemoteMessage message) async {
     await showGoOnlinePrompt(message.data.cast<String, dynamic>());
   } else if (message.data['type'] == 'ride_request') {
     // A rider near this online driver broadcast a trip while the app is
-    // backgrounded/killed — ring + heads-up notification (+ overlay on
+    // backgrounded/killed — ring + heads-up notification (on
     // Android, wired separately).
     await startRideRequestAlert(message.data.cast<String, dynamic>());
   }
@@ -119,7 +119,7 @@ class CallPushBridge {
         }
       } else if (m.data['type'] == 'ride_request') {
         // App is in the foreground: the marketplace feed shows the card,
-        // so no notification/overlay — but the same looping alert sound
+        // so no notification — but the same looping alert sound
         // rings until the driver taps the request.
         unawaited(
           startForegroundRideAlert(m.data['ride_request_id'] as String?),

@@ -4,13 +4,9 @@ import 'dart:ui' show IsolateNameServer;
 
 import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/widgets.dart';
-import 'package:flutter_foreground_task/flutter_foreground_task.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
-import 'package:drivio_driver/modules/commons/location/presence_background.dart';
 import 'package:drivio_driver/modules/commons/logging/app_logger.dart';
-import 'package:drivio_driver/modules/commons/overlay/ride_request_overlay.dart';
 
 /// New-trip alert for an online driver whose app is NOT in the foreground.
 ///
@@ -20,14 +16,12 @@ import 'package:drivio_driver/modules/commons/overlay/ride_request_overlay.dart'
 ///   * plays a looping alert sound (audioplayers) — the driver is online, so
 ///     the presence foreground service keeps this Dart process alive and
 ///     able to play audio in the background;
-///   * posts a full-screen, high-importance heads-up notification;
-///   * (Android) the overlay bubble is shown separately (see the overlay
-///     module) — this file owns sound + notification only.
+///   * posts a full-screen, high-importance heads-up notification.
 ///
 /// In the FOREGROUND the live marketplace feed already surfaces the request
-/// in-app, so the notification + overlay layers are skipped — but the same
-/// looping sound rings via [startForegroundRideAlert] until the driver taps
-/// the request. Either alert stops on [stopRideRequestAlert] — called when
+/// in-app, so the notification layer is skipped — but the same looping
+/// sound rings via [startForegroundRideAlert] until the driver taps the
+/// request. Either alert stops on [stopRideRequestAlert] — called when
 /// the driver opens/acts on the request (feed tap, app resume) or after
 /// [_kMaxAlertWindow].
 
@@ -139,18 +133,9 @@ Future<void> startRideRequestAlert(Map<String, dynamic> data) async {
 
   await _startLoopingSound();
 
-  // Android bonus layer: the floating Drivio bubble over other apps
-  // (no-op on iOS or without the overlay permission).
-  await showRideRequestOverlay(data);
-
   // Safety net: never ring forever. The request window closes ~30–60s.
-  // The auto-stop (unlike a driver tap) leaves the driver still online in
-  // the background, so it restores the quiet on-shift bubble.
   _autoStop?.cancel();
-  _autoStop = Timer(
-    _kMaxAlertWindow,
-    () => unawaited(stopRideRequestAlert(restoreIdleBubble: true)),
-  );
+  _autoStop = Timer(_kMaxAlertWindow, () => unawaited(stopRideRequestAlert()));
 }
 
 Future<void> _startLoopingSound() => _playAlertSound(loop: true);
@@ -181,10 +166,7 @@ Future<void> startForegroundRideAlert(String? requestId) async {
   _registerStopPort();
   await _playAlertSound(loop: true);
   _autoStop?.cancel();
-  _autoStop = Timer(
-    _kMaxAlertWindow,
-    () => unawaited(stopRideRequestAlert(restoreIdleBubble: true)),
-  );
+  _autoStop = Timer(_kMaxAlertWindow, () => unawaited(stopRideRequestAlert()));
 }
 
 Future<void> _playAlertSound({required bool loop}) async {
@@ -223,13 +205,8 @@ Future<void> _playAlertSound({required bool loop}) async {
 /// isolate owns, then pings the ringing isolate's kill-switch port (the
 /// looping player lives in the background FCM isolate — a direct stop from
 /// the main isolate can't reach it).
-///
-/// [restoreIdleBubble] is passed ONLY by the auto-stop timers: the alert
-/// window expired but the driver is (presumably) still online in the
-/// background, so the quiet on-shift bubble comes back. Driver-initiated
-/// stops (feed tap, app resume) must not pass it — the app is in front.
-Future<void> stopRideRequestAlert({bool restoreIdleBubble = false}) async {
-  await _stopLocal(restoreIdleBubble: restoreIdleBubble);
+Future<void> stopRideRequestAlert() async {
+  await _stopLocal();
   final SendPort? ringer =
       IsolateNameServer.lookupPortByName(_kStopPortName);
   ringer?.send('stop');
@@ -237,7 +214,7 @@ Future<void> stopRideRequestAlert({bool restoreIdleBubble = false}) async {
 
 /// In-isolate teardown only (also the kill-switch port's handler — must
 /// never re-send, or the two isolates would ping-pong forever).
-Future<void> _stopLocal({bool restoreIdleBubble = false}) async {
+Future<void> _stopLocal() async {
   _autoStop?.cancel();
   _autoStop = null;
   // Retire the kill-switch port: "port registered" doubles as the
@@ -259,31 +236,4 @@ Future<void> _stopLocal({bool restoreIdleBubble = false}) async {
     await _ensureInitialised();
     await _notifs.cancel(_kNotificationId);
   } catch (_) {}
-  await closeRideRequestOverlay();
-  if (restoreIdleBubble && await _driverStillOnShiftInBackground()) {
-    await showIdleDriverOverlay();
-  }
-}
-
-/// True when the on-shift bubble should come back after a ride alert
-/// winds down: the driver intends to be online AND the app is not in the
-/// foreground. Both signals are cross-isolate safe — the prefs flag is
-/// written by the presence flow (reload first: this may run in the FCM
-/// isolate whose Dart cache is stale) and the foreground flag is
-/// maintained by the lifecycle observer via FlutterForegroundTask data.
-Future<bool> _driverStillOnShiftInBackground() async {
-  try {
-    final SharedPreferences prefs = await SharedPreferences.getInstance();
-    await prefs.reload();
-    final bool intendedOnline =
-        prefs.getBool('presence_intended_online') ?? false;
-    if (!intendedOnline) return false;
-    final Object? fg =
-        await FlutterForegroundTask.getData<bool>(
-      key: BgPresenceKeys.appForeground,
-    );
-    return fg != true;
-  } catch (_) {
-    return false;
-  }
 }
