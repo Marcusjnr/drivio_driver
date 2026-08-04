@@ -58,6 +58,7 @@ class PricingProfile {
     required this.nightMultiplier,
     required this.nightEnabled,
     this.tripLength = TripLengthPreference.any,
+    this.state,
   });
 
   // Trip-length thresholds in metres. Mirrored from the UI labels.
@@ -74,6 +75,12 @@ class PricingProfile {
   /// Driver-selected trip-length filter. `any` means no filter.
   /// Stored in the `preferences` jsonb.
   final TripLengthPreference tripLength;
+
+  /// The Nigerian state this profile is banded against, as stored
+  /// server-side (sticky — a failed GPS lookup never clears it). This is
+  /// the source of truth for which price band applies; GPS resolution is
+  /// only a fallback for profiles that have never resolved a state.
+  final String? state;
 
   int get baseNaira => baseMinor ~/ 100;
   int get perKmNaira => perKmMinor ~/ 100;
@@ -173,6 +180,7 @@ class PricingProfile {
       nightMultiplier: nightMultiplier ?? this.nightMultiplier,
       nightEnabled: nightEnabled ?? this.nightEnabled,
       tripLength: tripLength ?? this.tripLength,
+      state: state,
     );
   }
 
@@ -188,6 +196,9 @@ class PricingProfile {
       nightMultiplier: (json['night_multiplier'] as num).toDouble(),
       nightEnabled: json['night_enabled'] as bool,
       tripLength: TripLengthPreference.fromWire(prefs['trip_length']),
+      state: (json['state'] as String?)?.trim().isEmpty ?? true
+          ? null
+          : (json['state'] as String).trim(),
     );
   }
 

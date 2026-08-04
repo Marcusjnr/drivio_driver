@@ -50,6 +50,7 @@ Future<void> showRideRequestOverlay(Map<String, dynamic> data) async {
     // Give the engine a beat to boot before pushing the trip details.
     await Future<void>.delayed(const Duration(milliseconds: 400));
     await FlutterOverlayWindow.shareData(<String, dynamic>{
+      'mode': 'ride',
       'pickup': data['pickup'],
       'dropoff': data['dropoff'],
       'distance_km': data['distance_km'],
@@ -58,6 +59,33 @@ Future<void> showRideRequestOverlay(Map<String, dynamic> data) async {
   } catch (e, st) {
     // Overlay is a bonus layer — sound + notification already fired.
     AppLogger.w('ride overlay show failed', error: e, stackTrace: st);
+  }
+}
+
+/// The quiet "on shift" bubble: shown whenever the driver minimises the
+/// app while ONLINE, so Drivio stays one tap away. No trip details, no
+/// expand — tapping it just brings the app to the front. A ride request
+/// takes the window over via [showRideRequestOverlay]; when the app is
+/// resumed the lifecycle hook closes it.
+Future<void> showIdleDriverOverlay() async {
+  if (!Platform.isAndroid) return;
+  try {
+    if (!await FlutterOverlayWindow.isPermissionGranted()) return;
+    // Never downgrade an active ride card back to the idle bubble.
+    if (await FlutterOverlayWindow.isActive()) return;
+    await FlutterOverlayWindow.showOverlay(
+      height: (_kBubbleSize * 2).toInt(),
+      width: (_kBubbleSize * 2).toInt(),
+      alignment: OverlayAlignment.centerRight,
+      flag: OverlayFlag.defaultFlag,
+      enableDrag: true,
+      overlayTitle: 'Drivio',
+      overlayContent: "You're online",
+    );
+    await Future<void>.delayed(const Duration(milliseconds: 400));
+    await FlutterOverlayWindow.shareData(<String, dynamic>{'mode': 'idle'});
+  } catch (e, st) {
+    AppLogger.w('idle overlay show failed', error: e, stackTrace: st);
   }
 }
 
@@ -115,6 +143,10 @@ class _OverlayRootState extends State<_OverlayRoot>
   String? _distanceKm;
   StreamSubscription<dynamic>? _dataSub;
 
+  /// 'ride' = new-request alert (pulsing bubble ⇄ trip card).
+  /// 'idle' = quiet on-shift anchor — tap opens the app, nothing more.
+  String _mode = 'ride';
+
   late final AnimationController _pulse = AnimationController(
     vsync: this,
     duration: const Duration(milliseconds: 1100),
@@ -126,6 +158,11 @@ class _OverlayRootState extends State<_OverlayRoot>
     _dataSub = FlutterOverlayWindow.overlayListener.listen((dynamic event) {
       if (event is! Map) return;
       setState(() {
+        _mode = (event['mode'] as String?) ?? _mode;
+        // A mode switch always lands on the compact bubble; the engine is
+        // reused across shows, so an expanded card from a previous ride
+        // must not leak into the next one (or into idle).
+        _expanded = false;
         _pickup = (event['pickup'] as String?) ?? _pickup;
         _dropoff = (event['dropoff'] as String?) ?? _dropoff;
         _distanceKm = event['distance_km'] as String?;
@@ -175,13 +212,18 @@ class _OverlayRootState extends State<_OverlayRoot>
   }
 
   Widget _bubble() {
+    final bool idle = _mode == 'idle';
     return GestureDetector(
-      onTap: _toggle,
+      // Idle bubble is a shortcut back into the app, nothing more. The
+      // ride bubble expands into the trip card as before.
+      onTap: idle ? _openApp : _toggle,
       child: AnimatedBuilder(
         animation: _pulse,
         builder: (BuildContext _, Widget? child) {
+          // The idle anchor holds a calm steady ring; only a live
+          // request earns the pulse.
           final double t =
-              Curves.easeInOut.transform(_pulse.value);
+              idle ? 0.25 : Curves.easeInOut.transform(_pulse.value);
           return Container(
             width: _kBubbleSize,
             height: _kBubbleSize,
@@ -210,7 +252,7 @@ class _OverlayRootState extends State<_OverlayRoot>
             const Icon(Icons.local_taxi_rounded, color: _kCoral, size: 26),
             const SizedBox(height: 1),
             Text(
-              'TRIP',
+              idle ? 'ONLINE' : 'TRIP',
               style: TextStyle(
                 color: _kIvory.withValues(alpha: 0.9),
                 fontSize: 8.5,

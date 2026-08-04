@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:drivio_driver/modules/commons/data/pricing_repository.dart';
 import 'package:drivio_driver/modules/commons/di/di.dart';
+import 'package:drivio_driver/modules/commons/location/location_permission_service.dart';
 import 'package:drivio_driver/modules/commons/types/pricing_profile.dart';
 import 'package:drivio_driver/modules/commons/types/state_price_guidance.dart';
 
@@ -15,6 +16,8 @@ class PricingState {
     this.isSaving = false,
     this.error,
     this.lastSavedAt,
+    this.permission = LocationPermState.unknown,
+    this.needsLocation = false,
   });
 
   final PricingProfile? profile;
@@ -30,6 +33,16 @@ class PricingState {
   final String? error;
   final DateTime? lastSavedAt;
 
+  /// Last observed location-permission state. Drives the copy on the
+  /// location gate (ask again vs open settings).
+  final LocationPermState permission;
+
+  /// True when we cannot band the rate because the driver's state is
+  /// unknown AND location permission is missing — i.e. a fresh onboard
+  /// who has never granted location. The page swaps the rate controls
+  /// for the location gate until this clears.
+  final bool needsLocation;
+
   PricingState copyWith({
     PricingProfile? profile,
     StatePriceGuidance? guidance,
@@ -38,6 +51,8 @@ class PricingState {
     String? error,
     bool clearError = false,
     DateTime? lastSavedAt,
+    LocationPermState? permission,
+    bool? needsLocation,
   }) {
     return PricingState(
       profile: profile ?? this.profile,
@@ -46,6 +61,8 @@ class PricingState {
       isSaving: isSaving ?? this.isSaving,
       error: clearError ? null : (error ?? this.error),
       lastSavedAt: lastSavedAt ?? this.lastSavedAt,
+      permission: permission ?? this.permission,
+      needsLocation: needsLocation ?? this.needsLocation,
     );
   }
 }
@@ -60,11 +77,13 @@ class PricingController extends StateNotifier<PricingState> {
   }
 
   final PricingRepository _repo;
+  final LocationPermissionService _perms = const LocationPermissionService();
   Timer? _debounce;
   final Map<String, dynamic> _pendingPatch = <String, dynamic>{};
 
   Future<void> _hydrate() async {
     try {
+      final LocationPermState perm = await _perms.currentState();
       // Resolve the driver's state first so a brand-new profile seeds from
       // the local default (base fare + per-km) rather than the national
       // one. Best-effort: null just means "use the national default", and
@@ -73,11 +92,36 @@ class PricingController extends StateNotifier<PricingState> {
       final PricingProfile p =
           await _repo.getOrCreateMyProfile(state: resolvedState);
       if (!mounted) return;
-      state = state.copyWith(profile: p, isLoading: false);
-      // Load the state reference (default per-km + warn %) so we can flag
-      // an over/under-priced rate. Non-fatal — no reference, no warning.
+
+      // Fresh onboard with no location: the server has no state for this
+      // driver and we have no way to find one, so any band we showed
+      // would be the national default — the wrong ceiling for most
+      // states. Gate the page on location instead of showing controls
+      // banded against the wrong state.
+      final bool stateKnown = (p.state ?? resolvedState) != null;
+      if (!stateKnown && !perm.isUsable) {
+        state = state.copyWith(
+          profile: p,
+          isLoading: false,
+          permission: perm,
+          needsLocation: true,
+        );
+        return;
+      }
+
+      state = state.copyWith(
+        profile: p,
+        isLoading: false,
+        permission: perm,
+        needsLocation: false,
+      );
+      // Load the state reference (default per-km + warn %) that the band
+      // is computed from. The profile's stored state is the server's
+      // truth (sticky across GPS failures) — prefer it over the live GPS
+      // resolution, which returns null whenever there's no cached fix
+      // and would silently band against the national default.
       final StatePriceGuidance? g =
-          await _repo.getStateGuidance(state: resolvedState);
+          await _repo.getStateGuidance(state: p.state ?? resolvedState);
       if (!mounted || g == null) return;
       state = state.copyWith(guidance: g);
     } catch (_) {
@@ -88,6 +132,42 @@ class PricingController extends StateNotifier<PricingState> {
         error: 'Could not load pricing — using platform defaults.',
       );
     }
+  }
+
+  /// CTA on the location gate: pop the system prompt, and on a grant
+  /// re-run the full hydrate so the fresh fix resolves the state, the
+  /// server stamps it on the profile, and the band snaps to the right
+  /// ceiling. On a refusal we just record the new permission state so
+  /// the gate copy can escalate (denied → open settings).
+  Future<void> allowLocation() async {
+    final LocationPermState perm = await _perms.request();
+    if (!mounted) return;
+    state = state.copyWith(permission: perm);
+    if (perm.isUsable) {
+      state = state.copyWith(isLoading: true);
+      await _hydrate();
+    }
+  }
+
+  /// Re-check without prompting — called when the app resumes, so a
+  /// grant made in system settings is picked up on return.
+  Future<void> recheckLocation() async {
+    if (!state.needsLocation) return;
+    final LocationPermState perm = await _perms.currentState();
+    if (!mounted) return;
+    if (perm.isUsable) {
+      state = state.copyWith(permission: perm, isLoading: true);
+      await _hydrate();
+    } else {
+      state = state.copyWith(permission: perm);
+    }
+  }
+
+  /// Deep-link for the settings-flavoured gate states.
+  Future<void> openLocationSettings() {
+    return state.permission == LocationPermState.serviceDisabled
+        ? _perms.openLocationSettings()
+        : _perms.openAppSettings();
   }
 
   /// Clamp a per-km edit into the state's allowed band. The band is a

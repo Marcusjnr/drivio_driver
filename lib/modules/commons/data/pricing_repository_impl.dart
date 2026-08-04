@@ -2,6 +2,7 @@ import 'package:geolocator/geolocator.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'package:drivio_driver/modules/commons/data/pricing_repository.dart';
+import 'package:drivio_driver/modules/commons/location/location_permission_service.dart';
 import 'package:drivio_driver/modules/commons/logging/app_logger.dart';
 import 'package:drivio_driver/modules/commons/supabase/supabase_module.dart';
 import 'package:drivio_driver/modules/commons/types/pricing_profile.dart';
@@ -34,12 +35,23 @@ class SupabasePricingRepository implements PricingRepository {
   @override
   Future<String?> resolveMyState() async {
     try {
-      // Use only the cached fix — this runs on the Pricing screen and must
-      // never pop a permission dialog. Drivers who have gone online will
-      // have a recent fix; anyone else falls through to the national
-      // default, which is the correct behaviour.
-      final Position? last = await Geolocator.getLastKnownPosition();
-      if (last == null) return null;
+      // Prefer the cached fix — instant and free. When there isn't one
+      // (fresh install, first launch after reboot) fall back to a real
+      // fix, but ONLY if permission is already granted: this path must
+      // never pop the system permission dialog. Without permission we
+      // return null and the caller decides how to gate.
+      Position? last = await Geolocator.getLastKnownPosition();
+      if (last == null) {
+        final LocationPermState perm =
+            await const LocationPermissionService().currentState();
+        if (!perm.isUsable) return null;
+        last = await Geolocator.getCurrentPosition(
+          locationSettings: const LocationSettings(
+            accuracy: LocationAccuracy.low,
+            timeLimit: Duration(seconds: 8),
+          ),
+        );
+      }
 
       final FunctionResponse res = await _supabase.functions.invoke(
         'reverse-state',

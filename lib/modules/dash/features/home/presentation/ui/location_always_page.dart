@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -49,6 +50,15 @@ class _LocationAlwaysPageState extends ConsumerState<LocationAlwaysPage> {
           AppNavigation.pop<bool>(true);
         }
         return;
+      }
+      // iOS never opens a settings screen from request() — with a
+      // permanent denial it just resolves immediately. The app-settings
+      // deep link is the only door there. (Android is left alone: its
+      // request() DID open the permission screen, and bouncing the
+      // driver into settings a second time on a "while using" choice
+      // would be hostile.)
+      if (Platform.isIOS && !status.isGranted) {
+        await locator<LocationPermissionService>().openAppSettings();
       }
     } catch (_) {
       // Fall through to the generic settings screen as a last resort.

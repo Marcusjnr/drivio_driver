@@ -4,61 +4,131 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:drivio_driver/modules/commons/all.dart';
 import 'package:drivio_driver/modules/commons/types/pricing_profile.dart';
 import 'package:drivio_driver/modules/dash/features/home/presentation/ui/widgets/driver_tab_bar.dart';
+import 'package:drivio_driver/modules/dash/features/home/presentation/ui/widgets/location_gate_sheet.dart';
 import 'package:drivio_driver/modules/dash/features/pricing/presentation/logic/controller/pricing_controller.dart';
 
 /// SCR-033 — Pricing strategy.
 ///
-/// Pared to the two defaults (base fare + per-km) and the live example,
-/// per the mockup. Surcharges (peak/night) and trip preferences are no
-/// longer surfaced — and the fare suggestion is base + per-km only, with
-/// no time-of-day multiplier (see `ride_request_controller`).
-class PricingPage extends ConsumerWidget {
+/// Pared down to the single driver-owned default: the per-km rate. Base
+/// fare is admin-set per state, surcharges (peak/night) and trip
+/// preferences are no longer surfaced — and the fare suggestion is
+/// base + per-km only, with no time-of-day multiplier (see
+/// `ride_request_controller`).
+class PricingPage extends ConsumerStatefulWidget {
   const PricingPage({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<PricingPage> createState() => _PricingPageState();
+}
+
+class _PricingPageState extends ConsumerState<PricingPage>
+    with WidgetsBindingObserver {
+  /// Whether the location gate SHEET is up. It opens when the driver
+  /// taps a stepper while the page is unbanded (no location, no known
+  /// state) — not automatically, so the tab itself stays quiet.
+  bool _gateOpen = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // A grant made in system Settings only shows up on resume — re-check
+    // silently so the gate clears without the driver tapping anything.
+    if (state == AppLifecycleState.resumed) {
+      ref.read(pricingControllerProvider.notifier).recheckLocation();
+    }
+  }
+
+  Future<void> _allow() async {
+    setState(() => _gateOpen = false);
+    await ref.read(pricingControllerProvider.notifier).allowLocation();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final PricingState state = ref.watch(pricingControllerProvider);
     final PricingController c = ref.read(pricingControllerProvider.notifier);
 
-    return ScreenScaffold(
-      bottomBar: const DriverTabBar(active: DriverTab.pricing),
-      child: state.isLoading
-          ? const Center(
-              child: Padding(
-                padding: EdgeInsets.symmetric(vertical: 80),
-                child: CircularProgressIndicator(),
-              ),
-            )
-          : _Body(state: state, controller: c),
+    return Stack(
+      fit: StackFit.expand,
+      children: <Widget>[
+        ScreenScaffold(
+          bottomBar: const DriverTabBar(active: DriverTab.pricing),
+          child: state.isLoading
+              ? const Center(
+                  child: Padding(
+                    padding: EdgeInsets.symmetric(vertical: 80),
+                    child: CircularProgressIndicator(),
+                  ),
+                )
+              : _Body(
+                  state: state,
+                  controller: c,
+                  // Unbanded (no location, no known state): the rate
+                  // reads ₦0 and the steppers open the location gate
+                  // instead of editing.
+                  onLockedTap: state.needsLocation
+                      ? () => setState(() => _gateOpen = true)
+                      : null,
+                ),
+        ),
+        if (state.needsLocation && _gateOpen && !state.isLoading)
+          LocationGateSheet(
+            permission: state.permission,
+            askTitle: 'Allow location\nto set your rate.',
+            askBody:
+                'Fares are priced per state, so we need your location to '
+                'show the right per-km range for your area.',
+            onAllow: _allow,
+            onOpenSettings: () {
+              setState(() => _gateOpen = false);
+              c.openLocationSettings();
+            },
+            onDismiss: () => setState(() => _gateOpen = false),
+          ),
+      ],
     );
   }
 }
 
 class _Body extends StatelessWidget {
-  const _Body({required this.state, required this.controller});
+  const _Body({
+    required this.state,
+    required this.controller,
+    this.onLockedTap,
+  });
 
   final PricingState state;
   final PricingController controller;
 
+  /// Non-null while the page is unbanded (no location permission AND no
+  /// known state). The rate shows as ₦0 and any stepper tap fires this
+  /// instead of editing — it opens the location gate sheet.
+  final VoidCallback? onLockedTap;
+
   @override
   Widget build(BuildContext context) {
+    final bool locked = onLockedTap != null;
     final PricingProfile profile =
         state.profile ?? PricingProfile.platformDefault;
-    final int baseNaira = profile.baseNaira;
-    final int perKmNaira = profile.perKmNaira;
+    // While locked we deliberately show ₦0, not the seeded national
+    // default — a number here reads as "your rate", and we don't know
+    // the right band for this driver yet.
+    final int perKmNaira = locked ? 0 : profile.perKmNaira;
     // Hard per-km limits for this driver's state. Null = state has the
     // cap disabled (warn_pct 0), in which case the steppers are free.
-    final ({int low, int high})? bounds = controller.perKmBounds;
-
-    // Example: an 8 km trip, via the exact path the bid composer takes —
-    // base + per-km × km, then nearest-₦100 round. Mirrors
-    // `suggestForDistance` so the headline here is the number a real
-    // request would surface in the bidding sheet.
-    const int kExampleKm = 8;
-    final int rawMinor =
-        profile.suggestForDistance(kExampleKm * 1000);
-    final int exampleNaira =
-        PricingProfile.roundToNearestNaira100(rawMinor) ~/ 100;
+    final ({int low, int high})? bounds =
+        locked ? null : controller.perKmBounds;
 
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
@@ -96,8 +166,8 @@ class _Body extends StatelessWidget {
           const SizedBox(height: 22),
 
           // YOUR RATE — per-km only. Base fare is set by Drivio per state
-          // and is not the driver's to change, so it is shown as a fact in
-          // the example breakdown below rather than as a control.
+          // and is not the driver's to change, so it is not surfaced here
+          // at all.
           _SectionGroup(
             title: 'YOUR RATE',
             children: <Widget>[
@@ -108,7 +178,9 @@ class _Body extends StatelessWidget {
                 step: 50,
                 min: bounds == null ? null : bounds.low ~/ 100,
                 max: bounds == null ? null : bounds.high ~/ 100,
-                onChanged: (int v) => controller.setPerKmMinor(v * 100),
+                onChanged: locked
+                    ? (int _) => onLockedTap!()
+                    : (int v) => controller.setPerKmMinor(v * 100),
                 isLast: true,
               ),
             ],
@@ -140,76 +212,6 @@ class _Body extends StatelessWidget {
             ),
           ],
 
-          const SizedBox(height: 22),
-
-          // Example — live preview of an 8 km trip's suggested fare. The
-          // base fare in the breakdown is Drivio's for this state, not a
-          // driver setting; only the per-km half is theirs.
-          _ExampleCard(
-            km: kExampleKm,
-            suggestedNaira: exampleNaira,
-            baseNaira: baseNaira,
-            perKmNaira: perKmNaira,
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-/// The pale example box: "Example: 8 km would suggest ₦2,200" + formula.
-class _ExampleCard extends StatelessWidget {
-  const _ExampleCard({
-    required this.km,
-    required this.suggestedNaira,
-    required this.baseNaira,
-    required this.perKmNaira,
-  });
-
-  final int km;
-  final int suggestedNaira;
-  final int baseNaira;
-  final int perKmNaira;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: context.butter.withValues(alpha: 0.10),
-        borderRadius: AppRadius.base,
-        border: Border.all(color: context.butter.withValues(alpha: 0.35)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: <Widget>[
-          RichText(
-            textAlign: TextAlign.center,
-            text: TextSpan(
-              style: AppTextStyles.body.copyWith(color: context.text),
-              children: <InlineSpan>[
-                TextSpan(text: 'Example: $km km would suggest '),
-                TextSpan(
-                  text: NairaFormatter.format(suggestedNaira),
-                  style: AppTextStyles.body.copyWith(
-                    color: context.coral,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            '${NairaFormatter.format(baseNaira)} + '
-            '${NairaFormatter.format(perKmNaira)} × $km km',
-            textAlign: TextAlign.center,
-            style: AppTextStyles.mono.copyWith(
-              color: context.textMuted,
-              fontSize: 12,
-            ),
-          ),
         ],
       ),
     );

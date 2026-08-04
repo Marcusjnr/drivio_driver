@@ -52,7 +52,10 @@ class BiddingBody extends ConsumerWidget {
     }
 
     return Container(
-      padding: const EdgeInsets.fromLTRB(20, 18, 20, 16),
+      // Bottom padding rides the safe-area inset so the Decline / Submit
+      // row never sits flush against the gesture bar / screen edge.
+      padding: EdgeInsets.fromLTRB(
+        20, 18, 20, 16 + MediaQuery.viewPaddingOf(context).bottom),
       decoration: BoxDecoration(
         color: context.surface,
         borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
@@ -216,7 +219,8 @@ class _WaitingBody extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.fromLTRB(24, 16, 24, 28),
+      padding: EdgeInsets.fromLTRB(
+        24, 16, 24, 28 + MediaQuery.viewPaddingOf(context).bottom),
       decoration: const BoxDecoration(
         color: AppColors.charcoalTeal,
         borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
@@ -338,7 +342,8 @@ class _ErrorPanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.fromLTRB(20, 24, 20, 24),
+      padding: EdgeInsets.fromLTRB(
+        20, 24, 20, 24 + MediaQuery.viewPaddingOf(context).bottom),
       decoration: BoxDecoration(
         color: context.surface,
         borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
@@ -581,9 +586,10 @@ class _FareCardState extends State<_FareCard> {
           child: _PriceField(
             controller: _ctrl,
             focusNode: _focus,
-            editable:
-                state.variant == PricingVariant.type &&
-                state.phase == BidPhase.composing,
+            // Typing was removed: the bid is bounded to the state's price
+            // band, and the slider/chips are the only inputs. The field is
+            // now a pure display of the current price.
+            editable: false,
             onChanged: (String value) {
               final int? n = int.tryParse(value);
               if (n != null) widget.onPriceChanged(n);
@@ -604,12 +610,6 @@ class _FareCardState extends State<_FareCard> {
           onTap: widget.onVariantChanged,
         ),
         const SizedBox(height: 12),
-        if (state.variant == PricingVariant.type)
-          _TypeKeys(
-            priceNaira: state.priceNaira,
-            onChanged: widget.onPriceChanged,
-            disabled: state.phase != BidPhase.composing,
-          ),
         if (state.variant == PricingVariant.slider)
           _SliderVariant(state: state, onChanged: widget.onPriceChanged),
         if (state.variant == PricingVariant.chips)
@@ -748,54 +748,6 @@ class _VariantSwitcher extends StatelessWidget {
   }
 }
 
-class _TypeKeys extends StatelessWidget {
-  const _TypeKeys({
-    required this.priceNaira,
-    required this.onChanged,
-    this.disabled = false,
-  });
-  final int priceNaira;
-  final ValueChanged<int> onChanged;
-  final bool disabled;
-
-  @override
-  Widget build(BuildContext context) {
-    const List<int> deltas = <int>[-500, -100, 100, 500];
-    return Opacity(
-      opacity: disabled ? 0.55 : 1,
-      child: Row(
-        children: deltas
-            .map(
-              (int d) => Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 3),
-                  child: GestureDetector(
-                    onTap: disabled ? null : () => onChanged(priceNaira + d),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                      decoration: BoxDecoration(
-                        color: context.surface2,
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: context.border),
-                      ),
-                      alignment: Alignment.center,
-                      child: Text(
-                        d > 0 ? '+$d' : '$d',
-                        style: AppTextStyles.caption.copyWith(
-                          color: context.text,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            )
-            .toList(),
-      ),
-    );
-  }
-}
 
 class _SliderVariant extends StatelessWidget {
   const _SliderVariant({required this.state, required this.onChanged});
@@ -804,8 +756,17 @@ class _SliderVariant extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final double min = (state.suggestedNaira * 0.6).roundToDouble();
-    final double max = (state.suggestedNaira * 1.6).roundToDouble();
+    // Slider range IS the state's allowed band (market fare ± warn %, the
+    // same range the rider was quoted and the server enforces). The old
+    // heuristic (suggested ± 60%) survives only for states with the cap
+    // disabled.
+    final ({int low, int high})? b = state.bidBounds;
+    final double min = b != null
+        ? (b.low / 100).floorToDouble()
+        : (state.suggestedNaira * 0.6).roundToDouble();
+    final double max = b != null
+        ? (b.high / 100).ceilToDouble()
+        : (state.suggestedNaira * 1.6).roundToDouble();
     return Column(
       children: <Widget>[
         SliderTheme(
@@ -830,7 +791,7 @@ class _SliderVariant extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: <Widget>[
             Text(
-              '60%',
+              'Min ${NairaFormatter.format(min.round())}',
               style: AppTextStyles.mono.copyWith(
                 fontSize: 11,
                 color: context.textMuted,
@@ -841,7 +802,7 @@ class _SliderVariant extends StatelessWidget {
               style: AppTextStyles.captionSm.copyWith(color: context.textMuted),
             ),
             Text(
-              '160%',
+              'Max ${NairaFormatter.format(max.round())}',
               style: AppTextStyles.mono.copyWith(
                 fontSize: 11,
                 color: context.textMuted,
@@ -861,11 +822,18 @@ class _ChipsVariant extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Chip values are clamped into the state's band, so no chip can offer
+    // a price the server would refuse. "+30%" used to overshoot the cap —
+    // it is now the band ceiling itself, labelled honestly as Max.
+    final ({int low, int high})? b = state.bidBounds;
+    int inBand(int naira) => b == null
+        ? naira
+        : naira.clamp(b.low ~/ 100, b.high ~/ 100);
     final List<_ChipOption> opts = <_ChipOption>[
-      _ChipOption('−15%', (state.suggestedNaira * 0.85).round()),
-      _ChipOption('Suggested', state.suggestedNaira),
-      _ChipOption('+15%', (state.suggestedNaira * 1.15).round()),
-      _ChipOption('+30%', (state.suggestedNaira * 1.3).round()),
+      _ChipOption('Min', b != null ? b.low ~/ 100 : (state.suggestedNaira * 0.85).round()),
+      _ChipOption('Suggested', inBand(state.suggestedNaira)),
+      _ChipOption('+15%', inBand((state.suggestedNaira * 1.15).round())),
+      _ChipOption('Max', b != null ? b.high ~/ 100 : (state.suggestedNaira * 1.3).round()),
     ];
     final bool disabled = state.phase != BidPhase.composing;
     return Opacity(

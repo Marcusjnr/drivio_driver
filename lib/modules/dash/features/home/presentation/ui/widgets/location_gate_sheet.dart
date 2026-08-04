@@ -16,7 +16,16 @@ class LocationGateSheet extends ConsumerWidget {
     required this.onAllow,
     required this.onOpenSettings,
     required this.onDismiss,
+    this.askTitle,
+    this.askBody,
   });
+
+  /// Optional overrides for the ask-again variant's title/body, so a
+  /// caller outside the go-online flow (e.g. the Pricing tab) can say
+  /// why IT needs location. The blocked/settings variants keep their
+  /// copy — those are about the OS state, not the feature.
+  final String? askTitle;
+  final String? askBody;
 
   /// Snapshot of the permission state the controller saw when it
   /// failed to start streaming. Determines copy + CTA below.
@@ -134,15 +143,15 @@ class LocationGateSheet extends ConsumerWidget {
       case LocationPermState.denied:
       case LocationPermState.unknown:
       case LocationPermState.granted:
-        return const _Copy(
+        return _Copy(
           pill: 'LOCATION REQUIRED',
           pillTone: PillTone.amber,
-          title: 'Allow location\nto go online.',
-          body:
+          title: askTitle ?? 'Allow location\nto go online.',
+          body: askBody ??
               "We use your live position to send you nearby ride requests and to share your ETA with passengers.",
           cta: 'Allow location',
           useSettings: false,
-          tone: Color(0xFFF59E0B),
+          tone: const Color(0xFFF59E0B),
         );
     }
   }

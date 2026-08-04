@@ -22,7 +22,11 @@ import 'package:drivio_driver/modules/dash/features/add_vehicle/presentation/log
 const int _kAbsoluteMinMinor = 20000; // ₦200
 const int _kAbsoluteMaxMinor = 10000000; // ₦100,000
 
-enum PricingVariant { type, slider, chips }
+// `type` (free keypad entry) was removed deliberately: bids are hard-capped
+// to the state's price band, and free typing mostly produced numbers the
+// cap immediately rejected or clamped. Slider + chips make the allowed
+// range visible instead of discoverable-by-error.
+enum PricingVariant { slider, chips }
 
 enum BidPhase { composing, submitting, waiting, won, lost }
 
@@ -38,7 +42,7 @@ class RideRequestState {
     this.suggestedMinor = 0,
     this.suggestedWindow,
     this.suggestedMultiplier = 1.0,
-    this.variant = PricingVariant.type,
+    this.variant = PricingVariant.slider,
     this.secondsLeft = 0,
     this.phase = BidPhase.composing,
     this.bidId,
@@ -248,9 +252,6 @@ class RideRequestController extends StateNotifier<RideRequestState> {
         _requests.getById(state.requestId!),
         _vehicles.listMyVehicles(),
         _pricing.getOrCreateMyProfile(),
-        // Market reference for the "above/below market" bid warning.
-        // Best-effort — a null result just means no warning is shown.
-        _pricing.getStateGuidance(),
       ]);
       if (!mounted) return;
       final RideRequest? req = r[0] as RideRequest?;
@@ -266,7 +267,16 @@ class RideRequestController extends StateNotifier<RideRequestState> {
           .firstWhere((Vehicle? _) => true, orElse: () => null);
       _activeVehicleId = active?.id;
       _pricingProfile = r[2] as PricingProfile;
-      final StatePriceGuidance? guidance = r[3] as StatePriceGuidance?;
+      // Band reference for this bid. `submit_bid` enforces the band
+      // against the REQUEST's pickup state, so the client must band
+      // against the same thing — never a GPS re-resolution, which can
+      // fail and silently substitute the national default band. Fallback
+      // chain: request's pickup state → driver's stored profile state →
+      // repo default (GPS, last resort).
+      final StatePriceGuidance? guidance = await _pricing.getStateGuidance(
+        state: req.pickupState ?? _pricingProfile.state,
+      );
+      if (!mounted) return;
 
       // Market fare for this trip from the state reference (base + per-km ×
       // km). Drives the band and the "at the ceiling/floor" banner.

@@ -6,6 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:drivio_driver/modules/commons/di/di.dart';
 import 'package:drivio_driver/modules/commons/location/presence_background.dart';
+import 'package:drivio_driver/modules/commons/overlay/ride_request_overlay.dart';
 import 'package:drivio_driver/modules/commons/push/ride_alert_push.dart';
 import 'package:drivio_driver/modules/commons/supabase/supabase_module.dart';
 
@@ -48,6 +49,24 @@ class LifecycleController with WidgetsBindingObserver {
   void _onPaused() {
     _lastPausedAt = DateTime.now();
     unawaited(_setForegroundFlag(false));
+    // On-shift anchor: an ONLINE driver who minimises the app gets the
+    // floating Drivio bubble (tap = straight back into the app). Offline
+    // drivers get nothing, and without the overlay permission this is a
+    // silent no-op.
+    unawaited(_showIdleBubbleIfOnline());
+  }
+
+  Future<void> _showIdleBubbleIfOnline() async {
+    try {
+      final SharedPreferences prefs = await SharedPreferences.getInstance();
+      // This isolate wrote the flag when the driver went online, so no
+      // reload needed — and reading the cache keeps this instant.
+      if (prefs.getBool('presence_intended_online') ?? false) {
+        await showIdleDriverOverlay();
+      }
+    } catch (_) {
+      // Bubble is a bonus layer — never let it interfere with pausing.
+    }
   }
 
   void _onResumed() {

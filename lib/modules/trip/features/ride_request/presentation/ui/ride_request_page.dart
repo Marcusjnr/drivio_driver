@@ -531,8 +531,9 @@ class _FareCardState extends ConsumerState<_FareCard> {
             child: _PriceField(
               controller: _ctrl,
               focusNode: _focus,
-              editable: state.variant == PricingVariant.type &&
-                  state.phase == BidPhase.composing,
+              // Typing removed — the price display is read-only; slider and
+              // chips (band-limited) are the only inputs.
+              editable: false,
               onChanged: (String value) {
                 final int? n = int.tryParse(value);
                 if (n != null) {
@@ -548,12 +549,6 @@ class _FareCardState extends ConsumerState<_FareCard> {
             onTap: widget.onVariantChanged,
           ),
           const SizedBox(height: 10),
-          if (state.variant == PricingVariant.type)
-            _TypeKeys(
-              priceNaira: state.priceNaira,
-              onChanged: widget.onPriceChanged,
-              disabled: state.phase != BidPhase.composing,
-            ),
           if (state.variant == PricingVariant.slider)
             _SliderVariant(state: state, onChanged: widget.onPriceChanged),
           if (state.variant == PricingVariant.chips)
@@ -691,54 +686,6 @@ class _VariantSwitcher extends StatelessWidget {
   }
 }
 
-class _TypeKeys extends StatelessWidget {
-  const _TypeKeys({
-    required this.priceNaira,
-    required this.onChanged,
-    this.disabled = false,
-  });
-  final int priceNaira;
-  final ValueChanged<int> onChanged;
-  final bool disabled;
-
-  @override
-  Widget build(BuildContext context) {
-    final List<int> deltas = const <int>[500, 100, -100, -500];
-    return Opacity(
-      opacity: disabled ? 0.55 : 1,
-      child: Row(
-        children: deltas
-            .map((int d) => Expanded(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 3),
-                    child: GestureDetector(
-                      onTap: disabled ? null : () => onChanged(priceNaira + d),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(vertical: 10),
-                        decoration: BoxDecoration(
-                          color: context.surface2,
-                          borderRadius: BorderRadius.circular(10),
-                          border: Border.all(color: context.border),
-                        ),
-                        alignment: Alignment.center,
-                        child: Text(
-                          d > 0 ? '+$d' : '$d',
-                          style: TextStyle(
-                            color: context.text,
-                            fontWeight: FontWeight.w600,
-                            fontSize: 13,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ))
-            .toList(),
-      ),
-    );
-  }
-}
-
 class _SliderVariant extends StatelessWidget {
   const _SliderVariant({required this.state, required this.onChanged});
   final RideRequestState state;
@@ -746,8 +693,14 @@ class _SliderVariant extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final double min = (state.suggestedNaira * 0.6).roundToDouble();
-    final double max = (state.suggestedNaira * 1.6).roundToDouble();
+    // Slider range = the state's hard band; heuristic only when uncapped.
+    final ({int low, int high})? b = state.bidBounds;
+    final double min = b != null
+        ? (b.low / 100).floorToDouble()
+        : (state.suggestedNaira * 0.6).roundToDouble();
+    final double max = b != null
+        ? (b.high / 100).ceilToDouble()
+        : (state.suggestedNaira * 1.6).roundToDouble();
     return Column(
       children: <Widget>[
         SliderTheme(
@@ -790,11 +743,19 @@ class _ChipsVariant extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Every chip is inside the state's hard band, so no option can offer
+    // a price the server would refuse.
+    final ({int low, int high})? b = state.bidBounds;
+    final int? bandLow = b == null ? null : b.low ~/ 100;
+    final int? bandHigh = b == null ? null : b.high ~/ 100;
+    int clampBand(int naira) => b == null
+        ? naira
+        : naira.clamp(bandLow!, bandHigh!);
     final List<_ChipOption> opts = <_ChipOption>[
-      _ChipOption('−15%', (state.suggestedNaira * 0.85).round()),
-      _ChipOption('Suggested', state.suggestedNaira),
-      _ChipOption('+15%', (state.suggestedNaira * 1.15).round()),
-      _ChipOption('+30%', (state.suggestedNaira * 1.3).round()),
+      _ChipOption('Min', bandLow ?? (state.suggestedNaira * 0.85).round()),
+      _ChipOption('Suggested', clampBand(state.suggestedNaira)),
+      _ChipOption('+15%', clampBand((state.suggestedNaira * 1.15).round())),
+      _ChipOption('Max', bandHigh ?? (state.suggestedNaira * 1.3).round()),
     ];
     final bool disabled = state.phase != BidPhase.composing;
     return Opacity(

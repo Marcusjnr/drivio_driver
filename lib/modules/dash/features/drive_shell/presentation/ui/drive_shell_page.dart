@@ -683,6 +683,7 @@ class _DriveShellPageState extends ConsumerState<DriveShellPage>
     }
 
     setState(() => _togglingOnline = true);
+    bool retryAfterSettings = false;
     try {
       final bool ok = await presence.startStreaming();
       if (!mounted) return;
@@ -719,6 +720,13 @@ class _DriveShellPageState extends ConsumerState<DriveShellPage>
             message:
                 ps.error ?? "Couldn't start location. Try again in a moment.",
           );
+        } else if (reason == LocationPermState.permanentlyDenied) {
+          // The OS won't show the permission dialog again, so a sheet
+          // whose CTA is a bare settings deep-link is a dead end. Walk
+          // them through the "Allow all the time" explainer instead —
+          // it shows exactly which option to pick, opens the app's
+          // location-permission screen, and pops true on a grant.
+          retryAfterSettings = await _walkThroughLocationSettings();
         } else {
           setState(() {
             _locationGateReason = reason;
@@ -729,6 +737,26 @@ class _DriveShellPageState extends ConsumerState<DriveShellPage>
     } finally {
       if (mounted) setState(() => _togglingOnline = false);
     }
+    // The driver came back from the settings detour with a usable
+    // permission — run the whole go-online flow again for them.
+    if (retryAfterSettings && mounted) {
+      await _handleToggleOnline();
+    }
+  }
+
+  /// Push the [LocationAlwaysPage] explainer for a permanently-denied
+  /// permission. Returns true when the driver returns with a usable
+  /// grant (either via the page popping true, or granted directly in
+  /// Settings before backing out).
+  Future<bool> _walkThroughLocationSettings() async {
+    final Object? granted = await AppNavigation.push<dynamic>(
+      AppRoutes.locationAlways,
+    );
+    if (!mounted) return false;
+    if (granted == true) return true;
+    final LocationPermState now =
+        await locator<LocationPermissionService>().currentState();
+    return now.isUsable;
   }
 
   _MapProps _computeMapProps(

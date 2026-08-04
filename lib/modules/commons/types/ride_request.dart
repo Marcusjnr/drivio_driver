@@ -44,6 +44,7 @@ class RideRequest {
     this.passengerAvatarUrl,
     this.passengerRating,
     this.passengerRatingCount = 0,
+    this.pickupState,
   });
 
   final String id;
@@ -69,6 +70,11 @@ class RideRequest {
   final String? matchedBidId;
   final DateTime createdAt;
   final DateTime expiresAt;
+
+  /// The Nigerian state the pickup falls in, stamped at request creation.
+  /// This is the state `submit_bid` enforces the price band against, so
+  /// the bid composer must band against it too — not the driver's GPS.
+  final String? pickupState;
 
   /// Seconds remaining until [expiresAt] from a reference [now] (defaults to
   /// wall-clock now). Clamped to ≥ 0.
@@ -109,6 +115,7 @@ class RideRequest {
           (json['passenger_rating_count'] as num?)?.toInt() ?? 0,
       createdAt: DateTime.parse(json['created_at'] as String),
       expiresAt: DateTime.parse(json['expires_at'] as String),
+      pickupState: json['pickup_state'] as String?,
     );
   }
 
