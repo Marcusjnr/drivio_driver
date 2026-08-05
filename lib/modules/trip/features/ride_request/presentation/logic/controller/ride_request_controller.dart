@@ -51,6 +51,7 @@ class RideRequestState {
     this.isLoading = false,
     this.marketFareMinor = 0,
     this.warnPct = 0,
+    this.shortTripPct = 0,
     this.marketWarningDismissed = false,
   });
 
@@ -79,6 +80,12 @@ class RideRequestState {
 
   /// The state's symmetric warn threshold (%). 0 disables the warning.
   final int warnPct;
+
+  /// Short-trip uplift already baked into [marketFareMinor] for this
+  /// distance (%). 0 = the trip is priced normally. Surfaced to the
+  /// driver as a tag so a higher-than-usual band is explained rather
+  /// than mysterious.
+  final int shortTripPct;
 
   /// The driver dismissed the market warning for the current bid. Reset
   /// whenever they change the price again.
@@ -180,6 +187,7 @@ class RideRequestState {
     bool? isLoading,
     int? marketFareMinor,
     int? warnPct,
+    int? shortTripPct,
     bool? marketWarningDismissed,
   }) {
     return RideRequestState(
@@ -200,6 +208,7 @@ class RideRequestState {
       isLoading: isLoading ?? this.isLoading,
       marketFareMinor: marketFareMinor ?? this.marketFareMinor,
       warnPct: warnPct ?? this.warnPct,
+      shortTripPct: shortTripPct ?? this.shortTripPct,
       marketWarningDismissed:
           marketWarningDismissed ?? this.marketWarningDismissed,
     );
@@ -309,6 +318,8 @@ class RideRequestController extends StateNotifier<RideRequestState> {
         isLoading: false,
         marketFareMinor: marketFare,
         warnPct: guidance?.warnPct ?? 0,
+        shortTripPct:
+            guidance?.shortTripPctFor(req.expectedDistanceM ?? 0) ?? 0,
       );
       _startTicker();
     } catch (e, s) {

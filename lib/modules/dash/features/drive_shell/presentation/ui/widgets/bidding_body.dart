@@ -550,9 +550,22 @@ class _FareCardState extends State<_FareCard> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
         // YOUR PRICE eyebrow. (Surcharges removed — no peak/night pill.)
-        Text(
-          'YOUR PRICE',
-          style: AppTextStyles.eyebrow.copyWith(color: context.coral),
+        // A short-trip rate IS badged: without it the band would look
+        // inexplicably high for a 1 km run.
+        Row(
+          children: <Widget>[
+            Text(
+              'YOUR PRICE',
+              style: AppTextStyles.eyebrow.copyWith(color: context.coral),
+            ),
+            if (state.shortTripPct > 0) ...<Widget>[
+              const SizedBox(width: 8),
+              Pill(
+                text: 'SHORT TRIP · +${state.shortTripPct}%',
+                tone: PillTone.amber,
+              ),
+            ],
+          ],
         ),
         const SizedBox(height: 8),
         // Typing was removed: the bid is bounded to the state's price
