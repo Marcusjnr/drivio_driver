@@ -30,6 +30,10 @@ dependencies:
   url_launcher: ^6.3.1
   flutter_custom_tabs: ^2.4.0
   logger: ^2.4.0
+  # Biometric sign in, mirroring kalabash_mobile_v2: local_auth drives the
+  # OS prompt, flutter_secure_storage holds the credentials it unlocks.
+  local_auth: ^3.0.1
+  flutter_secure_storage: ^10.0.0
   shimmer: ^3.0.0
   firebase_core: ^4.7.0
   firebase_messaging: ^16.1.0

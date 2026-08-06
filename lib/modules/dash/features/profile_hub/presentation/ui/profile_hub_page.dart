@@ -8,6 +8,7 @@ import 'package:drivio_driver/modules/commons/types/profile.dart';
 import 'package:drivio_driver/modules/commons/types/subscription.dart';
 import 'package:drivio_driver/modules/commons/types/vehicle.dart';
 import 'package:drivio_driver/modules/dash/features/profile_hub/presentation/logic/controller/profile_hub_controller.dart';
+import 'package:drivio_driver/modules/dash/features/profile_hub/presentation/ui/widgets/biometric_setting_row.dart';
 import 'package:drivio_driver/modules/dash/features/profile_hub/presentation/ui/widgets/profile_hub_shimmer.dart';
 import 'package:drivio_driver/modules/subscription/features/paywall/presentation/logic/controller/subscription_controller.dart';
 
@@ -610,6 +611,8 @@ class _SettingsGroup extends StatelessWidget {
           label: 'Appearance',
           onTap: () => AppNavigation.push(AppRoutes.appearance),
         ),
+        // Renders nothing on a phone with no enrolled biometric.
+        const BiometricSettingRow(),
         // Help & support moved to the Support tab in the bottom bar.
         FieldRow(
           label: 'Sign out',

@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 
+import 'package:drivio_driver/modules/authentication/features/forgot_password/presentation/ui/forgot_password_code_page.dart';
+import 'package:drivio_driver/modules/authentication/features/forgot_password/presentation/ui/forgot_password_new_page.dart';
+import 'package:drivio_driver/modules/authentication/features/forgot_password/presentation/ui/forgot_password_page.dart';
 import 'package:drivio_driver/modules/authentication/features/otp/presentation/ui/otp_page.dart';
 import 'package:drivio_driver/modules/authentication/features/sign_in/presentation/ui/sign_in_page.dart';
 import 'package:drivio_driver/modules/authentication/features/sign_up/presentation/ui/sign_up_page.dart';
@@ -71,6 +74,12 @@ class AppRouter {
         return (BuildContext _) => const WaitlistLookupPage();
       case AppRoutes.otp:
         return (BuildContext _) => const OtpPage();
+      case AppRoutes.forgotPassword:
+        return (BuildContext _) => const ForgotPasswordPage();
+      case AppRoutes.forgotPasswordCode:
+        return (BuildContext _) => const ForgotPasswordCodePage();
+      case AppRoutes.forgotPasswordNew:
+        return (BuildContext _) => const ForgotPasswordNewPage();
       case AppRoutes.paywall:
         return (BuildContext _) => const PaywallPage();
       case AppRoutes.pickPlan:

@@ -2,7 +2,14 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:get_it/get_it.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:local_auth/local_auth.dart';
+
+import 'package:drivio_driver/modules/authentication/data/credentials_service.dart';
+import 'package:drivio_driver/modules/commons/biometric/biometric_service.dart';
+import 'package:drivio_driver/modules/commons/storage/secure_store.dart';
 import 'package:drivio_driver/modules/authentication/data/otp_service.dart';
+import 'package:drivio_driver/modules/authentication/data/password_reset_service.dart';
 import 'package:drivio_driver/modules/commons/analytics/mixpanel_service.dart';
 import 'package:drivio_driver/modules/commons/data/call_repository.dart';
 import 'package:drivio_driver/modules/commons/data/call_repository_impl.dart';
@@ -158,6 +165,22 @@ Future<void> setupServiceLocator(Flavor flavor) async {
 
   locator.registerLazySingleton<OtpService>(
     () => OtpService(locator<SupabaseModule>()),
+  );
+
+  locator.registerLazySingleton<PasswordResetService>(
+    () => PasswordResetService(locator<SupabaseModule>()),
+  );
+
+  locator.registerLazySingleton<CredentialsService>(
+    () => CredentialsService(locator<SupabaseModule>()),
+  );
+
+  locator.registerLazySingleton<BiometricService>(
+    () => BiometricService(LocalAuthentication()),
+  );
+
+  locator.registerLazySingleton<SecureStore>(
+    () => SecureStore(const FlutterSecureStorage()),
   );
 
   locator.registerLazySingleton<DriverAmenitiesRepository>(
