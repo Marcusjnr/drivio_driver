@@ -117,7 +117,14 @@ class PaystackCheckout {
       }
       authUrl = data['authorizationUrl'] as String;
       reference = data['reference'] as String;
-    } on FunctionException catch (_) {
+    } on FunctionException catch (e) {
+      // The driver only ever sees the generic line below, so log the server's
+      // own reason. Without it, a Paystack-side rejection is indistinguishable
+      // from the network being down.
+      AppLogger.e(
+        'paystack-initialize failed',
+        error: 'status=${e.status} · details=${e.details}',
+      );
       return const PaystackResult(
         PaystackOutcome.error,
         message: "Couldn't reach the payment service. Try again.",

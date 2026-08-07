@@ -50,8 +50,8 @@ class PlanRecommendation {
     if (observedDays <= 0) {
       return const PlanRecommendation(
         tierCode: 'drivio_pro_monthly',
-        reason: 'Most drivers on Drivio start with Monthly — the cheapest '
-            'per-day rate, and you can switch anytime.',
+        reason: 'Most drivers on Drivio start with Monthly, and you can '
+            'switch anytime.',
         activeDays: 0,
         observedDays: 0,
       );
@@ -61,7 +61,7 @@ class PlanRecommendation {
       return PlanRecommendation(
         tierCode: 'drivio_pro_monthly',
         reason:
-            'You bid on $activeDays of $observedDays days. **Monthly** is your cheapest option.',
+            'You bid on $activeDays of $observedDays days. **Monthly** suits that pace.',
         activeDays: activeDays,
         observedDays: observedDays,
       );

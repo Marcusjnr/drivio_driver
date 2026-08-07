@@ -326,7 +326,12 @@ class _Header extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bool showBack = intent != PickPlanIntent.reactivation;
+    // Show back whenever there is somewhere to return to, rather than
+    // keying off intent. Reactivation used to always arrive by
+    // replaceAll during onboarding, so hiding it was safe; a driver
+    // renewing from Settings now arrives by push and must be able to
+    // get back out.
+    final bool showBack = AppNavigation.canPop();
     final String title = switch (intent) {
       PickPlanIntent.trialChoice => 'Pick your plan.',
       PickPlanIntent.reactivation => 'Pick your plan.',

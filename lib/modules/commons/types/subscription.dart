@@ -166,7 +166,10 @@ class SubscriptionPlan {
       case SubscriptionInterval.week:
         return 'Save vs daily for most drivers, most weeks';
       case SubscriptionInterval.month:
-        return 'Cheapest per-day rate';
+        // Describes what the tier does for the driver, not how its
+        // per-day maths compares. We do not advertise which plan works
+        // out cheapest per day.
+        return 'Set it once and drive all month';
     }
   }
 

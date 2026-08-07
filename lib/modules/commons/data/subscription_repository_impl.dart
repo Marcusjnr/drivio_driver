@@ -19,12 +19,19 @@ class SupabaseSubscriptionRepository implements SubscriptionRepository {
     // `subscriptions` has TWO FKs to `subscription_plans` (plan_id +
     // pending_plan_id), so the embed must name the plan_id constraint or
     // PostgREST rejects the query as ambiguous (PGRST201).
+    //
+    // The id tiebreaker is not cosmetic. Nothing enforces one row per
+    // driver, and duplicates sharing a created_at exist; without it,
+    // PostgREST picks arbitrarily and can return a stale row instead of
+    // the one `settle_paystack_payment` just activated (which targets the
+    // newest by `created_at desc, id desc` — this ranking must match it).
     final List<Map<String, dynamic>> rows = await _supabase
         .db('subscriptions')
         .select(
             '*, subscription_plans!subscriptions_plan_id_fkey(max_pause_days)')
         .eq('driver_id', user.id)
         .order('created_at', ascending: false)
+        .order('id', ascending: false)
         .limit(1);
 
     if (rows.isEmpty) return null;

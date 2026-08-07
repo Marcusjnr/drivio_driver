@@ -224,6 +224,18 @@ class _SubscriptionManagePageState
                 ),
                 const SizedBox(height: 10),
               ],
+              // Expired or cancelled: the only thing worth doing here is
+              // starting again. Without this the page was a dead end,
+              // since "Change plan" is hidden for a subscription that is
+              // no longer running. Pushed, not replaced, so the back
+              // button on Pick a plan returns here.
+              if (sub.subscription?.isHardBlocked ?? false) ...<Widget>[
+                DrivioButton(
+                  label: 'Renew subscription',
+                  onPressed: () => AppNavigation.push(AppRoutes.pickPlan),
+                ),
+                const SizedBox(height: 10),
+              ],
               DrivioButton(
                 label: 'Manage payment',
                 variant: DrivioButtonVariant.ghost,

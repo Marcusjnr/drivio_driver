@@ -36,8 +36,16 @@ class _PaywallPageState extends ConsumerState<PaywallPage> {
     // Re-activation path. The 3-tier model means we never silently
     // charge a returning driver on whichever plan the controller
     // featured — they pick.
+    //
+    // Push when there is a stack to preserve (renewing from Settings or
+    // the go-online gate) so Pick a plan's back button returns where
+    // they came from. Only the onboarding root replaces.
     if (sub != null && sub.isHardBlocked) {
-      AppNavigation.replaceAll<void>(AppRoutes.pickPlan);
+      if (AppNavigation.canPop()) {
+        AppNavigation.push<void>(AppRoutes.pickPlan);
+      } else {
+        AppNavigation.replaceAll<void>(AppRoutes.pickPlan);
+      }
       return;
     }
     if (plan == null) return;
@@ -102,6 +110,18 @@ class _PaywallPageState extends ConsumerState<PaywallPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
+            // Only when there is somewhere to go back to. During
+            // onboarding this page IS the root, so no back button is
+            // drawn; reached from Settings or the go-online gate, a
+            // driver can leave without being trapped.
+            if (AppNavigation.canPop()) ...<Widget>[
+              Row(
+                children: <Widget>[
+                  BackButtonBox(onTap: () => AppNavigation.pop()),
+                ],
+              ),
+              const SizedBox(height: 16),
+            ],
             Row(
               children: <Widget>[
                 Text(
