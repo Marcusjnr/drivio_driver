@@ -165,7 +165,7 @@ class KycController extends StateNotifier<KycState> {
       if (next == null) {
         state = state.copyWith(
           isSubmitting: false,
-          error: 'Submission rejected — refresh and try again.',
+          error: 'Submission rejected. Refresh and try again.',
         );
         return false;
       }

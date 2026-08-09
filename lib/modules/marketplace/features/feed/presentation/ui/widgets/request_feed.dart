@@ -59,7 +59,7 @@ const List<_NoRequestsTip> _kNoRequestsTips = <_NoRequestsTip>[
   _NoRequestsTip(text: 'Demand picks up at 6–9 PM. Stick around.'),
   _NoRequestsTip(text: 'Drift toward Victoria Island for higher fares.'),
   _NoRequestsTip(text: 'Lower your suggested price for more bites.'),
-  _NoRequestsTip(text: 'Fuel costs eat margins — short trips compound.'),
+  _NoRequestsTip(text: 'Fuel costs eat margins. Short trips compound.'),
   _NoRequestsTip(text: 'Rain spikes demand. Stay online when the sky turns grey.'),
 ];
 
@@ -151,7 +151,7 @@ class _EmptyStateState extends State<_EmptyState> {
   static String _waitingFor(DateTime since) {
     final Duration d = DateTime.now().difference(since);
     if (d.inMinutes < 1) return "You're online. Hang tight…";
-    return "You've been online for ${d.inMinutes} min — riders just haven't pinged yet.";
+    return "You've been online for ${d.inMinutes} min. Riders just haven't pinged yet.";
   }
 }
 

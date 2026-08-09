@@ -170,7 +170,7 @@ class _StatsRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final DateTime? joined = state.summary.joinedAt;
-    final String joinedLabel = joined == null ? '—' : _monthYear(joined);
+    final String joinedLabel = joined == null ? '-' : _monthYear(joined);
     final int lifetimeNaira = state.summary.lifetimeEarningsNaira;
     final String lifetimeLabel = lifetimeNaira == 0
         ? '₦0'
@@ -332,7 +332,7 @@ class _DocLinkRow extends StatelessWidget {
       case DocumentStatus.rejected:
         return ('Re-upload', DrivioIcons.close, context.red);
       case DocumentStatus.expired:
-        return ('Expired — renew', DrivioIcons.refresh, context.amber);
+        return ('Expired · renew', DrivioIcons.refresh, context.amber);
     }
   }
 
@@ -571,7 +571,7 @@ class _AccountGroup extends StatelessWidget {
               ? 'Paused · resume to go online'
               : 'Paused · $days days frozen';
         case SubscriptionStatus.expired:
-          return 'Expired — tap to reactivate';
+          return 'Expired · tap to reactivate';
         case SubscriptionStatus.cancelled:
           return 'Cancelled';
       }

@@ -14,7 +14,7 @@ class SupportChatPage extends ConsumerStatefulWidget {
 
 class _SupportChatPageState extends ConsumerState<SupportChatPage> {
   final List<_Msg> _messages = <_Msg>[
-    const _Msg(fromMe: false, text: "Hi Tunde — I'm Eli from Drivio support. How can I help?", time: '2:42 PM'),
+    const _Msg(fromMe: false, text: "Hi Tunde, I'm Eli from Drivio support. How can I help?", time: '2:42 PM'),
   ];
   final TextEditingController _input = TextEditingController();
   final List<String> _topics = const <String>[
@@ -215,7 +215,7 @@ class _SupportChatPageState extends ConsumerState<SupportChatPage> {
       setState(() {
         _messages.add(const _Msg(
           fromMe: false,
-          text: 'Thanks — pulling up your account now. Give me 30 seconds…',
+          text: 'Thanks, pulling up your account now. Give me 30 seconds…',
           time: 'now',
         ));
       });

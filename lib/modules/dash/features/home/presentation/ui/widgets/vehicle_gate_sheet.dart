@@ -109,7 +109,7 @@ class VehicleGateSheet extends ConsumerWidget {
                 TextButton(
                   onPressed: onDismiss,
                   child: Text(
-                    'Maybe later — explore the app',
+                    'Maybe later, explore the app',
                     style: TextStyle(color: context.textDim, fontSize: 13),
                   ),
                 ),

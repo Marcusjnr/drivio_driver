@@ -150,7 +150,7 @@ class _CallSheetState extends ConsumerState<_CallSheet> {
             _OptionRow(
               icon: Icons.wifi_calling_3_rounded,
               title: 'Free call',
-              subtitle: 'Voice over internet — no airtime used',
+              subtitle: 'Voice over internet · no airtime used',
               trailing: 'Free',
               enabled: true,
               onTap: () => Navigator.of(

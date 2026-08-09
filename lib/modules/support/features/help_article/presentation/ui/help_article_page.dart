@@ -11,7 +11,7 @@ class HelpArticlePage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final List<_QA> qas = const <_QA>[
       _QA('When do I get paid?', 'Every trip payout is batched and sent to your linked bank account nightly at 11 PM. Funds typically land by 7 AM the next morning.'),
-      _QA('Does Drivio take a cut?', 'No per-trip commission. Drivio runs on a flat monthly subscription — everything you earn on the road is yours.'),
+      _QA('Does Drivio take a cut?', 'No per-trip commission. Drivio runs on a flat monthly subscription. Everything you earn on the road is yours.'),
       _QA('What fees apply?', 'A fixed ₦20 bank transfer fee per payout, absorbed by Drivio for all Drivio Pro subscribers.'),
       _QA('How do I change my payout account?', 'Profile → Payment methods → Payout account. Requires 2-step verification and takes 24 hrs to switch.'),
     ];

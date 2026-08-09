@@ -94,7 +94,7 @@ class _SummaryHeader extends StatelessWidget {
         Column(
           children: <Widget>[
             Text(
-              isPlaceholder ? '—' : headlineRating.toStringAsFixed(1),
+              isPlaceholder ? '-' : headlineRating.toStringAsFixed(1),
               style: AppTextStyles.priceHero.copyWith(
                 fontSize: 44,
                 letterSpacing: -1.4,

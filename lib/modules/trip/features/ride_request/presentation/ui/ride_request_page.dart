@@ -756,11 +756,11 @@ class _SentimentBar extends StatelessWidget {
   Widget build(BuildContext context) {
     final List<String> emojis = const <String>['😟', '🤔', '👍', '🔥', '😬'];
     final List<String> labels = const <String>[
-      "Below market — you'll likely get it",
-      'A touch low — still competitive',
-      'Right on — fair price',
-      'Aggressive — expect fewer bites',
-      'Too high — riders may skip',
+      "Below market, you'll likely get it",
+      'A touch low, still competitive',
+      'Right on, fair price',
+      'Aggressive, expect fewer bites',
+      'Too high, riders may skip',
     ];
     final int idx = (score + 2).clamp(0, 4);
     final PillTone tone = idx < 3

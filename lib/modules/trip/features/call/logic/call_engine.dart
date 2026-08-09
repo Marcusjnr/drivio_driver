@@ -93,7 +93,7 @@ class CallEngine {
           ErrorCodeType.errFailed,
         };
         if (fatal.contains(err)) {
-          lastFailureDetail = '${err.name}${msg.isEmpty ? '' : ' — $msg'}';
+          lastFailureDetail = '${err.name}${msg.isEmpty ? '' : ': $msg'}';
           _events.add(CallEngineEvent.failed);
         }
       },

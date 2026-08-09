@@ -293,7 +293,7 @@ class _PlanCard extends StatelessWidget {
     final String planName =
         plan?.name ?? (sub == null ? 'No plan' : 'Drivio Pro');
     final String priceLine = plan == null
-        ? '—'
+        ? '-'
         : '${NairaFormatter.format(plan.priceMinor ~/ 100)}/${plan.interval.label}';
 
     final (String pillText, PillTone pillTone) =
@@ -367,7 +367,7 @@ class _PlanCard extends StatelessWidget {
               children: <Widget>[
                 Text(
                   daysLeft == null
-                      ? '—'
+                      ? '-'
                       : daysLeft <= 0
                           ? 'Expired'
                           : '$daysLeft day${daysLeft == 1 ? '' : 's'} left',

@@ -44,7 +44,7 @@ class _LocationAlwaysPageState extends ConsumerState<LocationAlwaysPage> {
       }
       if (status.isGranted) {
         AppNotifier.success(
-          message: "You're set — location stays on while you drive.",
+          message: "You're set. Location stays on while you drive.",
         );
         if (AppNavigation.canPop()) {
           AppNavigation.pop<bool>(true);

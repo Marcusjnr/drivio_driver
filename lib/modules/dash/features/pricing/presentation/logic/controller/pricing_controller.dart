@@ -129,7 +129,7 @@ class PricingController extends StateNotifier<PricingState> {
       state = state.copyWith(
         isLoading: false,
         profile: PricingProfile.platformDefault,
-        error: 'Could not load pricing — using platform defaults.',
+        error: 'Could not load pricing. Using platform defaults.',
       );
     }
   }
@@ -274,7 +274,7 @@ class PricingController extends StateNotifier<PricingState> {
       if (!mounted) return;
       state = state.copyWith(
         isSaving: false,
-        error: 'Could not save — your edits will retry on the next change.',
+        error: 'Could not save. Your edits will retry on the next change.',
       );
       // Re-queue the patch so the next edit retries everything.
       _pendingPatch.addAll(patch);

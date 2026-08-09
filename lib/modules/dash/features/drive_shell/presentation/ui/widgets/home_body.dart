@@ -155,9 +155,9 @@ class _StatStrip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final String today = notReady
-        ? '—'
+        ? '-'
         : NairaFormatter.format(summary.earningsNaira);
-    final String trips = notReady ? '—' : summary.tripsCompleted.toString();
+    final String trips = notReady ? '-' : summary.tripsCompleted.toString();
 
     // Real driver rating from `driver_ratings` (avg, via the dashboard
     // RPC). Until the driver has any ratings, show an honest "New"
@@ -165,7 +165,7 @@ class _StatStrip extends StatelessWidget {
     // nothing to score yet.
     final bool hasRating = !notReady && summary.rating != null;
     final String rating = notReady
-        ? '—'
+        ? '-'
         : hasRating
         ? summary.rating!.toStringAsFixed(1).replaceAll(RegExp(r'\.0$'), '')
         : 'New';

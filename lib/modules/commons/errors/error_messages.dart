@@ -70,7 +70,7 @@ String _humanisePostgrest(PostgrestException e, {required String fallback}) {
     case '23505':
       return "That already exists. Try a different value.";
     case '23503':
-      return "That's still in use somewhere — can't remove it yet.";
+      return "That's still in use somewhere, so it can't be removed yet.";
     case '23514':
       return "That doesn't meet the rules. Check the value and try again.";
     case '23502':
@@ -140,7 +140,7 @@ String _humaniseAuth(AuthException e, {required String fallback}) {
     return "We couldn't find that account. Sign up to get started.";
   }
   if (lower.contains('weak') && lower.contains('password')) {
-    return 'Pick a stronger password — at least 8 characters.';
+    return 'Pick a stronger password of at least 8 characters.';
   }
   if (lower.contains('signup is disabled')) {
     return 'New sign-ups are paused right now. Try again later.';
@@ -295,11 +295,11 @@ const Map<String, String> _knownCodes = <String, String>{
   'already_paused':
       "You're already paused. Resume any time from this page.",
   'not_paused':
-      "This plan isn't paused — you're good to go online.",
+      "This plan isn't paused. You're good to go online.",
   'not_pause_eligible':
       'Renew your plan first. Pause works on an active plan only.',
   'trial_not_pausable':
-      "Free trials can't be paused — pause becomes available once your "
+      "Free trials can't be paused. Pause becomes available once your "
           'trial ends.',
   'not_pausable':
       "Pausing isn't available on this plan. Only the Monthly plan can "

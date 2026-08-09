@@ -46,7 +46,7 @@ class ReferralPage extends ConsumerWidget {
               SizedBox(
                 width: 260,
                 child: Text(
-                  'Your friend gets a free month too. No limit — refer as many drivers as you like.',
+                  'Your friend gets a free month too. No limit. Refer as many drivers as you like.',
                   textAlign: TextAlign.center,
                   style: AppTextStyles.caption.copyWith(
                     color: context.textDim,
@@ -132,19 +132,19 @@ class ReferralPage extends ConsumerWidget {
           children: <Widget>[
             FieldRow(
               label: 'Total drivers referred',
-              value: state.isLoading ? '—' : '${s.totalReferred}',
+              value: state.isLoading ? '-' : '${s.totalReferred}',
             ),
             FieldRow(
               label: 'Free months earned',
               // 1 free month per ACTIVE referred driver per the
               // headline copy at the top of the page.
               value: state.isLoading
-                  ? '—'
+                  ? '-'
                   : '${s.activeReferred} · worth ${NairaFormatter.format(s.activeReferred * 15000)}',
             ),
             FieldRow(
               label: 'Pending (sign-up, not yet active)',
-              value: state.isLoading ? '—' : '${s.pendingReferred}',
+              value: state.isLoading ? '-' : '${s.pendingReferred}',
               divider: false,
             ),
           ],

@@ -96,7 +96,7 @@ class SubscriptionGateSheet extends ConsumerWidget {
           pillTone: PillTone.amber,
           title: "You're paused.\nResume to go online.",
           body:
-              'Your plan is paused — paid days are frozen. Resume from the subscription page to start accepting trips again.',
+              'Your plan is paused and paid days are frozen. Resume from the subscription page to start accepting trips again.',
           cta: 'Manage subscription',
           tone: Color(0xFFF59E0B),
         );

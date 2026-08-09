@@ -41,7 +41,7 @@ class PaymentMethodsPage extends ConsumerWidget {
                 const SizedBox(width: 12),
                 Expanded(
                   child: Text(
-                    'Riders pay you in cash at the end of each trip — you keep '
+                    'Riders pay you in cash at the end of each trip. You keep '
                     '100%. Your subscription is the only thing Drivio charges.',
                     style: AppTextStyles.captionSm.copyWith(
                       color: context.textDim,

@@ -255,7 +255,7 @@ class _SignUpPageState extends ConsumerState<SignUpPage> {
                   ),
                 ),
                 child: Text(
-                  'We pulled in your waitlist details — check them, '
+                  'We pulled in your waitlist details. Check them, '
                   "set a password, and you're in.",
                   style: AppTextStyles.captionSm.copyWith(
                     color: context.text,

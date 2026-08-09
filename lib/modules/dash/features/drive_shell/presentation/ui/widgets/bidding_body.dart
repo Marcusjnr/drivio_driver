@@ -296,7 +296,7 @@ class _WaitingBody extends StatelessWidget {
           const SizedBox(height: 6),
           Text(
             state.phase == BidPhase.won
-                ? 'You won — loading your trip…'
+                ? 'You won! Loading your trip…'
                 : state.phase == BidPhase.lost
                 ? 'Another driver was picked.'
                 : 'Waiting for the rider to choose.',

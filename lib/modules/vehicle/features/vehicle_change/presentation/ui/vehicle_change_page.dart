@@ -38,7 +38,7 @@ class _VehicleChangePageState extends ConsumerState<VehicleChangePage> {
     final List<String> reasons = const <String>[
       'Sold my car',
       'Got a newer car',
-      'Repairs — temporary swap',
+      'Repairs (temporary swap)',
       'Other',
     ];
     return DetailScaffold(

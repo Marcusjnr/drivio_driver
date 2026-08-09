@@ -266,7 +266,7 @@ class _DriveShellPageState extends ConsumerState<DriveShellPage>
           homeC.setStatus(DriverStatus.offline);
           if (subState.subscription!.isPaused) {
             AppNotifier.warning(
-              message: "You're offline — subscription is paused.",
+              message: "You're offline. Subscription is paused.",
             );
           }
         } finally {

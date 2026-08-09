@@ -90,7 +90,7 @@ class _AddPayoutAccountPageState extends ConsumerState<AddPayoutAccountPage> {
           ref.read(payoutAccountControllerProvider).error ??
               "Couldn't verify that account. Check the details and try again.");
     } else {
-      AppNotifier.success(message: 'Bank account verified — $name.');
+      AppNotifier.success(message: 'Bank account verified: $name.');
       // Replace this page with the withdraw screen so a later back press goes
       // to the profile, not back to the add-account step.
       AppNavigation.replace<Object?, Object?>(AppRoutes.withdraw);
@@ -104,7 +104,7 @@ class _AddPayoutAccountPageState extends ConsumerState<AddPayoutAccountPage> {
       subtitle: 'Where your withdrawals go',
       children: <Widget>[
         Text(
-          "Pick your bank and enter your account number — we'll confirm the "
+          "Pick your bank and enter your account number. We'll confirm the "
           'account name with your bank before you can withdraw.',
           style: AppTextStyles.body.copyWith(color: context.textDim, height: 1.5),
         ),

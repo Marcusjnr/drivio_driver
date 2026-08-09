@@ -794,7 +794,7 @@ _StageInfo _stageInfo(BuildContext context, TripState state) {
       );
     case TripState.arrived:
       return _StageInfo(
-        label: 'Arrived — waiting',
+        label: 'Arrived · waiting',
         color: context.amber,
         emoji: '⏱️',
       );

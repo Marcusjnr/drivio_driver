@@ -107,7 +107,7 @@ class _SafetyPageState extends ConsumerState<SafetyPage> {
             _SafetyRow(
                 icon: DrivioIcons.chat,
                 title: 'Contact Trust team',
-                sub: '24/7 in-app support — typical reply 2 min'),
+                sub: '24/7 in-app support · typical reply 2 min'),
             _SafetyRow(
                 icon: DrivioIcons.warning,
                 title: 'Report a rider',

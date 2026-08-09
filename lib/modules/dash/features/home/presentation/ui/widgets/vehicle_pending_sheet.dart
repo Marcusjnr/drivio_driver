@@ -55,7 +55,7 @@ class VehiclePendingSheet extends ConsumerWidget {
                 SizedBox(
                   width: 290,
                   child: Text(
-                    "We're verifying your details. You'll be able to go online as soon as your vehicle is approved — usually within 15 minutes.",
+                    "We're verifying your details. You'll be able to go online as soon as your vehicle is approved, usually within 15 minutes.",
                     textAlign: TextAlign.center,
                     style: AppTextStyles.caption.copyWith(
                       color: context.textDim,

@@ -45,8 +45,8 @@ class EdgeOfflinePage extends ConsumerWidget {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    "Drivio is unreachable. Your active trip is saved — "
-                    "we'll sync once you're back online.",
+                    "Drivio is unreachable. Your active trip is saved, "
+                    "and we'll sync once you're back online.",
                     textAlign: TextAlign.center,
                     style: AppTextStyles.bodySm.copyWith(
                       color: context.textDim,

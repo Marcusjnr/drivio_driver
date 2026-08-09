@@ -355,7 +355,7 @@ class ActiveCallController extends StateNotifier<CallState> {
         _finish(
           CallPhase.failed,
           error: state.engineJoined
-              ? "Couldn't hear the other side — they never joined the call."
+              ? "Couldn't hear the other side. They never joined the call."
               : "Couldn't connect to the call service. Check your internet.",
         );
       }

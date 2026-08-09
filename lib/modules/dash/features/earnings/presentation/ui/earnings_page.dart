@@ -217,10 +217,10 @@ class _MetricGrid extends StatelessWidget {
         ? NairaFormatter.format(state.summary!.tripCreditsNaira ~/ trips)
         : NairaFormatter.format(0);
     final String accept = state.acceptance?.winRate == null
-        ? '—'
+        ? '-'
         : '${(state.acceptance!.winRate! * 100).round()}%';
     final String cancel = state.acceptance?.cancelRate == null
-        ? '—'
+        ? '-'
         : '${(state.acceptance!.cancelRate! * 100).round()}%';
 
     return GridView.count(

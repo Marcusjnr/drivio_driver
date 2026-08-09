@@ -109,7 +109,7 @@ class EdgeSubscriptionExpiredPage extends ConsumerWidget {
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        'Choose Daily, Weekly, or Monthly — '
+                        'Choose Daily, Weekly, or Monthly, '
                         'whatever fits how you drive.',
                         style: AppTextStyles.bodySm.copyWith(
                           color: context.text,

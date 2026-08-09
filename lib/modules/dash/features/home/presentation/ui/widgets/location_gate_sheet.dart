@@ -124,7 +124,7 @@ class LocationGateSheet extends ConsumerWidget {
           pillTone: PillTone.red,
           title: 'Unblock Drivio in\nsystem settings.',
           body:
-              "We can't ask again from inside the app — open Settings → Permissions and switch Location on for Drivio.",
+              "We can't ask again from inside the app. Open Settings → Permissions and switch Location on for Drivio.",
           cta: 'Open settings',
           useSettings: true,
           tone: Color(0xFFF87171),

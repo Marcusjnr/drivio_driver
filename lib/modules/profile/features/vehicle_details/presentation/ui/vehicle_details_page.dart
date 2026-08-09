@@ -81,8 +81,8 @@ class VehicleDetailsPage extends ConsumerWidget {
           children: <Widget>[
             _StatBlock(label: 'Make', value: v.make),
             _StatBlock(label: 'Model', value: v.model),
-            _StatBlock(label: 'Year', value: v.year > 0 ? '${v.year}' : '—'),
-            _StatBlock(label: 'Colour', value: _titleCase(v.colour) ?? '—'),
+            _StatBlock(label: 'Year', value: v.year > 0 ? '${v.year}' : '-'),
+            _StatBlock(label: 'Colour', value: _titleCase(v.colour) ?? '-'),
             _StatBlock(label: 'Plate', value: v.plate, mono: true),
             _StatBlock(label: 'Seats', value: '${v.seats}'),
           ],

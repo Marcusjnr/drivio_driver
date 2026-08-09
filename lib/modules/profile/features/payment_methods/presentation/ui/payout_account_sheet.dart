@@ -158,7 +158,7 @@ class _PayoutSheetState extends State<_PayoutSheet> {
             ),
             const SizedBox(height: 4),
             Text(
-              "Pick your bank and enter your account number — we'll confirm "
+              "Pick your bank and enter your account number. We'll confirm "
               'the account name with your bank.',
               style: AppTextStyles.caption.copyWith(color: context.textDim),
             ),

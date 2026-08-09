@@ -873,10 +873,10 @@ class _RecapCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final String distance = trip.distanceKm > 0
         ? '${trip.distanceKm.toStringAsFixed(1)} km'
-        : '—';
+        : '-';
     final String duration = trip.durationMin > 0
         ? '${trip.durationMin} min'
-        : '—';
+        : '-';
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       decoration: BoxDecoration(
@@ -895,8 +895,8 @@ class _RecapCard extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 6),
-          _RecapRow(label: 'Pickup', value: trip.pickupAddress ?? '—'),
-          _RecapRow(label: 'Drop-off', value: trip.dropoffAddress ?? '—'),
+          _RecapRow(label: 'Pickup', value: trip.pickupAddress ?? '-'),
+          _RecapRow(label: 'Drop-off', value: trip.dropoffAddress ?? '-'),
           _RecapRow(label: 'Distance', value: distance),
           _RecapRow(label: 'Duration', value: duration, last: true),
         ],

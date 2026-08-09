@@ -49,7 +49,7 @@ class _BvnNinPageState extends ConsumerState<BvnNinPage> {
             ),
             const SizedBox(height: 6),
             Text(
-              'Enter your NIN. We confirm it with NIMC — it never appears '
+              'Enter your NIN. We confirm it with NIMC. It never appears '
               'on your profile.',
               style: AppTextStyles.bodySm.copyWith(color: context.textDim),
             ),

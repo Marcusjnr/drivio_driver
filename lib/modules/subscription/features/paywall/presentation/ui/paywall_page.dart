@@ -85,7 +85,7 @@ class _PaywallPageState extends ConsumerState<PaywallPage> {
       _Benefit(
         icon: Icons.tune_rounded,
         title: 'Set your own prices',
-        sub: 'Slider, stepper, or counter-offer — you decide the fare.',
+        sub: 'Slider, stepper, or counter-offer. You decide the fare.',
       ),
       _Benefit(
         icon: Icons.insights_rounded,
@@ -153,10 +153,10 @@ class _PaywallPageState extends ConsumerState<PaywallPage> {
                   TextSpan(
                     text: sub != null && sub.isTrialing
                         ? 'You\'re on Drivio Pro until your trial ends. '
-                            'Pick a plan when that day comes — '
+                            'Pick a plan when that day comes: '
                         : 'Drive Drivio for 90 days, no card today. '
                             'When your trial ends, pick the plan that '
-                            'fits how you actually work — ',
+                            'fits how you actually work: ',
                   ),
                   TextSpan(
                     text: 'Daily, Weekly, or Monthly.',
@@ -468,7 +468,7 @@ class _BottomBar extends StatelessWidget {
     } else if (hardBlocked) {
       label = 'Pick a plan';
     } else {
-      label = 'Start trial — KYC next';
+      label = 'Start trial · KYC next';
     }
 
     final String fineprint;
