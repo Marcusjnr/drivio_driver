@@ -49,8 +49,11 @@ class AppNotifier {
     required String message,
     String? title,
     Duration? duration,
+    String? actionLabel,
+    void Function()? onAction,
   }) =>
-      _show(AppNotificationType.info, message, title, duration);
+      _show(AppNotificationType.info, message, title, duration,
+          actionLabel: actionLabel, onAction: onAction);
 
   static void neutral({
     required String message,
@@ -88,8 +91,10 @@ class AppNotifier {
     AppNotificationType type,
     String message,
     String? title,
-    Duration? duration,
-  ) {
+    Duration? duration, {
+    String? actionLabel,
+    void Function()? onAction,
+  }) {
     if (message.trim().isEmpty) return;
     controller.show(
       AppNotificationData(
@@ -97,6 +102,8 @@ class AppNotifier {
         title: title,
         type: type,
         duration: duration ?? const Duration(seconds: 4),
+        actionLabel: actionLabel,
+        onAction: onAction,
       ),
     );
   }

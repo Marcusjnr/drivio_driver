@@ -19,6 +19,8 @@ class AppRoutes {
   static const String kycSelfie = '/kyc/selfie';
   static const String kycDocumentCapture = '/kyc/document';
 
+  static const String forcedUpdate = '/forced-update';
+
   static const String home = '/home';
   static const String locationAlways = '/location-always';
   static const String addVehicle = '/add-vehicle';

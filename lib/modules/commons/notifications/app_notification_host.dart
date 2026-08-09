@@ -186,6 +186,33 @@ class _NotificationBanner extends StatelessWidget {
                     maxLines: 5,
                     overflow: TextOverflow.ellipsis,
                   ),
+                  if (data.hasAction) ...<Widget>[
+                    const SizedBox(height: 8),
+                    InkWell(
+                      onTap: () {
+                        onDismiss();
+                        data.onAction!();
+                      },
+                      borderRadius: BorderRadius.circular(8),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 6,
+                        ),
+                        decoration: BoxDecoration(
+                          color: p.iconColor.withValues(alpha: 0.14),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Text(
+                          data.actionLabel!,
+                          style: AppTextStyles.bodySm.copyWith(
+                            color: p.iconColor,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
                 ],
               ),
             ),

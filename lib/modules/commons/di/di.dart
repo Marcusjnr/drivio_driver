@@ -61,6 +61,7 @@ import 'package:drivio_driver/modules/commons/data/trip_location_repository_impl
 import 'package:drivio_driver/modules/commons/data/trip_repository.dart';
 import 'package:drivio_driver/modules/commons/data/trip_repository_impl.dart';
 import 'package:drivio_driver/modules/commons/data/trusted_contacts_repository.dart';
+import 'package:drivio_driver/modules/commons/data/update_repository.dart';
 import 'package:drivio_driver/modules/commons/data/trusted_contacts_repository_impl.dart';
 import 'package:drivio_driver/modules/commons/data/wallet_repository.dart';
 import 'package:drivio_driver/modules/commons/data/wallet_repository_impl.dart';
@@ -133,6 +134,10 @@ Future<void> setupServiceLocator(Flavor flavor) async {
 
   locator.registerLazySingleton<TripRepository>(
     () => SupabaseTripRepository(locator<SupabaseModule>()),
+  );
+
+  locator.registerLazySingleton<UpdateRepository>(
+    () => UpdateRepository(locator<SupabaseModule>(), locator<Config>()),
   );
 
   locator.registerLazySingleton<TripLocationRepository>(

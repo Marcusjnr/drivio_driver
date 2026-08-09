@@ -5,26 +5,36 @@ import 'package:drivio_driver/modules/commons/analytics/analytics_events.dart';
 import 'package:drivio_driver/modules/commons/analytics/mixpanel_service.dart';
 import 'package:drivio_driver/modules/commons/bootstrap/bootstrap_destination.dart';
 import 'package:drivio_driver/modules/commons/data/trip_repository.dart';
+import 'package:drivio_driver/modules/commons/data/update_repository.dart';
 import 'package:drivio_driver/modules/commons/di/di.dart';
 import 'package:drivio_driver/modules/commons/logging/app_logger.dart';
 import 'package:drivio_driver/modules/commons/navigation/app_routes.dart';
+import 'package:drivio_driver/modules/commons/notifications/app_notifier.dart';
 import 'package:drivio_driver/modules/commons/supabase/supabase_module.dart';
+import 'package:drivio_driver/modules/commons/types/app_update.dart';
+import 'package:drivio_driver/modules/commons/utils/store_launcher.dart';
 
 class BootstrapState {
   const BootstrapState({
     this.destination = BootstrapDestination.welcome,
     this.isLoading = true,
     this.activeTripId,
+    this.updateCheck = UpdateCheck.none,
   });
 
   final BootstrapDestination destination;
   final bool isLoading;
   final String? activeTripId;
 
+  /// Boot-time version verdict. The forced-update page reads its store
+  /// URL from here.
+  final UpdateCheck updateCheck;
+
   BootstrapState copyWith({
     BootstrapDestination? destination,
     bool? isLoading,
     String? activeTripId,
+    UpdateCheck? updateCheck,
     bool clearActiveTripId = false,
   }) {
     return BootstrapState(
@@ -32,6 +42,7 @@ class BootstrapState {
       isLoading: isLoading ?? this.isLoading,
       activeTripId:
           clearActiveTripId ? null : (activeTripId ?? this.activeTripId),
+      updateCheck: updateCheck ?? this.updateCheck,
     );
   }
 }
@@ -48,9 +59,43 @@ class BootstrapController extends StateNotifier<BootstrapState> {
   /// (e.g. after sign-in) doesn't double-count the launch.
   bool _appOpenedTracked = false;
 
+  /// The version gate runs once per process. A re-`resolve()` after
+  /// sign-in must not re-fetch the channel or re-show the nudge.
+  bool _updateChecked = false;
+
   Future<void> resolve() async {
     state = state.copyWith(isLoading: true, clearActiveTripId: true);
     AppLogger.i('bootstrap.resolve start');
+
+    // Version gate first: a build below the supported floor never gets
+    // past the splash, signed in or not. The repository fails open, so a
+    // driver with no signal is unaffected.
+    if (!_updateChecked) {
+      _updateChecked = true;
+      final UpdateCheck check = await locator<UpdateRepository>().check();
+      if (check.verdict == UpdateVerdict.required) {
+        state = state.copyWith(
+          destination: BootstrapDestination.forcedUpdate,
+          updateCheck: check,
+          isLoading: false,
+        );
+        return;
+      }
+      if (check.verdict == UpdateVerdict.recommended) {
+        state = state.copyWith(updateCheck: check);
+        // Let the first page settle before nudging; the banner host sits
+        // above all routes so this lands wherever the driver ends up.
+        Future<void>.delayed(const Duration(seconds: 2), () {
+          AppNotifier.info(
+            title: 'Update available',
+            message: 'A new version of Drivio is ready.',
+            duration: const Duration(seconds: 10),
+            actionLabel: 'Update',
+            onAction: () => openStoreListing(check.updateUrl),
+          );
+        });
+      }
+    }
 
     try {
       final Session? session = _supabase.auth.currentSession;
@@ -135,6 +180,8 @@ class BootstrapController extends StateNotifier<BootstrapState> {
         return AppRoutes.signUp;
       case BootstrapDestination.home:
         return AppRoutes.home;
+      case BootstrapDestination.forcedUpdate:
+        return AppRoutes.forcedUpdate;
     }
   }
 

@@ -16,6 +16,7 @@ import 'package:drivio_driver/modules/dash/features/home/presentation/ui/locatio
 import 'package:drivio_driver/modules/dash/features/pricing/presentation/ui/pricing_page.dart';
 import 'package:drivio_driver/modules/dash/features/profile_hub/presentation/ui/profile_hub_page.dart';
 import 'package:drivio_driver/modules/documents/features/reupload/presentation/ui/reupload_doc_page.dart';
+import 'package:drivio_driver/modules/edge_states/features/forced_update/presentation/ui/forced_update_page.dart';
 import 'package:drivio_driver/modules/edge_states/features/no_requests/presentation/ui/edge_no_requests_page.dart';
 import 'package:drivio_driver/modules/edge_states/features/offline/presentation/ui/edge_offline_page.dart';
 import 'package:drivio_driver/modules/edge_states/features/rider_cancelled/presentation/ui/edge_rider_cancelled_page.dart';
@@ -166,6 +167,8 @@ class AppRouter {
         return (BuildContext _) => const EdgeSubscriptionExpiredPage();
       case AppRoutes.edgeRiderCancelled:
         return (BuildContext _) => const EdgeRiderCancelledPage();
+      case AppRoutes.forcedUpdate:
+        return (BuildContext _) => const ForcedUpdatePage();
       default:
         return (BuildContext _) => const WelcomePage();
     }
