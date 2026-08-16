@@ -17,6 +17,11 @@ import 'package:drivio_driver/modules/commons/types/subscription.dart';
 ///   current        — used only in the tierSwitch flow; muted "CURRENT"
 ///                    pill TR + disabled tap. Selection-equivalent to
 ///                    "this can't be re-picked." Beats every other state.
+///   previous       — reactivation flow only; muted "PREVIOUS" pill on
+///                    the plan the driver's lapsed subscription was on.
+///                    Purely informative: the card stays fully
+///                    selectable, because renewing the same plan is the
+///                    most likely choice and payment is always manual.
 ///
 /// Tap target is the whole card (≥ 44pt) per accessibility. Radio is
 /// decorative — the source of truth is the card-wide InkWell.
@@ -28,12 +33,14 @@ class TierCard extends ConsumerWidget {
     required this.onTap,
     this.recommended = false,
     this.current = false,
+    this.previous = false,
   });
 
   final SubscriptionPlan plan;
   final bool selected;
   final bool recommended;
   final bool current;
+  final bool previous;
   final VoidCallback onTap;
 
   @override
@@ -89,6 +96,7 @@ class TierCard extends ConsumerWidget {
                 selected: selected,
                 recommended: recommended,
                 current: current,
+                previous: previous,
               ),
               const SizedBox(height: 6),
               Text(
@@ -131,6 +139,7 @@ class _TopRow extends StatelessWidget {
     required this.selected,
     required this.recommended,
     required this.current,
+    required this.previous,
   });
 
   final String tierName;
@@ -139,6 +148,7 @@ class _TopRow extends StatelessWidget {
   final bool selected;
   final bool recommended;
   final bool current;
+  final bool previous;
 
   @override
   Widget build(BuildContext context) {
@@ -159,6 +169,9 @@ class _TopRow extends StatelessWidget {
                   if (current) ...<Widget>[
                     const SizedBox(width: 10),
                     const _StatusPill.current(),
+                  ] else if (previous) ...<Widget>[
+                    const SizedBox(width: 10),
+                    const _StatusPill.previous(),
                   ] else if (recommended && !selected) ...<Widget>[
                     const SizedBox(width: 10),
                     const _StatusPill.recommended(),
@@ -199,20 +212,20 @@ class _TopRow extends StatelessWidget {
   }
 }
 
-/// "RECOMMENDED" / "CURRENT" pill. Coral for recommended, muted for
-/// current. Always uppercase, always letter-spaced, always small.
+/// "RECOMMENDED" / "CURRENT" / "PREVIOUS" pill. Coral for recommended,
+/// muted for the other two. Always uppercase, letter-spaced, small.
 class _StatusPill extends StatelessWidget {
-  const _StatusPill.recommended()
-      : _isRecommended = true;
-  const _StatusPill.current() : _isRecommended = false;
+  const _StatusPill.recommended() : _label = 'RECOMMENDED', _accent = true;
+  const _StatusPill.current() : _label = 'CURRENT', _accent = false;
+  const _StatusPill.previous() : _label = 'PREVIOUS', _accent = false;
 
-  final bool _isRecommended;
+  final String _label;
+  final bool _accent;
 
   @override
   Widget build(BuildContext context) {
-    final Color fg = _isRecommended ? context.accentInk : context.textDim;
-    final Color bg =
-        _isRecommended ? context.accent : context.surface3;
+    final Color fg = _accent ? context.accentInk : context.textDim;
+    final Color bg = _accent ? context.accent : context.surface3;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
       decoration: BoxDecoration(
@@ -220,7 +233,7 @@ class _StatusPill extends StatelessWidget {
         borderRadius: BorderRadius.circular(4),
       ),
       child: Text(
-        _isRecommended ? 'RECOMMENDED' : 'CURRENT',
+        _label,
         style: AppTextStyles.micro.copyWith(
           color: fg,
           letterSpacing: 1.2,

@@ -12,6 +12,7 @@ import 'package:drivio_driver/modules/commons/data/trip_repository.dart';
 import 'package:drivio_driver/modules/commons/location/location_permission_service.dart';
 import 'package:drivio_driver/modules/commons/types/demand_cell.dart';
 import 'package:drivio_driver/modules/commons/types/ride_request.dart';
+import 'package:drivio_driver/modules/commons/types/subscription.dart';
 import 'package:drivio_driver/modules/commons/types/trip.dart';
 import 'package:drivio_driver/modules/commons/utils/map_bounds.dart';
 import 'package:drivio_driver/modules/commons/widgets/map/live_map.dart';
@@ -509,12 +510,19 @@ class _DriveShellPageState extends ConsumerState<DriveShellPage>
               onContinue: () {
                 setState(() => _subGateOpen = false);
                 // Paused users go to the manage page (where the resume
-                // control lives); everyone else is funnelled to the
-                // paywall.
-                final bool paused = subState.subscription?.isPaused ?? false;
-                AppNavigation.push<void>(
-                  paused ? AppRoutes.subscriptionManage : AppRoutes.paywall,
-                );
+                // control lives). Lapsed subscribers go straight to the
+                // plan picker — the "Step 4 of 4" paywall is onboarding
+                // framing that only fits drivers who never subscribed.
+                final Subscription? sub = subState.subscription;
+                final String route;
+                if (sub?.isPaused ?? false) {
+                  route = AppRoutes.subscriptionManage;
+                } else if (sub != null) {
+                  route = AppRoutes.pickPlan;
+                } else {
+                  route = AppRoutes.paywall;
+                }
+                AppNavigation.push<void>(route);
               },
             ),
           if (_locationGateOpen)

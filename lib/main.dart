@@ -1,8 +1,10 @@
 import 'dart:async';
+import 'dart:ui' show PlatformDispatcher;
 
 import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
-import 'package:flutter/foundation.dart' show kReleaseMode;
+import 'package:flutter/foundation.dart' show kDebugMode, kReleaseMode;
 import 'package:flutter/widgets.dart';
 
 import 'package:drivio_driver/app.dart';
@@ -32,6 +34,23 @@ Future<void> bootstrap(Flavor flavor, {String? envFile}) async {
         ? prod_firebase.DefaultFirebaseOptions.currentPlatform
         : stage_firebase.DefaultFirebaseOptions.currentPlatform,
   );
+
+  // Crashlytics — release/profile builds only. Debug crashes stay in the
+  // console where they're actually being watched; each flavor reports
+  // into its own Firebase project. Uncaught framework errors and
+  // uncaught async errors both count as fatals so crash-free-users
+  // stays honest.
+  final FirebaseCrashlytics crashlytics = FirebaseCrashlytics.instance;
+  await crashlytics.setCrashlyticsCollectionEnabled(!kDebugMode);
+  if (!kDebugMode) {
+    // Leave debug builds on Flutter's default handlers so errors still
+    // land in the console instead of a disabled Crashlytics queue.
+    FlutterError.onError = crashlytics.recordFlutterFatalError;
+    PlatformDispatcher.instance.onError = (Object error, StackTrace stack) {
+      crashlytics.recordError(error, stack, fatal: true);
+      return true;
+    };
+  }
 
   await dotenv.load(fileName: envFile ?? '.env.${flavor.name}');
 

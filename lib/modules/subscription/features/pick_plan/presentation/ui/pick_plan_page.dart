@@ -32,12 +32,28 @@ class PickPlanPage extends ConsumerStatefulWidget {
 }
 
 class _PickPlanPageState extends ConsumerState<PickPlanPage> {
+  /// Held true from the moment a payment verifies until this page is
+  /// replaced by home. The activation controller drops `isProcessing`
+  /// as soon as verify returns, but the subscription refresh and the
+  /// navigation are still ahead — without this flag the CTA briefly
+  /// reverts to a tappable "pay today" button mid-redirect.
+  bool _redirecting = false;
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (!mounted) return;
-      final PickPlanIntent intent = widget.intent ?? _inferIntent(ref);
+      PickPlanIntent intent = widget.intent ?? _inferIntent(ref);
+      // A caller can pass tierSwitch from a screen that rendered before
+      // the plan lapsed. Queueing a switch on a dead subscription is
+      // meaningless (nothing will renew), so coerce to reactivation.
+      final Subscription? sub =
+          ref.read(subscriptionControllerProvider).subscription;
+      if (intent == PickPlanIntent.tierSwitch &&
+          (sub == null || sub.isHardBlocked)) {
+        intent = PickPlanIntent.reactivation;
+      }
       final String? currentCode = widget.currentTierCode ?? _inferCurrent(ref);
       await ref
           .read(pickPlanControllerProvider.notifier)
@@ -48,16 +64,22 @@ class _PickPlanPageState extends ConsumerState<PickPlanPage> {
   /// When no explicit intent is passed, derive one from the live
   /// subscription state. Active driver on a plan → tierSwitch.
   /// Expired/cancelled → reactivation. Default → trialChoice.
+  ///
+  /// Uses [Subscription.effectiveStatus], never the stored status: nothing
+  /// flips a row to `expired` server-side when the period lapses, so a
+  /// long-dead subscription can still read `active` from the database.
+  /// Deriving keeps a lapsed driver out of the tier-switch flow, where
+  /// their old plan renders as an unselectable CURRENT card and the CTA
+  /// promises a queued switch that no auto-renewal will ever apply (we
+  /// store no cards; renewal is always a manual payment).
   PickPlanIntent _inferIntent(WidgetRef ref) {
     final Subscription? sub =
         ref.read(subscriptionControllerProvider).subscription;
     if (sub == null) return PickPlanIntent.trialChoice;
-    if (sub.status == SubscriptionStatus.expired ||
-        sub.status == SubscriptionStatus.cancelled) {
-      return PickPlanIntent.reactivation;
-    }
-    if (sub.status == SubscriptionStatus.active ||
-        sub.status == SubscriptionStatus.pastDue) {
+    final SubscriptionStatus status = sub.effectiveStatus;
+    if (status.isHardBlocked) return PickPlanIntent.reactivation;
+    if (status == SubscriptionStatus.active ||
+        status == SubscriptionStatus.pastDue) {
       return PickPlanIntent.tierSwitch;
     }
     return PickPlanIntent.trialChoice;
@@ -171,6 +193,10 @@ class _PickPlanPageState extends ConsumerState<PickPlanPage> {
       );
       return;
     }
+    // Payment verified — keep the CTA spinning through the subscription
+    // refresh until home replaces this page. Never cleared on this path:
+    // replaceAll below unmounts the page.
+    setState(() => _redirecting = true);
     await ref.read(subscriptionControllerProvider.notifier).refresh();
     if (!mounted) return;
     AppNotifier.success(message: 'Drivio Pro active. Welcome back.');
@@ -237,7 +263,8 @@ class _PickPlanPageState extends ConsumerState<PickPlanPage> {
       bottomBar: _Cta(
         plan: state.selectedTier,
         subscription: sub,
-        isSubmitting: activation.isProcessing || state.isSubmitting,
+        isSubmitting:
+            activation.isProcessing || state.isSubmitting || _redirecting,
         onPressed: _onSubmit,
       ),
       child: CustomScrollView(
@@ -282,6 +309,12 @@ class _PickPlanPageState extends ConsumerState<PickPlanPage> {
                   final bool isCurrent =
                       state.currentTierCode == plan.code &&
                           state.intent == PickPlanIntent.tierSwitch;
+                  // Lapsed plan in the reactivation flow: badge it as
+                  // PREVIOUS but keep it selectable — renewing the same
+                  // plan is the most likely pick, and payment is manual.
+                  final bool isPrevious =
+                      state.currentTierCode == plan.code &&
+                          state.intent == PickPlanIntent.reactivation;
                   return _Animated(
                     delayMs: 220 + (i * 110),
                     child: TierCard(
@@ -289,6 +322,7 @@ class _PickPlanPageState extends ConsumerState<PickPlanPage> {
                       selected: isSelected,
                       recommended: isRecommended,
                       current: isCurrent,
+                      previous: isPrevious,
                       onTap: () => ref
                           .read(pickPlanControllerProvider.notifier)
                           .selectTier(plan.code),
@@ -301,7 +335,9 @@ class _PickPlanPageState extends ConsumerState<PickPlanPage> {
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(24, 4, 24, 16),
                 child: Text(
-                  'Switch anytime. Changes apply at your next renewal.',
+                  state.intent == PickPlanIntent.tierSwitch
+                      ? 'Switch anytime. Changes apply at your next renewal.'
+                      : 'Your plan starts as soon as your payment is confirmed.',
                   style: AppTextStyles.captionSm.copyWith(
                     color: context.textMuted,
                     height: 1.4,
@@ -471,8 +507,11 @@ class _Cta extends StatelessWidget {
       }
     }
 
+    // Generous bottom padding lifts the button and its fineprint clear of
+    // the gesture bar; on the screenshot-reported layout the "No charge
+    // today" line sat under the home indicator and read as an afterthought.
     return Container(
-      padding: const EdgeInsets.fromLTRB(20, 14, 20, 16),
+      padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
       decoration: BoxDecoration(
         color: context.bg,
         border: Border(top: BorderSide(color: context.border)),
@@ -486,12 +525,13 @@ class _Cta extends StatelessWidget {
             onPressed: onPressed,
           ),
           if (fineprint.isNotEmpty) ...<Widget>[
-            const SizedBox(height: 8),
+            const SizedBox(height: 10),
             Text(
               fineprint,
-              style: AppTextStyles.micro.copyWith(
-                color: context.textMuted,
-                letterSpacing: 0.3,
+              style: AppTextStyles.captionSm.copyWith(
+                color: context.textDim,
+                letterSpacing: 0.2,
+                height: 1.3,
               ),
               textAlign: TextAlign.center,
             ),

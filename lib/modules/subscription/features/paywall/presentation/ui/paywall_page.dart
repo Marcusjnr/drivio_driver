@@ -14,6 +14,11 @@ class PaywallPage extends ConsumerStatefulWidget {
 }
 
 class _PaywallPageState extends ConsumerState<PaywallPage> {
+  /// Held true from payment-verified until home replaces this page, so
+  /// the CTA keeps its spinner through the subscription refresh instead
+  /// of flashing back to a tappable state mid-redirect.
+  bool _redirecting = false;
+
   @override
   void initState() {
     super.initState();
@@ -56,6 +61,7 @@ class _PaywallPageState extends ConsumerState<PaywallPage> {
     final bool ok = await activator.activate(context: context, plan: plan);
     if (!mounted) return;
     if (ok) {
+      setState(() => _redirecting = true);
       await ref.read(subscriptionControllerProvider.notifier).refresh();
       if (!mounted) return;
       AppNavigation.replaceAll<void>(AppRoutes.home);
@@ -102,7 +108,7 @@ class _PaywallPageState extends ConsumerState<PaywallPage> {
     return ScreenScaffold(
       bottomBar: _BottomBar(
         subscription: sub,
-        isProcessing: activation.isProcessing,
+        isProcessing: activation.isProcessing || _redirecting,
         onActivate: () => _onActivate(context, plan, sub),
       ),
       child: SingleChildScrollView(
