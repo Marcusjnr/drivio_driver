@@ -1,9 +1,12 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android" xmlns:tools="http://schemas.android.com/tools">
   <uses-permission android:name="android.permission.INTERNET"/>
-  <!-- Camera + media access for KYC, the face-liveness check, and
-         vehicle document capture. -->
+  <!-- Camera for KYC, the face-liveness check, and vehicle document
+         capture. Gallery/file picks go through image_picker and
+         file_picker, which use the system Photo Picker / Storage Access
+         Framework and need no media permission — except pre-Android 13
+         devices without Photo Picker support, hence the maxSdk-scoped
+         fallback below. -->
   <uses-permission android:name="android.permission.CAMERA"/>
-  <uses-permission android:name="android.permission.READ_MEDIA_IMAGES"/>
   <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32"/>
   <!-- Foreground location. FINE/COARSE cover the in-app use; BACKGROUND
          lets the foreground-service location stream keep running while the
@@ -20,6 +23,10 @@
   <uses-permission android:name="android.permission.RECORD_AUDIO"/>
   <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS"/>
   <uses-permission android:name="android.permission.BLUETOOTH_CONNECT"/>
+  <!-- Agora's full-screen-sharing-special AAR contributes this for its
+         screen-share feature, which we don't use — strip it so Play Console
+         doesn't flag an unjustified sensitive permission. -->
+  <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION" tools:node="remove"/>
   <!-- Android 13+ runtime notification permission (push / incoming calls). -->
   <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
   <!-- New-trip alert while backgrounded: full-screen heads-up

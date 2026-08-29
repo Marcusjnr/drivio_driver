@@ -7,11 +7,16 @@ import 'package:drivio_driver/modules/commons/di/di.dart';
 import 'package:drivio_driver/modules/commons/types/trip.dart';
 import 'package:drivio_driver/modules/dash/features/home/presentation/logic/controller/presence_controller.dart';
 
-/// Per spec DRV-054: while a trip is live, broadcast the driver's GPS at
-/// 1 Hz on `trip:<id>:driver_location` and persist a sample every 5 s to
-/// `trip_locations`. The latter is what the receipt + dispute audit reads;
-/// the broadcast is what a passenger map subscribes to.
-const Duration _kBroadcastInterval = Duration(seconds: 1);
+/// Per spec DRV-054 (revised): while a trip is live, broadcast the driver's
+/// GPS on `trip:<id>:driver_location` and persist a sample, both every 5 s,
+/// to `trip_locations`. The persisted sample is what the receipt + dispute
+/// audit reads; the broadcast is what a passenger map subscribes to. 5 s
+/// matches the position-stream's own interval floor (see
+/// presence_background.dart's AndroidSettings), so broadcasting faster than
+/// that just re-sends stale fixes — a 1 Hz broadcast was previously billing
+/// ~5x more Supabase Realtime messages than the underlying GPS data
+/// actually changed.
+const Duration _kBroadcastInterval = Duration(seconds: 5);
 const Duration _kPersistInterval = Duration(seconds: 5);
 
 class TripLocationRecorderState {

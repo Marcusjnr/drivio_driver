@@ -20,7 +20,7 @@ build-preprod-android:
 build-prod-android:
 	fvm flutter build apk -t lib/main_prod.dart --flavor prod --profile
 
-build-release-android:
+build-prod-android-release:
 	fvm flutter build appbundle -t lib/main_prod.dart --flavor prod --release
 
 test:
