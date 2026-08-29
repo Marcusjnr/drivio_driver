@@ -4,7 +4,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:drivio_driver/modules/commons/all.dart';
 import 'package:drivio_driver/modules/commons/analytics/analytics_events.dart';
 import 'package:drivio_driver/modules/commons/analytics/mixpanel_service.dart';
-import 'package:drivio_driver/modules/commons/types/document.dart';
 import 'package:drivio_driver/modules/kyc/features/kyc_home/presentation/logic/controller/kyc_controller.dart';
 
 class KycHomePage extends ConsumerStatefulWidget {
@@ -292,11 +291,6 @@ class _StepRow extends StatelessWidget {
         return AppNavigation.push<void>(AppRoutes.kycDriversLicence);
       case KycStepKind.vehicle:
         return AppNavigation.push<void>(AppRoutes.addVehicle);
-      case KycStepKind.roadWorthiness:
-        return AppNavigation.push<void>(
-          AppRoutes.kycDocumentCapture,
-          arguments: DocumentKind.roadWorthiness,
-        );
     }
   }
 }

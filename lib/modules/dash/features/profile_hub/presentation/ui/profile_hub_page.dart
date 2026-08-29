@@ -242,12 +242,6 @@ class _VehicleGroup extends StatelessWidget {
               ? () => AppNavigation.push(AppRoutes.addVehicle)
               : () => AppNavigation.push(AppRoutes.vehicleDetails),
         ),
-        _DocLinkRow(
-          label: 'Vehicle inspection',
-          kind: DocumentKind.inspectionReport,
-          doc: state.documentsByKind[DocumentKind.inspectionReport],
-          isLast: true,
-        ),
       ],
     );
   }
@@ -264,21 +258,13 @@ class _DocumentsGroup extends StatelessWidget {
     return _Group(
       title: 'DOCUMENTS',
       children: <Widget>[
+        // Registration lives inside the add-vehicle flow; inspection and
+        // background check are no longer collected, so the licence is the
+        // only standalone document here.
         _DocLinkRow(
           label: "Driver's licence",
           kind: DocumentKind.driversLicence,
           doc: state.documentsByKind[DocumentKind.driversLicence],
-        ),
-        _DocLinkRow(
-          label: 'Vehicle registration',
-          kind: DocumentKind.vehicleReg,
-          doc: state.documentsByKind[DocumentKind.vehicleReg],
-        ),
-        _DocLinkRow(
-          // "Background check" stored under road_worthiness per Q1.
-          label: 'Background check',
-          kind: DocumentKind.roadWorthiness,
-          doc: state.documentsByKind[DocumentKind.roadWorthiness],
           isLast: true,
         ),
       ],

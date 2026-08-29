@@ -65,6 +65,7 @@ import 'package:drivio_driver/modules/commons/data/update_repository.dart';
 import 'package:drivio_driver/modules/commons/data/trusted_contacts_repository_impl.dart';
 import 'package:drivio_driver/modules/commons/data/wallet_repository.dart';
 import 'package:drivio_driver/modules/commons/data/wallet_repository_impl.dart';
+import 'package:drivio_driver/modules/dash/features/add_vehicle/presentation/logic/data/vehicle_draft_repository.dart';
 import 'package:drivio_driver/modules/dash/features/add_vehicle/presentation/logic/data/vehicle_repository.dart';
 import 'package:drivio_driver/modules/dash/features/add_vehicle/presentation/logic/data/vehicle_repository_impl.dart';
 import 'package:drivio_driver/modules/kyc/features/kyc_home/presentation/logic/data/kyc_repository.dart';
@@ -110,6 +111,10 @@ Future<void> setupServiceLocator(Flavor flavor) async {
 
   locator.registerLazySingleton<VehicleRepository>(
     () => SupabaseVehicleRepository(locator<SupabaseModule>()),
+  );
+
+  locator.registerLazySingleton<VehicleDraftRepository>(
+    () => VehicleDraftRepository(locator<SupabaseModule>()),
   );
 
   locator.registerLazySingleton<DocumentRepository>(

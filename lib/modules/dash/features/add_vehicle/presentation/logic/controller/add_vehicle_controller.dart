@@ -16,6 +16,7 @@ import 'package:drivio_driver/modules/commons/data/driver_amenities_repository.d
 import 'package:drivio_driver/modules/commons/di/di.dart';
 import 'package:drivio_driver/modules/commons/types/document.dart';
 import 'package:drivio_driver/modules/commons/types/vehicle.dart';
+import 'package:drivio_driver/modules/dash/features/add_vehicle/presentation/logic/data/vehicle_draft_repository.dart';
 import 'package:drivio_driver/modules/dash/features/add_vehicle/presentation/logic/data/vehicle_repository.dart';
 import 'package:drivio_driver/modules/dash/features/add_vehicle/presentation/logic/data/vehicle_repository_impl.dart';
 
@@ -65,6 +66,8 @@ class DocumentSlotState {
 
 class AddVehicleState {
   const AddVehicleState({
+    this.step = 1,
+    this.hydrating = true,
     this.make = '',
     this.model = '',
     this.year = '',
@@ -81,6 +84,14 @@ class AddVehicleState {
     this.isLoading = false,
     this.error,
   });
+
+  /// Which of the three steps is showing (1 = details, 2 = amenities,
+  /// 3 = documents).
+  final int step;
+
+  /// True while the saved draft is being loaded on open; the page shows
+  /// a spinner instead of flashing step 1 before jumping.
+  final bool hydrating;
 
   final String make;
   final String model;
@@ -141,7 +152,8 @@ class AddVehicleState {
 
   bool get hasRequiredDocuments => hasVehicleReg && hasAllPhotos;
 
-  bool get canSubmit =>
+  /// Step 1 is complete when every vehicle detail is valid.
+  bool get detailsValid =>
       make.trim().length >= 2 &&
       model.trim().length >= 2 &&
       hasValidYear &&
@@ -150,11 +162,15 @@ class AddVehicleState {
       hasValidVin &&
       transmission != null &&
       fuelType != null &&
-      mileageValue != null &&
-      selectedAmenities.isNotEmpty &&
-      hasRequiredDocuments;
+      mileageValue != null;
+
+  /// Amenities are optional (the driver may Skip), so the final submit
+  /// needs valid details and all documents only.
+  bool get canSubmit => detailsValid && hasRequiredDocuments;
 
   AddVehicleState copyWith({
+    int? step,
+    bool? hydrating,
     String? make,
     String? model,
     String? year,
@@ -173,6 +189,8 @@ class AddVehicleState {
     bool clearError = false,
   }) {
     return AddVehicleState(
+      step: step ?? this.step,
+      hydrating: hydrating ?? this.hydrating,
       make: make ?? this.make,
       model: model ?? this.model,
       year: year ?? this.year,
@@ -193,15 +211,144 @@ class AddVehicleState {
 }
 
 class AddVehicleController extends StateNotifier<AddVehicleState> {
-  AddVehicleController(this._vehicles, this._documents, this._amenities)
-      : super(const AddVehicleState()) {
+  AddVehicleController(
+    this._vehicles,
+    this._documents,
+    this._amenities,
+    this._drafts,
+  ) : super(const AddVehicleState()) {
     _loadAmenities();
+    _hydrate();
   }
 
   final VehicleRepository _vehicles;
   final DocumentRepository _documents;
   final DriverAmenitiesRepository _amenities;
+  final VehicleDraftRepository _drafts;
   final ImagePicker _imagePicker = ImagePicker();
+
+  /// Restores saved progress so a driver who left mid-flow resumes at
+  /// the step AFTER the last one they completed, with everything they
+  /// entered (including already-uploaded files) intact. Fail-soft: a
+  /// load error simply starts at step 1.
+  Future<void> _hydrate() async {
+    try {
+      final VehicleDraft? draft = await _drafts.load();
+      if (!mounted) return;
+      if (draft == null) {
+        state = state.copyWith(hydrating: false);
+        return;
+      }
+      final Map<String, dynamic> d = draft.details ?? <String, dynamic>{};
+      final Map<DocumentKind, DocumentSlotState> docs =
+          <DocumentKind, DocumentSlotState>{};
+      for (final MapEntry<String, dynamic> e in draft.documents.entries) {
+        final DocumentKind? kind = DocumentKind.values
+            .where((DocumentKind k) => k.name == e.key)
+            .firstOrNull;
+        final Object? v = e.value;
+        if (kind == null || v is! Map) continue;
+        docs[kind] = DocumentSlotState(
+          filePath: v['path'] as String?,
+          fileName: v['name'] as String?,
+        );
+      }
+      state = state.copyWith(
+        hydrating: false,
+        step: (draft.stepCompleted + 1).clamp(1, 3),
+        make: (d['make'] as String?) ?? '',
+        model: (d['model'] as String?) ?? '',
+        year: (d['year'] as String?) ?? '',
+        colour: (d['colour'] as String?) ?? '',
+        plate: (d['plate'] as String?) ?? '',
+        vin: (d['vin'] as String?) ?? '',
+        transmission: d['transmission'] as String?,
+        fuelType: d['fuel_type'] as String?,
+        mileage: (d['mileage'] as String?) ?? '',
+        selectedAmenities: draft.amenities.toSet(),
+        documents: docs,
+      );
+    } catch (_) {
+      if (mounted) state = state.copyWith(hydrating: false);
+    }
+  }
+
+  /// Step 1 CTA: persist the details and advance. Returns false when the
+  /// save failed (the page stays put and shows the error).
+  Future<bool> completeDetails() async {
+    if (!state.detailsValid) return false;
+    state = state.copyWith(isLoading: true, clearError: true);
+    try {
+      await _drafts.saveDetails(<String, dynamic>{
+        'make': state.make.trim(),
+        'model': state.model.trim(),
+        'year': state.year.trim(),
+        'colour': state.colour.trim(),
+        'plate': state.plate.trim(),
+        'vin': state.vin.trim(),
+        'transmission': state.transmission,
+        'fuel_type': state.fuelType,
+        'mileage': state.mileage.trim(),
+      });
+      if (!mounted) return false;
+      state = state.copyWith(isLoading: false, step: 2);
+      return true;
+    } catch (_) {
+      if (!mounted) return false;
+      state = state.copyWith(
+        isLoading: false,
+        error: "Couldn't save. Check your connection and try again.",
+      );
+      return false;
+    }
+  }
+
+  /// Step 2 CTA (Continue with a selection, or Skip with none): persist
+  /// the choice and advance.
+  Future<bool> completeAmenities() async {
+    state = state.copyWith(isLoading: true, clearError: true);
+    try {
+      await _drafts.saveAmenities(state.selectedAmenities.toList());
+      if (!mounted) return false;
+      state = state.copyWith(isLoading: false, step: 3);
+      return true;
+    } catch (_) {
+      if (!mounted) return false;
+      state = state.copyWith(
+        isLoading: false,
+        error: "Couldn't save. Check your connection and try again.",
+      );
+      return false;
+    }
+  }
+
+  /// Back within the flow: previous step, no draft change. Returns false
+  /// on step 1 so the page pops instead.
+  bool goBackStep() {
+    if (state.step <= 1) return false;
+    state = state.copyWith(step: state.step - 1, clearError: true);
+    return true;
+  }
+
+  /// Mirrors the uploaded slots into the draft so files survive an app
+  /// kill mid-step-3. Best effort: the file itself is already safe in
+  /// storage.
+  Future<void> _persistDocumentSlots() async {
+    final Map<String, dynamic> out = <String, dynamic>{};
+    for (final MapEntry<DocumentKind, DocumentSlotState> e
+        in state.documents.entries) {
+      if (e.value.filePath == null) continue;
+      out[e.key.name] = <String, dynamic>{
+        'path': e.value.filePath,
+        'name': e.value.fileName,
+      };
+    }
+    try {
+      await _drafts.saveDocuments(out);
+    } catch (_) {
+      // Re-upload on next visit is the worst case.
+    }
+  }
 
   Future<void> _loadAmenities() async {
     try {
@@ -291,6 +438,7 @@ class AddVehicleController extends StateNotifier<AddVehicleState> {
         kind,
         DocumentSlotState(filePath: filePath, fileName: picked.fileName),
       );
+      await _persistDocumentSlots();
     } on DocumentAuthException {
       _setSlot(
         kind,
@@ -320,6 +468,7 @@ class AddVehicleController extends StateNotifier<AddVehicleState> {
 
   void clearSlot(DocumentKind kind) {
     _setSlot(kind, const DocumentSlotState());
+    _persistDocumentSlots();
   }
 
   Future<_PickedFile?> _pick(DocPickerSource source) async {
@@ -419,6 +568,13 @@ class AddVehicleController extends StateNotifier<AddVehicleState> {
         properties: <String, dynamic>{'vehicle_type': vehicle.category.name},
       );
 
+      // The flow is done; next add-vehicle starts fresh.
+      try {
+        await _drafts.clear();
+      } catch (_) {
+        // A stale draft only means a pre-filled form next time.
+      }
+
       return vehicle;
     } on VehicleAuthException {
       state = state.copyWith(
@@ -465,5 +621,6 @@ final StateNotifierProvider<AddVehicleController, AddVehicleState>
     locator<VehicleRepository>(),
     locator<DocumentRepository>(),
     locator<DriverAmenitiesRepository>(),
+    locator<VehicleDraftRepository>(),
   ),
 );

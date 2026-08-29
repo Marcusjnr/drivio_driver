@@ -10,6 +10,13 @@ import 'package:drivio_driver/modules/dash/features/add_vehicle/presentation/log
 import 'package:drivio_driver/modules/dash/features/add_vehicle/vehicle_options.dart';
 import 'package:drivio_driver/modules/dash/features/home/presentation/logic/controller/home_controller.dart';
 
+/// Three-step add-vehicle flow. Each step persists to the server as it
+/// completes (vehicle_onboarding_drafts), so a driver who leaves
+/// mid-flow resumes at the next step with everything intact:
+///
+///   1. Vehicle details, ending at current mileage.
+///   2. Amenities: CTA reads Skip with none selected, Continue otherwise.
+///   3. Documents and photos, then submit for review.
 class AddVehiclePage extends ConsumerStatefulWidget {
   const AddVehiclePage({super.key});
 
@@ -21,6 +28,7 @@ class _AddVehiclePageState extends ConsumerState<AddVehiclePage> {
   late final TextEditingController _plate;
   late final TextEditingController _vin;
   late final TextEditingController _mileage;
+  bool _seeded = false;
 
   @override
   void initState() {
@@ -45,267 +53,376 @@ class _AddVehiclePageState extends ConsumerState<AddVehiclePage> {
     ];
   }
 
+  void _onBack() {
+    final AddVehicleController c =
+        ref.read(addVehicleControllerProvider.notifier);
+    if (!c.goBackStep()) {
+      AppNavigation.pop();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final AddVehicleState state = ref.watch(addVehicleControllerProvider);
     final AddVehicleController c =
         ref.read(addVehicleControllerProvider.notifier);
 
+    // Draft hydration restored saved text after the controllers were
+    // created; seed them exactly once so typing is never clobbered.
+    if (!_seeded && !state.hydrating) {
+      _seeded = true;
+      _plate.text = state.plate;
+      _vin.text = state.vin;
+      _mileage.text = state.mileage;
+    }
+
+    return PopScope(
+      canPop: state.step <= 1,
+      onPopInvokedWithResult: (bool didPop, Object? _) {
+        if (!didPop) _onBack();
+      },
+      child: ScreenScaffold(
+        child: state.hydrating
+            ? const Center(child: CircularProgressIndicator())
+            : SingleChildScrollView(
+                padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    Row(
+                      children: <Widget>[
+                        BackButtonBox(onTap: _onBack),
+                        const SizedBox(width: 10),
+                        Text(
+                          'STEP ${state.step} OF 3',
+                          style: AppTextStyles.mono.copyWith(
+                            color: context.textMuted,
+                            letterSpacing: 1.8,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    switch (state.step) {
+                      1 => _detailsStep(state, c),
+                      2 => _amenitiesStep(state, c),
+                      _ => _documentsStep(state, c),
+                    },
+                  ],
+                ),
+              ),
+      ),
+    );
+  }
+
+  // ── Step 1: vehicle details ────────────────────────────────────────
+
+  Widget _detailsStep(AddVehicleState state, AddVehicleController c) {
     final List<String> models = modelsForMake(state.make);
     final bool freeTextModel =
         state.make.isEmpty || state.make == 'Other' || models.isEmpty;
 
-    return ScreenScaffold(
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
-        child: Column(
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        Text(
+          'Tell us about\nyour vehicle.',
+          style: AppTextStyles.h1.copyWith(color: context.text),
+        ),
+        const SizedBox(height: 6),
+        Text(
+          'This appears to riders when you accept a trip.',
+          style: AppTextStyles.caption.copyWith(color: context.textDim),
+        ),
+        const SizedBox(height: 22),
+
+        // Make + Model — both label-above so the boxes line up.
+        Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
-            Row(
-              children: <Widget>[
-                BackButtonBox(onTap: () => AppNavigation.pop()),
-                const SizedBox(width: 10),
-                Text(
-                  'STEP 1 OF 2',
-                  style: AppTextStyles.mono.copyWith(
-                    color: context.textMuted,
-                    letterSpacing: 1.8,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            Text(
-              'Tell us about\nyour vehicle.',
-              style: AppTextStyles.h1.copyWith(color: context.text),
-            ),
-            const SizedBox(height: 6),
-            Text(
-              'This appears to riders when you accept a trip.',
-              style: AppTextStyles.caption.copyWith(color: context.textDim),
-            ),
-            const SizedBox(height: 22),
-
-            // Make + Model — searchable pickers.
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: <Widget>[
-                Expanded(
-                  child: _SelectField(
-                    label: 'Make',
-                    value: state.make.isEmpty ? null : state.make,
-                    hint: 'Toyota',
-                    onTap: () async {
-                      final String? picked = await _pickOne(
-                        context,
-                        title: 'Select make',
-                        options: kVehicleMakeNames,
-                      );
-                      if (picked != null) c.onMakeChanged(picked);
-                    },
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: freeTextModel
-                      ? _InlineTextField(
-                          label: 'Model',
-                          hint: 'Corolla',
-                          initial: state.model,
-                          onChanged: c.onModelChanged,
-                        )
-                      : _SelectField(
-                          label: 'Model',
-                          value: state.model.isEmpty ? null : state.model,
-                          hint: 'Corolla',
-                          onTap: () async {
-                            final String? picked = await _pickOne(
-                              context,
-                              title: 'Select model',
-                              options: models,
-                            );
-                            if (picked != null) c.onModelChanged(picked);
-                          },
-                        ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 10),
-
-            // Year + Colour.
-            Row(
-              children: <Widget>[
-                Expanded(
-                  child: _SelectField(
-                    label: 'Year',
-                    value: state.year.isEmpty ? null : state.year,
-                    hint: '2020',
-                    onTap: () async {
-                      final String? picked = await _pickOne(
-                        context,
-                        title: 'Select year',
-                        options: _years(),
-                      );
-                      if (picked != null) c.onYearChanged(picked);
-                    },
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: _SelectField(
-                    label: 'Colour',
-                    value: state.colour.isEmpty ? null : state.colour,
-                    hint: 'White',
-                    onTap: () async {
-                      final String? picked = await _pickColour(context);
-                      if (picked != null) c.onColourChanged(picked);
-                    },
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 10),
-
-            // Transmission + Fuel type.
-            Row(
-              children: <Widget>[
-                Expanded(
-                  child: _SelectField(
-                    label: 'Transmission',
-                    value: _labelFor(kTransmissionOptions, state.transmission),
-                    hint: 'Automatic',
-                    onTap: () async {
-                      final String? picked = await _pickPair(
-                        context,
-                        title: 'Transmission',
-                        options: kTransmissionOptions,
-                      );
-                      if (picked != null) c.onTransmissionChanged(picked);
-                    },
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: _SelectField(
-                    label: 'Fuel type',
-                    value: _labelFor(kFuelTypeOptions, state.fuelType),
-                    hint: 'Fuel',
-                    onTap: () async {
-                      final String? picked = await _pickPair(
-                        context,
-                        title: 'Fuel type',
-                        options: kFuelTypeOptions,
-                      );
-                      if (picked != null) c.onFuelTypeChanged(picked);
-                    },
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 10),
-
-            // Licence plate.
-            DrivioInput(
-              label: 'Licence plate',
-              controller: _plate,
-              onChanged: c.onPlateChanged,
-              hint: 'LAG 234 AB',
-              compact: true,
-            ),
-            if (state.plate.trim().isNotEmpty && !state.hasValidPlate) ...<Widget>[
-              const SizedBox(height: 6),
-              Text(
-                'Plate should be 6–10 letters and numbers, like LAG 234 AB.',
-                style: AppTextStyles.captionSm.copyWith(color: context.red),
+            Expanded(
+              child: _SelectField(
+                label: 'Make',
+                value: state.make.isEmpty ? null : state.make,
+                hint: 'Toyota',
+                onTap: () async {
+                  final String? picked = await _pickOne(
+                    context,
+                    title: 'Select make',
+                    options: kVehicleMakeNames,
+                  );
+                  if (picked != null) c.onMakeChanged(picked);
+                },
               ),
-            ],
-            const SizedBox(height: 10),
-
-            // VIN + mileage.
-            DrivioInput(
-              label: 'Vehicle Identification Number (VIN)',
-              controller: _vin,
-              onChanged: c.onVinChanged,
-              hint: 'e.g. JT2BF22K1W0123456',
-              compact: true,
             ),
-            if (state.vin.trim().isNotEmpty && !state.hasValidVin) ...<Widget>[
-              const SizedBox(height: 6),
-              Text(
-                'Enter the VIN from your registration (usually 17 characters).',
-                style: AppTextStyles.captionSm.copyWith(color: context.red),
-              ),
-            ],
-            const SizedBox(height: 10),
-            DrivioInput(
-              label: 'Current mileage (KM)',
-              controller: _mileage,
-              onChanged: c.onMileageChanged,
-              hint: '85000',
-              keyboardType: TextInputType.number,
-              compact: true,
+            const SizedBox(width: 8),
+            Expanded(
+              child: freeTextModel
+                  ? _InlineTextField(
+                      label: 'Model',
+                      hint: 'Corolla',
+                      initial: state.model,
+                      onChanged: c.onModelChanged,
+                    )
+                  : _SelectField(
+                      label: 'Model',
+                      value: state.model.isEmpty ? null : state.model,
+                      hint: 'Corolla',
+                      onTap: () async {
+                        final String? picked = await _pickOne(
+                          context,
+                          title: 'Select model',
+                          options: modelsForMake(state.make),
+                        );
+                        if (picked != null) c.onModelChanged(picked);
+                      },
+                    ),
             ),
-            const SizedBox(height: 18),
-
-            // Amenities — pick at least one.
-            _AmenitiesSection(state: state, controller: c),
-            const SizedBox(height: 18),
-
-            // Documents + photos.
-            Text(
-              'DOCUMENTS',
-              style: AppTextStyles.eyebrow.copyWith(color: context.textDim),
-            ),
-            const SizedBox(height: 8),
-            _UploadCard(
-              label: 'Vehicle registration',
-              kind: DocumentKind.vehicleReg,
-            ),
-            const SizedBox(height: 18),
-            Text(
-              'VEHICLE PHOTOS',
-              style: AppTextStyles.eyebrow.copyWith(color: context.textDim),
-            ),
-            const SizedBox(height: 8),
-            _UploadCard(label: 'Front', kind: DocumentKind.vehiclePhotoFront),
-            const SizedBox(height: 8),
-            _UploadCard(label: 'Back', kind: DocumentKind.vehiclePhotoBack),
-            const SizedBox(height: 8),
-            _UploadCard(label: 'Side', kind: DocumentKind.vehiclePhotoSide),
-            const SizedBox(height: 8),
-            _UploadCard(
-                label: 'Interior', kind: DocumentKind.vehiclePhotoInterior),
-
-            if (state.error != null) ...<Widget>[
-              const SizedBox(height: 12),
-              Text(
-                state.error!,
-                style: AppTextStyles.bodySm.copyWith(color: context.red),
-              ),
-            ],
-            const SizedBox(height: 16),
-            DrivioButton(
-              label: state.isLoading ? 'Saving…' : 'Save & submit for review',
-              disabled: !state.canSubmit || state.isLoading,
-              onPressed: () async {
-                final Vehicle? vehicle = await c.submit();
-                if (!mounted || vehicle == null) return;
-                ref.read(homeControllerProvider.notifier).setHasVehicle(true);
-                if (AppNavigation.canPop()) {
-                  AppNavigation.pop();
-                } else {
-                  AppNavigation.replaceAll<void>(AppRoutes.home);
-                }
-                Future<void>.delayed(
-                  const Duration(milliseconds: 800),
-                  c.endLoading,
-                );
-              },
-            ),
-            const SizedBox(height: 8),
           ],
         ),
-      ),
+        const SizedBox(height: 20),
+
+        // Year + Colour.
+        Row(
+          children: <Widget>[
+            Expanded(
+              child: _SelectField(
+                label: 'Year',
+                value: state.year.isEmpty ? null : state.year,
+                hint: '2020',
+                onTap: () async {
+                  final String? picked = await _pickOne(
+                    context,
+                    title: 'Select year',
+                    options: _years(),
+                  );
+                  if (picked != null) c.onYearChanged(picked);
+                },
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: _SelectField(
+                label: 'Colour',
+                value: state.colour.isEmpty ? null : state.colour,
+                hint: 'White',
+                onTap: () async {
+                  final String? picked = await _pickColour(context);
+                  if (picked != null) c.onColourChanged(picked);
+                },
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 20),
+
+        // Transmission + Fuel type.
+        Row(
+          children: <Widget>[
+            Expanded(
+              child: _SelectField(
+                label: 'Transmission',
+                value: _labelFor(kTransmissionOptions, state.transmission),
+                hint: 'Automatic',
+                onTap: () async {
+                  final String? picked = await _pickPair(
+                    context,
+                    title: 'Transmission',
+                    options: kTransmissionOptions,
+                  );
+                  if (picked != null) c.onTransmissionChanged(picked);
+                },
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: _SelectField(
+                label: 'Fuel type',
+                value: _labelFor(kFuelTypeOptions, state.fuelType),
+                hint: 'Fuel',
+                onTap: () async {
+                  final String? picked = await _pickPair(
+                    context,
+                    title: 'Fuel type',
+                    options: kFuelTypeOptions,
+                  );
+                  if (picked != null) c.onFuelTypeChanged(picked);
+                },
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 20),
+
+        // Licence plate.
+        DrivioInput(
+          label: 'Licence plate',
+          controller: _plate,
+          onChanged: c.onPlateChanged,
+          hint: 'LAG 234 AB',
+          compact: true,
+        ),
+        if (state.plate.trim().isNotEmpty && !state.hasValidPlate) ...<Widget>[
+          const SizedBox(height: 6),
+          Text(
+            'Plate should be 6–10 letters and numbers, like LAG 234 AB.',
+            style: AppTextStyles.captionSm.copyWith(color: context.red),
+          ),
+        ],
+        const SizedBox(height: 20),
+
+        // VIN + mileage — the step ends at current mileage.
+        DrivioInput(
+          label: 'Vehicle Identification Number (VIN)',
+          controller: _vin,
+          onChanged: c.onVinChanged,
+          hint: 'e.g. JT2BF22K1W0123456',
+          compact: true,
+        ),
+        if (state.vin.trim().isNotEmpty && !state.hasValidVin) ...<Widget>[
+          const SizedBox(height: 6),
+          Text(
+            'Enter the VIN from your registration (usually 17 characters).',
+            style: AppTextStyles.captionSm.copyWith(color: context.red),
+          ),
+        ],
+        const SizedBox(height: 20),
+        DrivioInput(
+          label: 'Current mileage (KM)',
+          controller: _mileage,
+          onChanged: c.onMileageChanged,
+          hint: '85000',
+          keyboardType: TextInputType.number,
+          compact: true,
+        ),
+
+        if (state.error != null) ...<Widget>[
+          const SizedBox(height: 12),
+          Text(
+            state.error!,
+            style: AppTextStyles.bodySm.copyWith(color: context.red),
+          ),
+        ],
+        const SizedBox(height: 24),
+        DrivioButton(
+          label: state.isLoading ? 'Saving…' : 'Continue',
+          disabled: !state.detailsValid || state.isLoading,
+          onPressed: c.completeDetails,
+        ),
+        const SizedBox(height: 8),
+      ],
+    );
+  }
+
+  // ── Step 2: amenities ──────────────────────────────────────────────
+
+  Widget _amenitiesStep(AddVehicleState state, AddVehicleController c) {
+    final bool hasPick = state.selectedAmenities.isNotEmpty;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        Text(
+          'What does your\ncar offer?',
+          style: AppTextStyles.h1.copyWith(color: context.text),
+        ),
+        const SizedBox(height: 6),
+        Text(
+          'Riders see these on your offers. You can change them later.',
+          style: AppTextStyles.caption.copyWith(color: context.textDim),
+        ),
+        const SizedBox(height: 22),
+        _AmenitiesSection(state: state, controller: c),
+        if (state.error != null) ...<Widget>[
+          const SizedBox(height: 12),
+          Text(
+            state.error!,
+            style: AppTextStyles.bodySm.copyWith(color: context.red),
+          ),
+        ],
+        const SizedBox(height: 24),
+        DrivioButton(
+          label: state.isLoading
+              ? 'Saving…'
+              : hasPick
+                  ? 'Continue'
+                  : 'Skip',
+          variant:
+              hasPick ? DrivioButtonVariant.accent : DrivioButtonVariant.ghost,
+          disabled: state.isLoading || state.amenitiesLoading,
+          onPressed: c.completeAmenities,
+        ),
+        const SizedBox(height: 8),
+      ],
+    );
+  }
+
+  // ── Step 3: documents + submit ─────────────────────────────────────
+
+  Widget _documentsStep(AddVehicleState state, AddVehicleController c) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        Text(
+          'Upload your\ndocuments.',
+          style: AppTextStyles.h1.copyWith(color: context.text),
+        ),
+        const SizedBox(height: 6),
+        Text(
+          'A human reviews these before your vehicle goes live.',
+          style: AppTextStyles.caption.copyWith(color: context.textDim),
+        ),
+        const SizedBox(height: 22),
+        Text(
+          'DOCUMENTS',
+          style: AppTextStyles.eyebrow.copyWith(color: context.textDim),
+        ),
+        const SizedBox(height: 8),
+        _UploadCard(
+          label: 'Vehicle registration',
+          kind: DocumentKind.vehicleReg,
+        ),
+        const SizedBox(height: 18),
+        Text(
+          'VEHICLE PHOTOS',
+          style: AppTextStyles.eyebrow.copyWith(color: context.textDim),
+        ),
+        const SizedBox(height: 8),
+        _UploadCard(label: 'Front', kind: DocumentKind.vehiclePhotoFront),
+        const SizedBox(height: 8),
+        _UploadCard(label: 'Back', kind: DocumentKind.vehiclePhotoBack),
+        const SizedBox(height: 8),
+        _UploadCard(label: 'Side', kind: DocumentKind.vehiclePhotoSide),
+        const SizedBox(height: 8),
+        _UploadCard(label: 'Interior', kind: DocumentKind.vehiclePhotoInterior),
+        if (state.error != null) ...<Widget>[
+          const SizedBox(height: 12),
+          Text(
+            state.error!,
+            style: AppTextStyles.bodySm.copyWith(color: context.red),
+          ),
+        ],
+        const SizedBox(height: 24),
+        DrivioButton(
+          label: state.isLoading ? 'Saving…' : 'Save & submit for review',
+          disabled: !state.canSubmit || state.isLoading,
+          onPressed: () async {
+            final AddVehicleController controller = c;
+            final Vehicle? vehicle = await controller.submit();
+            if (!mounted || vehicle == null) return;
+            ref.read(homeControllerProvider.notifier).setHasVehicle(true);
+            if (AppNavigation.canPop()) {
+              AppNavigation.pop();
+            } else {
+              AppNavigation.replaceAll<void>(AppRoutes.home);
+            }
+            Future<void>.delayed(
+              const Duration(milliseconds: 800),
+              controller.endLoading,
+            );
+          },
+        ),
+        const SizedBox(height: 8),
+      ],
     );
   }
 
@@ -426,7 +543,9 @@ class _SelectField extends StatelessWidget {
   }
 }
 
-/// Inline text field for the free-text model when the make isn't curated.
+/// Free-text model input, laid out exactly like [_SelectField] (label
+/// above, 48pt box) so Make and Model sit on the same baseline instead
+/// of the model box floating higher with an inline label.
 class _InlineTextField extends StatefulWidget {
   const _InlineTextField({
     required this.label,
@@ -455,6 +574,10 @@ class _InlineTextFieldState extends State<_InlineTextField> {
     if (widget.initial.isEmpty && _ctrl.text.isNotEmpty) {
       _ctrl.clear();
     }
+    // And when hydration restores a saved model into an empty field.
+    if (widget.initial.isNotEmpty && _ctrl.text.isEmpty) {
+      _ctrl.text = widget.initial;
+    }
   }
 
   @override
@@ -465,12 +588,37 @@ class _InlineTextFieldState extends State<_InlineTextField> {
 
   @override
   Widget build(BuildContext context) {
-    return DrivioInput(
-      label: widget.label,
-      hint: widget.hint,
-      controller: _ctrl,
-      onChanged: widget.onChanged,
-      compact: true,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        Text(
+          widget.label,
+          style: AppTextStyles.captionSm.copyWith(color: context.textDim),
+        ),
+        const SizedBox(height: 6),
+        Container(
+          height: 48,
+          padding: const EdgeInsets.symmetric(horizontal: 14),
+          decoration: BoxDecoration(
+            color: context.surface,
+            borderRadius: AppRadius.md,
+            border: Border.all(color: context.borderStrong),
+          ),
+          alignment: Alignment.centerLeft,
+          child: TextField(
+            controller: _ctrl,
+            onChanged: widget.onChanged,
+            style: AppTextStyles.body.copyWith(color: context.text),
+            decoration: InputDecoration(
+              isCollapsed: true,
+              border: InputBorder.none,
+              hintText: widget.hint,
+              hintStyle:
+                  AppTextStyles.body.copyWith(color: context.textMuted),
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
@@ -603,7 +751,8 @@ class _PickerSheetState extends State<_PickerSheet> {
   }
 }
 
-/// Amenities multi-select — the driver must pick at least one.
+/// Amenities multi-select. Optional: the step CTA reads Skip when the
+/// driver picks nothing.
 class _AmenitiesSection extends StatelessWidget {
   const _AmenitiesSection({required this.state, required this.controller});
 
@@ -623,7 +772,7 @@ class _AmenitiesSection extends StatelessWidget {
             ),
             const SizedBox(width: 8),
             Text(
-              'Pick at least one',
+              'Optional',
               style: AppTextStyles.captionSm.copyWith(color: context.textMuted),
             ),
           ],

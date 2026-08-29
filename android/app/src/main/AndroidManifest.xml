@@ -25,6 +25,14 @@
   <!-- New-trip alert while backgrounded: full-screen heads-up
          notification. -->
   <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT"/>
+    <!-- Agora's full SDK ships screen-sharing support, which drags in the
+       media-projection foreground-service permission. Drivio uses Agora
+       for voice only, so strip it from the merged manifest: it would
+       otherwise trigger a Play Console screen-capture declaration for a
+       capability the app does not have. -->
+  <uses-permission
+      android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION"
+      tools:node="remove"/>
   <application android:label="@string/app_name" android:name="${applicationName}" android:icon="@mipmap/ic_launcher">
     <!-- Bundle the ML Kit face-detection model at install time (used by
              the KYC liveness check) so it isn't downloaded on first use. -->

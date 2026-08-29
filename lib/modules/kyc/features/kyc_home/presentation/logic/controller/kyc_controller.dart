@@ -50,7 +50,6 @@ enum KycStepKind {
   selfie,
   driversLicence,
   vehicle,
-  roadWorthiness,
 }
 
 enum KycStepStatus { required, submitted, approved, rejected, expired }
@@ -223,7 +222,6 @@ class KycController extends StateNotifier<KycState> {
             ? KycStepStatus.submitted
             : KycStepStatus.required;
 
-    final Document? rw = docOf(DocumentKind.roadWorthiness);
     // The registration uploads inside the add-vehicle flow; the vehicle
     // step is only "done" once the vehicle AND its registration are in.
     final Document? reg = docOf(DocumentKind.vehicleReg);
@@ -260,13 +258,6 @@ class KycController extends StateNotifier<KycState> {
                 ? KycStepStatus.submitted
                 : KycStepStatus.required,
         rejectionReason: reg?.rejectionReason,
-      ),
-      KycStep(
-        kind: KycStepKind.roadWorthiness,
-        title: 'Road worthiness',
-        subtitle: 'Annual certificate.',
-        status: statusOf(rw),
-        rejectionReason: rw?.rejectionReason,
       ),
     ];
   }

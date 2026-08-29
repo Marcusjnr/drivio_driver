@@ -5,6 +5,7 @@ import 'package:drivio_driver/modules/commons/all.dart';
 import 'package:drivio_driver/modules/commons/types/subscription.dart';
 import 'package:drivio_driver/modules/subscription/features/paywall/presentation/logic/controller/paystack_activation_controller.dart';
 import 'package:drivio_driver/modules/subscription/features/paywall/presentation/logic/controller/subscription_controller.dart';
+import 'package:drivio_driver/modules/subscription/features/paywall/presentation/logic/driver_trial_provider.dart';
 
 class PaywallPage extends ConsumerStatefulWidget {
   const PaywallPage({super.key});
@@ -81,6 +82,10 @@ class _PaywallPageState extends ConsumerState<PaywallPage> {
     final Subscription? sub = state.subscription;
     final PaystackActivationState activation =
         ref.watch(paystackActivationControllerProvider);
+    // Live trial length from ops. Falls back to the server default while
+    // loading or offline, so the headline never renders blank.
+    final int trialDays =
+        ref.watch(driverTrialDaysProvider).valueOrNull ?? kDefaultTrialDays;
 
     final List<_Benefit> benefits = const <_Benefit>[
       _Benefit(
@@ -145,7 +150,7 @@ class _PaywallPageState extends ConsumerState<PaywallPage> {
             Text(
               sub != null && sub.isTrialing
                   ? 'Your trial is\nactive.'
-                  : 'Free for\n90 days.',
+                  : 'Free for\n$trialDays days.',
               style: AppTextStyles.screenTitle.copyWith(color: context.text),
             ),
             const SizedBox(height: 10),
@@ -160,7 +165,7 @@ class _PaywallPageState extends ConsumerState<PaywallPage> {
                     text: sub != null && sub.isTrialing
                         ? 'You\'re on Drivio Pro until your trial ends. '
                             'Pick a plan when that day comes: '
-                        : 'Drive Drivio for 90 days, no card today. '
+                        : 'Drive Drivio for $trialDays days, no card today. '
                             'When your trial ends, pick the plan that '
                             'fits how you actually work: ',
                   ),
