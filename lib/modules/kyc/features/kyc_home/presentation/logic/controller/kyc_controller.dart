@@ -215,12 +215,11 @@ class KycController extends StateNotifier<KycState> {
     final KycStepStatus selfieStatus = snap.livenessPassedAt != null
         ? KycStepStatus.submitted
         : KycStepStatus.required;
-    // Licence is now a YouVerify (FRSC) number check, not a document —
-    // its step is driven by the verified stamp, exactly like NIN.
-    final KycStepStatus licenceStatus =
-        snap.driversLicenceVerifiedAt != null
-            ? KycStepStatus.submitted
-            : KycStepStatus.required;
+    // Licence is an UPLOADED photo reviewed by an admin (the FRSC
+    // number check was retired) — its step is driven by the document's
+    // review status, exactly like the vehicle registration.
+    final Document? licenceDoc = docOf(DocumentKind.driversLicence);
+    final KycStepStatus licenceStatus = statusOf(licenceDoc);
 
     // The registration uploads inside the add-vehicle flow; the vehicle
     // step is only "done" once the vehicle AND its registration are in.
@@ -245,8 +244,9 @@ class KycController extends StateNotifier<KycState> {
       KycStep(
         kind: KycStepKind.driversLicence,
         title: "Driver's licence",
-        subtitle: 'Verify your licence number (FRSC).',
+        subtitle: 'Upload a clear photo of your licence.',
         status: licenceStatus,
+        rejectionReason: licenceDoc?.rejectionReason,
       ),
       KycStep(
         kind: KycStepKind.vehicle,

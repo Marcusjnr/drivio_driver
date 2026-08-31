@@ -22,7 +22,6 @@ import 'package:drivio_driver/modules/edge_states/features/offline/presentation/
 import 'package:drivio_driver/modules/edge_states/features/rider_cancelled/presentation/ui/edge_rider_cancelled_page.dart';
 import 'package:drivio_driver/modules/edge_states/features/subscription_expired/presentation/ui/edge_subscription_expired_page.dart';
 import 'package:drivio_driver/modules/kyc/features/bvn_nin/presentation/ui/bvn_nin_page.dart';
-import 'package:drivio_driver/modules/kyc/features/drivers_licence/presentation/ui/drivers_licence_page.dart';
 import 'package:drivio_driver/modules/kyc/features/document_capture/presentation/ui/document_capture_page.dart';
 import 'package:drivio_driver/modules/kyc/features/document_view/presentation/ui/document_view_page.dart';
 import 'package:drivio_driver/modules/kyc/features/kyc_home/presentation/ui/kyc_home_page.dart';
@@ -89,8 +88,6 @@ class AppRouter {
         return (BuildContext _) => const KycHomePage();
       case AppRoutes.kycBvnNin:
         return (BuildContext _) => const BvnNinPage();
-      case AppRoutes.kycDriversLicence:
-        return (BuildContext _) => const DriversLicencePage();
       case AppRoutes.kycSelfie:
         return (BuildContext _) => const SelfiePage();
       case AppRoutes.kycDocumentView:
