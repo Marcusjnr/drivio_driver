@@ -9,6 +9,7 @@ import 'package:drivio_driver/modules/commons/utils/amenity_icons.dart';
 import 'package:drivio_driver/modules/dash/features/add_vehicle/presentation/logic/controller/add_vehicle_controller.dart';
 import 'package:drivio_driver/modules/dash/features/add_vehicle/vehicle_options.dart';
 import 'package:drivio_driver/modules/dash/features/home/presentation/logic/controller/home_controller.dart';
+import 'package:drivio_driver/modules/dash/features/profile_hub/presentation/logic/controller/profile_hub_controller.dart';
 
 /// Three-step add-vehicle flow. Each step persists to the server as it
 /// completes (vehicle_onboarding_drafts), so a driver who leaves
@@ -52,6 +53,12 @@ class _AddVehiclePageState extends ConsumerState<AddVehiclePage> {
       for (int y = now; y >= kMinVehicleYear; y--) y.toString(),
     ];
   }
+
+  /// True when this flow was opened as a vehicle CHANGE (route
+  /// /vehicle/change): headers speak about the new vehicle and success
+  /// returns to where the driver came from instead of home.
+  bool get _isChange =>
+      ModalRoute.of(context)?.settings.name == AppRoutes.vehicleChange;
 
   void _onBack() {
     final AddVehicleController c =
@@ -126,12 +133,16 @@ class _AddVehiclePageState extends ConsumerState<AddVehiclePage> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
         Text(
-          'Tell us about\nyour vehicle.',
+          _isChange
+              ? 'Tell us about\nyour new vehicle.'
+              : 'Tell us about\nyour vehicle.',
           style: AppTextStyles.h1.copyWith(color: context.text),
         ),
         const SizedBox(height: 6),
         Text(
-          'This appears to riders when you accept a trip.',
+          _isChange
+              ? 'You keep driving your current vehicle until this one is approved.'
+              : 'This appears to riders when you accept a trip.',
           style: AppTextStyles.caption.copyWith(color: context.textDim),
         ),
         const SizedBox(height: 22),
@@ -410,6 +421,17 @@ class _AddVehiclePageState extends ConsumerState<AddVehiclePage> {
             final Vehicle? vehicle = await controller.submit();
             if (!mounted || vehicle == null) return;
             ref.read(homeControllerProvider.notifier).setHasVehicle(true);
+            // The vehicle-details / profile pages read the hub snapshot;
+            // re-pull it so the pending change shows the moment we land
+            // back there.
+            await ref.read(profileHubControllerProvider.notifier).refresh();
+            if (!mounted) return;
+            if (_isChange) {
+              AppNotifier.success(
+                message:
+                    'Change requested. We will notify you once your new vehicle is approved.',
+              );
+            }
             if (AppNavigation.canPop()) {
               AppNavigation.pop();
             } else {

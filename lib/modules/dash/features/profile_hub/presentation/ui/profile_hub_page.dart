@@ -269,24 +269,50 @@ class _VehicleGroup extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final Vehicle? v = state.activeVehicle;
+    final Vehicle? active = state.activeVehicle;
+    final Vehicle? pending = state.pendingVehicle;
+    final Vehicle? v = active ?? pending;
+    final bool approved = active != null;
+    final bool changeRequested = active != null && pending != null;
+    final bool inReview = !approved && pending != null;
     final String vehicleTitle = v == null
         ? 'No active vehicle'
         : '${v.make} ${v.model}${v.year > 0 ? ' · ${v.year}' : ''}';
     final String? colour = v?.colour;
+    final String plateBit = v == null
+        ? ''
+        : '${v.plate}${(colour == null || colour.isEmpty) ? '' : ' · ${colour.toLowerCase()}'}';
     final String vehicleSub = v == null
         ? 'Add or activate one to receive requests'
-        : '${v.plate}${(colour == null || colour.isEmpty) ? '' : ' · ${colour.toLowerCase()}'}';
+        : inReview
+            ? '$plateBit · In review'
+            : plateBit;
     return _Group(
       title: 'VEHICLE',
       children: <Widget>[
         FieldRow(
           label: vehicleTitle,
           value: vehicleSub,
+          right: approved
+              ? Icon(DrivioIcons.checkCircle, size: 18, color: context.accent)
+              : inReview
+                  ? Icon(DrivioIcons.refresh, size: 18, color: context.amber)
+                  : null,
+          divider: changeRequested,
           onTap: v == null
               ? () => AppNavigation.push(AppRoutes.addVehicle)
               : () => AppNavigation.push(AppRoutes.vehicleDetails),
         ),
+        // A requested swap reads as a second line under the current
+        // vehicle: what they drive today above, what is coming below.
+        if (changeRequested)
+          FieldRow(
+            label: 'Changing to ${pending.make} ${pending.model}',
+            value: 'New vehicle in review',
+            right: Icon(DrivioIcons.refresh, size: 18, color: context.amber),
+            divider: false,
+            onTap: () => AppNavigation.push(AppRoutes.vehicleDetails),
+          ),
       ],
     );
   }

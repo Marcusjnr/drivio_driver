@@ -49,7 +49,6 @@ import 'package:drivio_driver/modules/trip/features/call/presentation/ui/incomin
 import 'package:drivio_driver/modules/trip/features/chat/presentation/ui/chat_page.dart';
 import 'package:drivio_driver/modules/trip/features/safety/presentation/ui/safety_page.dart';
 import 'package:drivio_driver/modules/vehicle/features/preferred_trip_length/presentation/ui/preferred_trip_length_page.dart';
-import 'package:drivio_driver/modules/vehicle/features/vehicle_change/presentation/ui/vehicle_change_page.dart';
 
 class AppRouter {
   AppRouter._();
@@ -155,7 +154,10 @@ class AppRouter {
       case AppRoutes.reuploadDoc:
         return (BuildContext _) => const ReuploadDocPage();
       case AppRoutes.vehicleChange:
-        return (BuildContext _) => const VehicleChangePage();
+        // Changing a vehicle IS the add-vehicle flow: same three steps,
+        // same draft persistence. The page reads the route name to know
+        // it is a change and adjusts copy + where it returns to.
+        return (BuildContext _) => const AddVehiclePage();
       case AppRoutes.preferredTripLength:
         return (BuildContext _) => const PreferredTripLengthPage();
       case AppRoutes.helpArticle:

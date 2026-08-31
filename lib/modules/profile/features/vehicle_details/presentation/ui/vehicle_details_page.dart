@@ -49,17 +49,27 @@ class VehicleDetailsPage extends ConsumerWidget {
     }
 
     final (String pillText, PillTone pillTone) = _statusPill(v.status);
+    final Vehicle? pendingChange =
+        state.activeVehicle != null ? state.pendingVehicle : null;
 
     return DetailScaffold(
       title: 'Vehicle details',
       subtitle: '${v.make} ${v.model} · ${v.plate}',
       badge: Pill(text: pillText, tone: pillTone),
-      footer: DrivioButton(
-        label: 'Request vehicle change',
-        variant: DrivioButtonVariant.ghost,
-        onPressed: () => AppNavigation.push(AppRoutes.vehicleChange),
-      ),
+      // While a change is under review a second request makes no sense,
+      // so the footer action steps aside for the status section below.
+      footer: pendingChange != null
+          ? null
+          : DrivioButton(
+              label: 'Request vehicle change',
+              variant: DrivioButtonVariant.ghost,
+              onPressed: () => AppNavigation.push(AppRoutes.vehicleChange),
+            ),
       children: <Widget>[
+        if (pendingChange != null) ...<Widget>[
+          _ChangeRequestSection(pending: pendingChange, current: v),
+          const SizedBox(height: 16),
+        ],
         Container(
           height: 140,
           decoration: BoxDecoration(
@@ -214,6 +224,75 @@ class _VehicleDetailsShimmer extends StatelessWidget {
             decoration: BoxDecoration(
               color: Colors.white,
               borderRadius: BorderRadius.circular(10),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+
+/// The in-review banner for a requested vehicle swap. One surface, no
+/// nesting: eyebrow, the incoming vehicle, and a line of reassurance.
+/// Amber signals "waiting on us", never alarm.
+class _ChangeRequestSection extends StatelessWidget {
+  const _ChangeRequestSection({required this.pending, required this.current});
+
+  final Vehicle pending;
+  final Vehicle current;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
+      decoration: BoxDecoration(
+        color: context.amber.withValues(alpha: 0.08),
+        borderRadius: AppRadius.base,
+        border: Border.all(color: context.amber.withValues(alpha: 0.35)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Row(
+            children: <Widget>[
+              Icon(DrivioIcons.refresh, size: 15, color: context.amber),
+              const SizedBox(width: 7),
+              Text(
+                'CHANGE REQUESTED',
+                style: AppTextStyles.eyebrow.copyWith(
+                  color: context.amber,
+                  letterSpacing: 1.4,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Text(
+            '${pending.make} ${pending.model}'
+            '${pending.year > 0 ? ' · ${pending.year}' : ''}',
+            style: AppTextStyles.body.copyWith(
+              color: context.text,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            pending.plate,
+            style: AppTextStyles.mono.copyWith(
+              color: context.textDim,
+              fontSize: 12,
+            ),
+          ),
+          const SizedBox(height: 10),
+          Text(
+            'We are reviewing the details and documents. You keep driving '
+            'your ${current.make} ${current.model} until the new vehicle is '
+            'approved, and we will notify you the moment it is.',
+            style: AppTextStyles.captionSm.copyWith(
+              color: context.textDim,
+              height: 1.5,
             ),
           ),
         ],

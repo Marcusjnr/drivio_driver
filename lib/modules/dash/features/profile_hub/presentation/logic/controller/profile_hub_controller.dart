@@ -17,6 +17,7 @@ class ProfileHubState {
     this.profile,
     this.summary = ProfileSummary.empty,
     this.activeVehicle,
+    this.pendingVehicle,
     this.documentsByKind = const <DocumentKind, Document>{},
     this.ninVerifiedAt,
     this.topReview,
@@ -30,6 +31,11 @@ class ProfileHubState {
   /// The driver's `status='active'` vehicle, if any. Null when no
   /// vehicle exists or none are active. Used in VEHICLE group.
   final Vehicle? activeVehicle;
+
+  /// The driver's newest `status='pending'` vehicle, if any. Lets the
+  /// VEHICLE row read "In review" while approval is outstanding instead
+  /// of pretending no vehicle exists.
+  final Vehicle? pendingVehicle;
 
   /// Most recent document per kind, looked up by `documents.kind`.
   /// Lets the UI render real status next to "Driver's licence",
@@ -53,6 +59,8 @@ class ProfileHubState {
     ProfileSummary? summary,
     Vehicle? activeVehicle,
     bool clearActiveVehicle = false,
+    Vehicle? pendingVehicle,
+    bool clearPendingVehicle = false,
     Map<DocumentKind, Document>? documentsByKind,
     DateTime? ninVerifiedAt,
     DriverRating? topReview,
@@ -66,6 +74,9 @@ class ProfileHubState {
       summary: summary ?? this.summary,
       activeVehicle:
           clearActiveVehicle ? null : (activeVehicle ?? this.activeVehicle),
+      pendingVehicle: clearPendingVehicle
+          ? null
+          : (pendingVehicle ?? this.pendingVehicle),
       documentsByKind: documentsByKind ?? this.documentsByKind,
       ninVerifiedAt: ninVerifiedAt ?? this.ninVerifiedAt,
       topReview: clearTopReview ? null : (topReview ?? this.topReview),
@@ -119,6 +130,11 @@ class ProfileHubController extends StateNotifier<ProfileHubState> {
           .cast<Vehicle?>()
           .firstWhere((Vehicle? _) => true, orElse: () => null);
 
+      final Vehicle? pending = mine
+          .where((Vehicle v) => v.status == VehicleStatus.pending)
+          .cast<Vehicle?>()
+          .firstWhere((Vehicle? _) => true, orElse: () => null);
+
       final KycSnapshot snap = r[3] as KycSnapshot;
       // Latest doc per kind — the snapshot returns full history; we
       // care about the most recent record per kind for the row label.
@@ -139,6 +155,8 @@ class ProfileHubController extends StateNotifier<ProfileHubState> {
         ninVerifiedAt: snap.ninVerifiedAt,
         activeVehicle: active,
         clearActiveVehicle: active == null,
+        pendingVehicle: pending,
+        clearPendingVehicle: pending == null,
         documentsByKind: latest,
         topReview: reviews.isEmpty ? null : reviews.first,
         clearTopReview: reviews.isEmpty,
