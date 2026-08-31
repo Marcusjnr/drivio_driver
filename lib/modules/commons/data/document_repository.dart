@@ -13,6 +13,11 @@ abstract class DocumentRepository {
   });
 
   /// Inserts a `documents` row pointing at an already-uploaded file.
+  /// Short-lived signed URL for one of the caller's own files in the
+  /// private KYC bucket, for in-app viewing. Null when the URL cannot
+  /// be minted (offline, deleted object).
+  Future<String?> signedUrl(String filePath);
+
   Future<Document> registerDocument({
     required DocumentKind kind,
     required String filePath,

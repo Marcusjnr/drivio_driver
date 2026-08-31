@@ -8,6 +8,7 @@ import 'package:drivio_driver/modules/commons/types/profile.dart';
 import 'package:drivio_driver/modules/commons/types/subscription.dart';
 import 'package:drivio_driver/modules/commons/types/vehicle.dart';
 import 'package:drivio_driver/modules/dash/features/profile_hub/presentation/logic/controller/profile_hub_controller.dart';
+import 'package:drivio_driver/modules/kyc/features/document_view/presentation/ui/document_view_page.dart';
 import 'package:drivio_driver/modules/dash/features/profile_hub/presentation/ui/widgets/biometric_setting_row.dart';
 import 'package:drivio_driver/modules/dash/features/profile_hub/presentation/ui/widgets/profile_hub_shimmer.dart';
 import 'package:drivio_driver/modules/subscription/features/paywall/presentation/logic/controller/subscription_controller.dart';
@@ -23,12 +24,14 @@ class _ProfileHubPageState extends ConsumerState<ProfileHubPage> {
   @override
   void initState() {
     super.initState();
-    // Subscription state powers the ACCOUNT row; refresh once on
-    // mount so we don't show stale "ACTIVE · 18 days" if the page
-    // reopens after an expiry.
+    // Subscription state powers the ACCOUNT row; the hub snapshot
+    // powers everything else. Both refresh on every open: the hub
+    // controller is app-lived, so without this a document uploaded or
+    // approved since the last visit would still show its old status.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
         ref.read(subscriptionControllerProvider.notifier).refresh();
+        ref.read(profileHubControllerProvider.notifier).refresh();
       }
     });
   }
@@ -69,6 +72,8 @@ class _ProfileHubPageState extends ConsumerState<ProfileHubPage> {
                 const SizedBox(height: 16),
                 _StatsRow(state: state),
                 const SizedBox(height: 18),
+                _PersonalGroup(state: state),
+                const SizedBox(height: 14),
                 _VehicleGroup(state: state),
                 const SizedBox(height: 16),
                 _DocumentsGroup(state: state),
@@ -218,6 +223,46 @@ class _StatsRow extends StatelessWidget {
 
 // ── VEHICLE group ──────────────────────────────────────────────────────
 
+// ── PERSONAL group ─────────────────────────────────────────────────────
+
+/// Identity the driver owns as a person (not the vehicle): their NIN.
+/// Verified server-side via YouVerify, which also checks the NIMC name
+/// against the signup name, so this row is read-only once stamped.
+class _PersonalGroup extends ConsumerWidget {
+  const _PersonalGroup({required this.state});
+  final ProfileHubState state;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final bool verified = state.ninVerifiedAt != null;
+    return _Group(
+      title: 'PERSONAL',
+      children: <Widget>[
+        FieldRow(
+          label: 'NIN',
+          value: verified ? 'Verified' : 'Add your NIN',
+          divider: false,
+          onTap: verified
+              ? null
+              : () async {
+                  // The hub hydrates once on open, so returning from a
+                  // successful verification must re-pull the snapshot or
+                  // the row keeps showing "Add your NIN" without its
+                  // check mark.
+                  await AppNavigation.push<void>(AppRoutes.kycBvnNin);
+                  await ref
+                      .read(profileHubControllerProvider.notifier)
+                      .refresh();
+                },
+          right: verified
+              ? Icon(DrivioIcons.checkCircle, size: 18, color: context.accent)
+              : Icon(DrivioIcons.chevron, size: 18, color: context.textMuted),
+        ),
+      ],
+    );
+  }
+}
+
 class _VehicleGroup extends StatelessWidget {
   const _VehicleGroup({required this.state});
   final ProfileHubState state;
@@ -276,7 +321,7 @@ class _DocumentsGroup extends StatelessWidget {
 /// / Re-do / Renew). Tapping it routes to the same KYC document
 /// capture flow used during onboarding (per Q3) so the driver can
 /// upload or re-upload using a familiar UI.
-class _DocLinkRow extends StatelessWidget {
+class _DocLinkRow extends ConsumerWidget {
   const _DocLinkRow({
     required this.label,
     required this.kind,
@@ -290,21 +335,37 @@ class _DocLinkRow extends StatelessWidget {
   final bool isLast;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final (String value, IconData? icon, Color color) = _summarise(context);
     return FieldRow(
       label: label,
       value: value,
       divider: !isLast,
-      onTap: () =>
-          AppNavigation.push(AppRoutes.kycDocumentCapture, arguments: kind),
+      // No file yet: straight to the capture flow. A file exists: open
+      // the viewer so the driver sees the document itself with its
+      // status on it. Either way, re-pull the snapshot on return so a
+      // fresh upload reads "In review" immediately.
+      onTap: () async {
+        if (doc == null) {
+          await AppNavigation.push<void>(
+            AppRoutes.kycDocumentCapture,
+            arguments: kind,
+          );
+        } else {
+          await AppNavigation.push<void>(
+            AppRoutes.kycDocumentView,
+            arguments: DocumentViewArgs(label: label, document: doc!),
+          );
+        }
+        await ref.read(profileHubControllerProvider.notifier).refresh();
+      },
       right: icon == null ? null : Icon(icon, size: 18, color: color),
     );
   }
 
   (String, IconData?, Color) _summarise(BuildContext context) {
     if (doc == null) {
-      return ('Required', DrivioIcons.chevron, context.textMuted);
+      return ('Not uploaded', DrivioIcons.chevron, context.textMuted);
     }
     switch (doc!.status) {
       case DocumentStatus.approved:

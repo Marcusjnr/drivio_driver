@@ -18,6 +18,7 @@ class ProfileHubState {
     this.summary = ProfileSummary.empty,
     this.activeVehicle,
     this.documentsByKind = const <DocumentKind, Document>{},
+    this.ninVerifiedAt,
     this.topReview,
     this.isLoading = true,
     this.error,
@@ -35,6 +36,11 @@ class ProfileHubState {
   /// "Vehicle registration" etc. without a per-row fetch.
   final Map<DocumentKind, Document> documentsByKind;
 
+  /// When the driver's NIN passed the YouVerify NIMC check (server
+  /// stamps drivers.nin_verified_at). Null = not yet verified; drives
+  /// the PERSONAL section's NIN row.
+  final DateTime? ninVerifiedAt;
+
   /// Top (most recent) review used as the preview card on the hub.
   /// Null when the driver has no reviews yet.
   final DriverRating? topReview;
@@ -48,6 +54,7 @@ class ProfileHubState {
     Vehicle? activeVehicle,
     bool clearActiveVehicle = false,
     Map<DocumentKind, Document>? documentsByKind,
+    DateTime? ninVerifiedAt,
     DriverRating? topReview,
     bool clearTopReview = false,
     bool? isLoading,
@@ -60,6 +67,7 @@ class ProfileHubState {
       activeVehicle:
           clearActiveVehicle ? null : (activeVehicle ?? this.activeVehicle),
       documentsByKind: documentsByKind ?? this.documentsByKind,
+      ninVerifiedAt: ninVerifiedAt ?? this.ninVerifiedAt,
       topReview: clearTopReview ? null : (topReview ?? this.topReview),
       isLoading: isLoading ?? this.isLoading,
       error: clearError ? null : (error ?? this.error),
@@ -128,6 +136,7 @@ class ProfileHubController extends StateNotifier<ProfileHubState> {
       state = state.copyWith(
         profile: r[0] as Profile?,
         summary: r[1] as ProfileSummary,
+        ninVerifiedAt: snap.ninVerifiedAt,
         activeVehicle: active,
         clearActiveVehicle: active == null,
         documentsByKind: latest,

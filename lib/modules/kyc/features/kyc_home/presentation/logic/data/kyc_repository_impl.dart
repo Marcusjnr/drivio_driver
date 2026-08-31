@@ -8,6 +8,21 @@ import 'package:drivio_driver/modules/commons/supabase/supabase_module.dart';
 import 'package:drivio_driver/modules/commons/types/document.dart';
 import 'package:drivio_driver/modules/kyc/features/kyc_home/presentation/logic/data/kyc_repository.dart';
 
+/// TEMPORARY (2026-08-30): forces staging/debug builds to verify against
+/// YouVerify's LIVE environment so ops can confirm the prod token works
+/// end to end. Live checks bill per lookup and enforce the NIMC name
+/// match, so the tester's profile name must match their real NIN.
+/// REVERT to false once live verification is confirmed.
+const bool _forceProdVerification = true;
+
+/// Masks an identity number for logs: first 3 and last 2 characters
+/// stay readable, the middle is starred. Enough to correlate a test run
+/// without writing full PII into the console.
+String _maskId(String v) {
+  if (v.length <= 5) return '*' * v.length;
+  return '${v.substring(0, 3)}${'*' * (v.length - 5)}${v.substring(v.length - 2)}';
+}
+
 class SupabaseKycRepository implements KycRepository {
   SupabaseKycRepository(this._supabase);
 
@@ -76,16 +91,26 @@ class SupabaseKycRepository implements KycRepository {
     // debug/profile and staging hit YouVerify's sandbox (fixed fake
     // data, no name match) so onboarding can be exercised without
     // spending real checks or failing on test identities.
-    final bool prod = kReleaseMode && !locator<Config>().isStaging;
+    final bool prod =
+        _forceProdVerification || (kReleaseMode && !locator<Config>().isStaging);
+    final String cleanNin = nin.replaceAll(RegExp(r'\D'), '');
+    AppLogger.i('youverify-verify-nin → request', data: <String, dynamic>{
+      'nin': _maskId(cleanNin),
+      'env': prod ? 'prod' : 'staging',
+    });
     try {
       final FunctionResponse res = await _supabase.functions.invoke(
         'youverify-verify-nin',
         body: <String, dynamic>{
-          'nin': nin.replaceAll(RegExp(r'\D'), ''),
+          'nin': cleanNin,
           'env': prod ? 'prod' : 'staging',
         },
       );
       final Object? data = res.data;
+      AppLogger.i('youverify-verify-nin ← response', data: <String, dynamic>{
+        'status': res.status,
+        'body': data.toString(),
+      });
       if (data is! Map) return NinVerifyResult.error;
       if (data['ok'] == true) return NinVerifyResult.verified;
       switch (data['reason']) {
@@ -107,16 +132,33 @@ class SupabaseKycRepository implements KycRepository {
   Future<NinVerifyResult> verifyDriversLicence(String licenceNo) async {
     // As with NIN, real YouVerify + name match runs only on prod release
     // builds; debug/profile and staging hit YouVerify's sandbox.
-    final bool prod = kReleaseMode && !locator<Config>().isStaging;
+    final bool prod =
+        _forceProdVerification || (kReleaseMode && !locator<Config>().isStaging);
+    final String cleanLicence =
+        licenceNo.replaceAll(RegExp(r'[^A-Za-z0-9]'), '');
+    AppLogger.i(
+      'youverify-verify-drivers-license → request',
+      data: <String, dynamic>{
+        'licence': _maskId(cleanLicence),
+        'env': prod ? 'prod' : 'staging',
+      },
+    );
     try {
       final FunctionResponse res = await _supabase.functions.invoke(
         'youverify-verify-drivers-license',
         body: <String, dynamic>{
-          'licence': licenceNo.replaceAll(RegExp(r'[^A-Za-z0-9]'), ''),
+          'licence': cleanLicence,
           'env': prod ? 'prod' : 'staging',
         },
       );
       final Object? data = res.data;
+      AppLogger.i(
+        'youverify-verify-drivers-license ← response',
+        data: <String, dynamic>{
+          'status': res.status,
+          'body': data.toString(),
+        },
+      );
       if (data is! Map) return NinVerifyResult.error;
       if (data['ok'] == true) return NinVerifyResult.verified;
       switch (data['reason']) {

@@ -45,6 +45,19 @@ class SupabaseDocumentRepository implements DocumentRepository {
   }
 
   @override
+  Future<String?> signedUrl(String filePath) async {
+    try {
+      // 10 minutes: long enough to view and zoom, short enough that a
+      // leaked link dies quickly. RLS only lets the owner mint this.
+      return await _supabase.storage
+          .from(_bucket)
+          .createSignedUrl(filePath, 600);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  @override
   Future<Document> registerDocument({
     required DocumentKind kind,
     required String filePath,

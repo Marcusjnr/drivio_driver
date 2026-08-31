@@ -18,6 +18,7 @@ class AppRoutes {
   static const String kycDriversLicence = '/kyc/drivers-licence';
   static const String kycSelfie = '/kyc/selfie';
   static const String kycDocumentCapture = '/kyc/document';
+  static const String kycDocumentView = '/kyc/document-view';
 
   static const String forcedUpdate = '/forced-update';
 
