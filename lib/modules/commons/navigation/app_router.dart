@@ -13,6 +13,7 @@ import 'package:drivio_driver/modules/dash/features/add_vehicle/presentation/ui/
 import 'package:drivio_driver/modules/dash/features/drive_shell/presentation/ui/drive_shell_page.dart';
 import 'package:drivio_driver/modules/dash/features/earnings/presentation/ui/earnings_page.dart';
 import 'package:drivio_driver/modules/dash/features/home/presentation/ui/location_always_page.dart';
+import 'package:drivio_driver/modules/dash/features/home/presentation/ui/location_while_in_use_page.dart';
 import 'package:drivio_driver/modules/dash/features/pricing/presentation/ui/pricing_page.dart';
 import 'package:drivio_driver/modules/dash/features/profile_hub/presentation/ui/profile_hub_page.dart';
 import 'package:drivio_driver/modules/documents/features/reupload/presentation/ui/reupload_doc_page.dart';
@@ -101,6 +102,8 @@ class AppRouter {
         // reads the route arguments (trip id for activeTrip, request id
         // for rideRequest) and switches its own mode.
         return (BuildContext _) => const DriveShellPage();
+      case AppRoutes.locationWhileInUse:
+        return (BuildContext _) => const LocationWhileInUsePage();
       case AppRoutes.locationAlways:
         return (BuildContext _) => const LocationAlwaysPage();
       case AppRoutes.addVehicle:

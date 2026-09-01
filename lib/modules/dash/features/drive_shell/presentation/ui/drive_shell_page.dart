@@ -540,6 +540,23 @@ class _DriveShellPageState extends ConsumerState<DriveShellPage>
                 final HomeController h = ref.read(
                   homeControllerProvider.notifier,
                 );
+                // Same prominent-disclosure gate as the primary go-online
+                // path: if this sheet's reason is "denied"/"unknown", the
+                // OS dialog is about to fire again and needs the in-app
+                // explainer first.
+                if (_locationGateReason == LocationPermState.denied ||
+                    _locationGateReason == LocationPermState.unknown) {
+                  final Object? disclosed = await AppNavigation.push<dynamic>(
+                    AppRoutes.locationWhileInUse,
+                  );
+                  if (!mounted) return;
+                  if (disclosed != true) {
+                    AppNotifier.warning(
+                      message: 'Location permission is required to go online.',
+                    );
+                    return;
+                  }
+                }
                 final bool ok = await p.startStreaming();
                 if (!mounted) return;
                 if (ok) {
@@ -692,6 +709,28 @@ class _DriveShellPageState extends ConsumerState<DriveShellPage>
     setState(() => _togglingOnline = true);
     bool retryAfterSettings = false;
     try {
+      // Prominent disclosure gate: only fires when the OS is actually about
+      // to show its permission dialog (never asked yet, or asked-and-denied
+      // but still askable). Play Store policy requires an in-app screen
+      // explaining what/why immediately before that dialog — calling
+      // startStreaming() straight away would pop it with no lead-in.
+      // Already-granted / permanently-denied / service-disabled drivers
+      // skip this: no fresh consent dialog is about to appear for them.
+      final LocationPermState upfront =
+          await locator<LocationPermissionService>().currentState();
+      if (upfront == LocationPermState.denied ||
+          upfront == LocationPermState.unknown) {
+        final Object? disclosed = await AppNavigation.push<dynamic>(
+          AppRoutes.locationWhileInUse,
+        );
+        if (!mounted) return;
+        if (disclosed != true) {
+          AppNotifier.warning(
+            message: 'Location permission is required to go online.',
+          );
+          return; // Still offline — the button stays "Go online".
+        }
+      }
       final bool ok = await presence.startStreaming();
       if (!mounted) return;
       if (ok) {

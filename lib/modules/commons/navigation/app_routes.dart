@@ -22,6 +22,7 @@ class AppRoutes {
   static const String forcedUpdate = '/forced-update';
 
   static const String home = '/home';
+  static const String locationWhileInUse = '/location-while-in-use';
   static const String locationAlways = '/location-always';
   static const String addVehicle = '/add-vehicle';
   static const String earnings = '/earnings';
