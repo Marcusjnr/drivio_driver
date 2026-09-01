@@ -6,6 +6,7 @@ import 'package:drivio_driver/modules/commons/all.dart';
 import 'package:drivio_driver/modules/commons/data/call_repository.dart';
 import 'package:drivio_driver/modules/commons/types/call.dart';
 import 'package:drivio_driver/modules/trip/features/call/logic/call_controller.dart';
+import 'package:drivio_driver/modules/trip/features/call/presentation/ui/widgets/mic_disclosure_dialog.dart';
 
 /// The two-option call sheet: Regular Call (native dialer, counterpart's
 /// number) and Free Call (Agora voice over internet). Contact identity is
@@ -39,6 +40,16 @@ Future<void> showCallSheet(
         AppNotifier.error(message: "Couldn't open the phone app.");
       }
     case _CallKind.free:
+      final bool disclosed = await ensureMicDisclosure(context);
+      if (!context.mounted) {
+        return;
+      }
+      if (!disclosed) {
+        AppNotifier.warning(
+          message: 'Microphone access is needed for free calls.',
+        );
+        return;
+      }
       final bool ok = await ref
           .read(activeCallControllerProvider.notifier)
           .startOutgoing(tripId);

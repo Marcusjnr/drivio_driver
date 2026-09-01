@@ -52,10 +52,26 @@ class _LivenessCapturePageState extends State<LivenessCapturePage> {
   bool _permanentlyDenied = false;
   bool _hadError = false;
 
+  // Prominent-disclosure gate: shown before the first camera-permission
+  // request so the OS consent dialog never fires cold (Play Store
+  // "Prominent Disclosure" requirement). Skipped when the camera is
+  // already granted, since no fresh consent prompt is about to appear.
+  bool _showDisclosure = false;
+
   @override
   void initState() {
     super.initState();
-    _init();
+    _bootstrap();
+  }
+
+  Future<void> _bootstrap() async {
+    final PermissionStatus status = await Permission.camera.status;
+    if (!mounted) return;
+    if (status.isGranted) {
+      _init();
+      return;
+    }
+    setState(() => _showDisclosure = true);
   }
 
   Future<void> _init() async {
@@ -164,6 +180,22 @@ class _LivenessCapturePageState extends State<LivenessCapturePage> {
 
   @override
   Widget build(BuildContext context) {
+    if (_showDisclosure) {
+      return _CameraProblem(
+        title: 'Camera access',
+        body:
+            'Drivio uses your camera for a quick face check a blink and '
+            'a smile to verify it\'s really you. The photo is used only '
+            'for identity verification and your driver profile it\'s '
+            'never sold or shared.',
+        primaryLabel: 'Continue',
+        onPrimary: () {
+          setState(() => _showDisclosure = false);
+          _init();
+        },
+        onClose: () => _finish(null),
+      );
+    }
     if (_permissionDenied) {
       return _CameraProblem(
         title: 'Camera access needed',

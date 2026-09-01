@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:drivio_driver/modules/commons/all.dart';
 import 'package:drivio_driver/modules/trip/features/call/logic/call_controller.dart';
 import 'package:drivio_driver/modules/trip/features/call/presentation/ui/call_page.dart';
+import 'package:drivio_driver/modules/trip/features/call/presentation/ui/widgets/mic_disclosure_dialog.dart';
 
 const Color _kBg = Color(0xFF0C2A2D);
 const Color _kIvory = Color(0xFFF2ECDF);
@@ -23,6 +24,19 @@ class IncomingCallPage extends ConsumerStatefulWidget {
 
 class _IncomingCallPageState extends ConsumerState<IncomingCallPage> {
   bool _handled = false;
+
+  Future<void> _accept(ActiveCallController c) async {
+    final bool disclosed = await ensureMicDisclosure(context);
+    if (!mounted) return;
+    if (!disclosed) {
+      AppNotifier.warning(
+        message: 'Microphone access is needed for free calls.',
+      );
+      unawaited(c.decline());
+      return;
+    }
+    unawaited(c.answer());
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -106,7 +120,7 @@ class _IncomingCallPageState extends ConsumerState<IncomingCallPage> {
                     color: const Color(0xFF2FA36B),
                     icon: DrivioIcons.phone,
                     label: 'Accept',
-                    onTap: () => unawaited(c.answer()),
+                    onTap: () => unawaited(_accept(c)),
                   ),
                 ],
               ),
