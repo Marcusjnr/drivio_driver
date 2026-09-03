@@ -1,11 +1,10 @@
-import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-
 import 'package:drivio_driver/modules/commons/all.dart';
-import 'package:drivio_driver/modules/commons/types/document.dart';
 import 'package:drivio_driver/modules/commons/analytics/analytics_events.dart';
 import 'package:drivio_driver/modules/commons/analytics/mixpanel_service.dart';
+import 'package:drivio_driver/modules/commons/types/document.dart';
 import 'package:drivio_driver/modules/kyc/features/kyc_home/presentation/logic/controller/kyc_controller.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 class KycHomePage extends ConsumerStatefulWidget {
   const KycHomePage({super.key});
@@ -90,7 +89,7 @@ class _KycHomePageState extends ConsumerState<KycHomePage> {
                 _ReviewBanner(
                   text:
                       "Everything's in. We'll notify you as soon as review "
-                      'is done, usually the same day.',
+                      'is done. Please give a space of 24-72 hours for us to complete the review.',
                 )
               else if (state.overall == KycOverallStatus.approved &&
                   !state.livenessPassed)
@@ -201,9 +200,9 @@ class _StepRow extends StatelessWidget {
       child: InkWell(
         borderRadius: BorderRadius.circular(12),
         onTap: isInteractive
-            ? () => _routeForStep(step.kind).whenComplete(
-                  () => onReturned?.call(),
-                )
+            ? () => _routeForStep(
+                step.kind,
+              ).whenComplete(() => onReturned?.call())
             : null,
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
