@@ -28,11 +28,37 @@ class SupabaseKycRepository implements KycRepository {
 
   final SupabaseModule _supabase;
 
+  /// Short-lived snapshot cache. The profile hub and the KYC checklist
+  /// each load the snapshot independently, and the hub reloads on every
+  /// open and on every return from a pushed flow — most of those loads
+  /// see identical data seconds apart. Serving repeats from memory for
+  /// [_snapshotTtl] cuts three queries per repeat without any UX change;
+  /// mutations (uploads, NIN verify, vehicle submit) call
+  /// [invalidateSnapshot] so the next load is always fresh.
+  static const Duration _snapshotTtl = Duration(seconds: 45);
+  static KycSnapshot? _cachedSnapshot;
+  static DateTime? _cachedAt;
+  static String? _cachedForUser;
+
+  static void invalidateSnapshot() {
+    _cachedSnapshot = null;
+    _cachedAt = null;
+    _cachedForUser = null;
+  }
+
   @override
   Future<KycSnapshot> loadSnapshot() async {
     final User? user = _supabase.auth.currentUser;
     if (user == null) {
       throw const _KycAuthException();
+    }
+
+    final KycSnapshot? cached = _cachedSnapshot;
+    if (cached != null &&
+        _cachedForUser == user.id &&
+        _cachedAt != null &&
+        DateTime.now().difference(_cachedAt!) < _snapshotTtl) {
+      return cached;
     }
 
     final Map<String, dynamic> driver = await _supabase
@@ -58,7 +84,7 @@ class SupabaseKycRepository implements KycRepository {
     DateTime? parse(Object? v) =>
         v == null ? null : DateTime.parse(v as String);
 
-    return KycSnapshot(
+    final KycSnapshot snapshot = KycSnapshot(
       kycStatus: (driver['kyc_status'] as String?) ?? 'not_started',
       bvnVerifiedAt: parse(driver['bvn_verified_at']),
       ninVerifiedAt: parse(driver['nin_verified_at']),
@@ -67,6 +93,10 @@ class SupabaseKycRepository implements KycRepository {
       documents: docs.map(Document.fromJson).toList(growable: false),
       hasVehicle: vehicles.isNotEmpty,
     );
+    _cachedSnapshot = snapshot;
+    _cachedAt = DateTime.now();
+    _cachedForUser = user.id;
+    return snapshot;
   }
 
   @override
@@ -112,7 +142,12 @@ class SupabaseKycRepository implements KycRepository {
         'body': data.toString(),
       });
       if (data is! Map) return NinVerifyResult.error;
-      if (data['ok'] == true) return NinVerifyResult.verified;
+      if (data['ok'] == true) {
+        // The verified stamp changes the checklist: drop the cached
+        // snapshot so the next load reflects it.
+        invalidateSnapshot();
+        return NinVerifyResult.verified;
+      }
       switch (data['reason']) {
         case 'mismatch':
           return NinVerifyResult.mismatch;
@@ -160,7 +195,12 @@ class SupabaseKycRepository implements KycRepository {
         },
       );
       if (data is! Map) return NinVerifyResult.error;
-      if (data['ok'] == true) return NinVerifyResult.verified;
+      if (data['ok'] == true) {
+        // The verified stamp changes the checklist: drop the cached
+        // snapshot so the next load reflects it.
+        invalidateSnapshot();
+        return NinVerifyResult.verified;
+      }
       switch (data['reason']) {
         case 'mismatch':
           return NinVerifyResult.mismatch;

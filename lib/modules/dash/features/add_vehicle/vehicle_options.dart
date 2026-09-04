@@ -56,8 +56,8 @@ const List<String> kMoreColours = <String>[
   'Yellow',
 ];
 
-/// Earliest selectable model year (per the brief: 2004 → current year).
-const int kMinVehicleYear = 2004;
+/// Earliest selectable model year (1997 → current year).
+const int kMinVehicleYear = 1997;
 
 /// Makes → their common models. Alphabetical; "Other" lets a driver type a
 /// make/model we haven't listed.
@@ -70,7 +70,7 @@ const Map<String, List<String>> kVehicleMakes = <String, List<String>>{
   'Dodge': <String>['Charger', 'Durango', 'Journey'],
   'Ford': <String>['Ecosport', 'Edge', 'Escape', 'Explorer', 'Focus', 'Fusion', 'Ranger'],
   'Honda': <String>['Accord', 'City', 'Civic', 'CR-V', 'HR-V', 'Odyssey', 'Pilot'],
-  'Hyundai': <String>['Accent', 'Creta', 'Elantra', 'Santa Fe', 'Sonata', 'Tucson'],
+  'Hyundai': <String>['Accent', 'Creta', 'Elantra', 'Santa Fe', 'Sonata', 'Tucson', 'Verna'],
   'Infiniti': <String>['FX35', 'JX35', 'Q50', 'QX56', 'QX60', 'QX80'],
   'Jeep': <String>['Cherokee', 'Compass', 'Grand Cherokee', 'Wrangler'],
   'Kia': <String>['Cerato', 'Optima', 'Picanto', 'Rio', 'Sorento', 'Sportage'],

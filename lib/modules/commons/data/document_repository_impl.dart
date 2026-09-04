@@ -6,6 +6,7 @@ import 'package:uuid/uuid.dart';
 import 'package:drivio_driver/modules/commons/supabase/supabase_module.dart';
 import 'package:drivio_driver/modules/commons/types/document.dart';
 import 'package:drivio_driver/modules/commons/data/document_repository.dart';
+import 'package:drivio_driver/modules/kyc/features/kyc_home/presentation/logic/data/kyc_repository_impl.dart';
 
 const String _bucket = 'kyc-private';
 
@@ -44,15 +45,41 @@ class SupabaseDocumentRepository implements DocumentRepository {
     return objectPath;
   }
 
+  /// Signed URLs are reused for most of their lifetime instead of being
+  /// minted per view. A fresh URL per view carries a fresh token, which
+  /// makes every image cache (Flutter's and the CDN's) treat the same
+  /// photo as a brand-new resource — so each open re-downloaded the full
+  /// file and inflated egress. One URL per day per document lets caches
+  /// actually hold the bytes. RLS still means only the owner can mint.
+  static const int _signedUrlTtlSeconds = 24 * 60 * 60;
+  static final Map<String, ({String url, DateTime expiresAt})> _urlCache =
+      <String, ({String url, DateTime expiresAt})>{};
+
   @override
   Future<String?> signedUrl(String filePath) async {
+    final ({String url, DateTime expiresAt})? hit = _urlCache[filePath];
+    // Re-mint once under an hour of life remains, so a URL handed to
+    // the viewer is always comfortably valid while on screen.
+    if (hit != null &&
+        hit.expiresAt.difference(DateTime.now()).inMinutes > 60) {
+      return hit.url;
+    }
     try {
-      // 10 minutes: long enough to view and zoom, short enough that a
-      // leaked link dies quickly. RLS only lets the owner mint this.
-      return await _supabase.storage
+      final String url = await _supabase.storage
           .from(_bucket)
-          .createSignedUrl(filePath, 600);
+          .createSignedUrl(filePath, _signedUrlTtlSeconds);
+      _urlCache[filePath] = (
+        url: url,
+        expiresAt: DateTime.now().add(
+          const Duration(seconds: _signedUrlTtlSeconds),
+        ),
+      );
+      return url;
     } catch (_) {
+      // Minting failed: fall back to a still-valid cached URL if any.
+      if (hit != null && hit.expiresAt.isAfter(DateTime.now())) {
+        return hit.url;
+      }
       return null;
     }
   }
@@ -79,6 +106,9 @@ class SupabaseDocumentRepository implements DocumentRepository {
         .select()
         .single();
 
+    // A new document changes the KYC checklist and the profile hub:
+    // drop the cached snapshot so their next load is fresh.
+    SupabaseKycRepository.invalidateSnapshot();
     return Document.fromJson(row);
   }
 }

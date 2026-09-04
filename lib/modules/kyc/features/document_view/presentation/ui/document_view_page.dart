@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -167,16 +168,19 @@ class _DocumentViewPageState extends ConsumerState<DocumentViewPage> {
             ),
           );
         }
-        return Image.network(
-          url,
+        // cacheKey is the storage PATH, not the signed URL: the token in
+        // the URL rotates, but the path never does — so the photo is
+        // downloaded once per device and every later view (even after a
+        // URL re-mint) comes from the on-disk cache. Zero egress.
+        return CachedNetworkImage(
+          imageUrl: url,
+          cacheKey: _args?.document.filePath ?? url,
           fit: BoxFit.contain,
-          loadingBuilder: (_, Widget child, ImageChunkEvent? p) => p == null
-              ? child
-              : const SizedBox(
-                  height: 220,
-                  child: Center(child: CircularProgressIndicator()),
-                ),
-          errorBuilder: (_, _, _) => SizedBox(
+          progressIndicatorBuilder: (_, _, _) => const SizedBox(
+            height: 220,
+            child: Center(child: CircularProgressIndicator()),
+          ),
+          errorWidget: (_, _, _) => SizedBox(
             height: 220,
             child: Center(
               child: Text(
