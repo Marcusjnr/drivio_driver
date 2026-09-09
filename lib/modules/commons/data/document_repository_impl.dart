@@ -1,8 +1,11 @@
+import 'dart:convert';
 import 'dart:typed_data';
 
+import 'package:http/http.dart' as http;
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:uuid/uuid.dart';
 
+import 'package:drivio_driver/modules/commons/config/config.dart';
+import 'package:drivio_driver/modules/commons/di/di.dart';
 import 'package:drivio_driver/modules/commons/supabase/supabase_module.dart';
 import 'package:drivio_driver/modules/commons/types/document.dart';
 import 'package:drivio_driver/modules/commons/data/document_repository.dart';
@@ -14,7 +17,6 @@ class SupabaseDocumentRepository implements DocumentRepository {
   SupabaseDocumentRepository(this._supabase);
 
   final SupabaseModule _supabase;
-  final Uuid _uuid = const Uuid();
 
   @override
   Future<String> uploadFile({
@@ -24,25 +26,42 @@ class SupabaseDocumentRepository implements DocumentRepository {
     required String contentType,
   }) async {
     final User? user = _supabase.auth.currentUser;
-    if (user == null) {
+    final String? token = _supabase.auth.currentSession?.accessToken;
+    if (user == null || token == null) {
       throw const DocumentAuthException();
     }
 
-    final String safeExt =
-        fileExtension.replaceAll(RegExp(r'[^a-zA-Z0-9]'), '').toLowerCase();
-    final String objectPath =
-        '${user.id}/${kind.wire}/${_uuid.v4()}.$safeExt';
-
-    await _supabase.storage.from(_bucket).uploadBinary(
-          objectPath,
-          bytes,
-          fileOptions: FileOptions(
-            contentType: contentType,
-            upsert: false,
-          ),
-        );
-
-    return objectPath;
+    // Through the compress-upload middleware instead of straight to
+    // Storage: the server auto-orients, resizes (max 1600px edge),
+    // strips EXIF (GPS!) and re-encodes photos before storing — a
+    // multi-megabyte camera shot lands as a few hundred KB with no
+    // visible quality loss. PDFs pass through untouched, and if the
+    // server cannot process a file it stores the original, so uploads
+    // never fail because of compression.
+    final http.Response res = await http.post(
+      Uri.parse(
+        '${locator<Config>().supabaseUrl}/functions/v1/compress-upload',
+      ),
+      headers: <String, String>{
+        'Authorization': 'Bearer $token',
+        'apikey': locator<Config>().supabaseAnonKey,
+        'content-type': contentType,
+        'x-doc-kind': kind.wire,
+      },
+      body: bytes,
+    );
+    if (res.statusCode != 200) {
+      throw DocumentUploadException(
+        'compress-upload failed (${res.statusCode})',
+      );
+    }
+    final Map<String, dynamic> json =
+        jsonDecode(res.body) as Map<String, dynamic>;
+    final String? path = json['path'] as String?;
+    if (path == null || path.isEmpty) {
+      throw const DocumentUploadException('compress-upload returned no path');
+    }
+    return path;
   }
 
   /// Signed URLs are reused for most of their lifetime instead of being
@@ -111,6 +130,13 @@ class SupabaseDocumentRepository implements DocumentRepository {
     SupabaseKycRepository.invalidateSnapshot();
     return Document.fromJson(row);
   }
+}
+
+class DocumentUploadException implements Exception {
+  const DocumentUploadException(this.message);
+  final String message;
+  @override
+  String toString() => 'DocumentUploadException: $message';
 }
 
 class DocumentAuthException implements Exception {

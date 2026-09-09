@@ -37,6 +37,7 @@ class Document {
     this.vehicleId,
     this.expiresOn,
     this.rejectionReason,
+    this.blurHash,
   });
 
   final String id;
@@ -48,6 +49,11 @@ class Document {
   final DocumentStatus status;
   final String? rejectionReason;
   final DateTime createdAt;
+
+  /// ~30-char BlurHash of the image, rendered as an instant blurred
+  /// placeholder while the real file streams in. Null for PDFs and for
+  /// uploads that predate the compress-upload middleware.
+  final String? blurHash;
 
   factory Document.fromJson(Map<String, dynamic> json) {
     return Document(
@@ -65,6 +71,7 @@ class Document {
       ),
       rejectionReason: json['rejection_reason'] as String?,
       createdAt: DateTime.parse(json['created_at'] as String),
+      blurHash: json['blur_hash'] as String?,
     );
   }
 }

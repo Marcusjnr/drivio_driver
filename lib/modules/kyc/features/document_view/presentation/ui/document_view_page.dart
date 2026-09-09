@@ -1,5 +1,6 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_blurhash/flutter_blurhash.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:drivio_driver/modules/commons/all.dart';
@@ -172,14 +173,23 @@ class _DocumentViewPageState extends ConsumerState<DocumentViewPage> {
         // the URL rotates, but the path never does — so the photo is
         // downloaded once per device and every later view (even after a
         // URL re-mint) comes from the on-disk cache. Zero egress.
+        final String? hash = _args?.document.blurHash;
         return CachedNetworkImage(
           imageUrl: url,
           cacheKey: _args?.document.filePath ?? url,
           fit: BoxFit.contain,
-          progressIndicatorBuilder: (_, _, _) => const SizedBox(
-            height: 220,
-            child: Center(child: CircularProgressIndicator()),
-          ),
+          // BlurHash placeholder: an instant blurred impression of the
+          // document while the real (progressive) image streams in, so
+          // slow networks see the picture take shape immediately.
+          progressIndicatorBuilder: (_, _, _) => hash != null
+              ? SizedBox(
+                  height: 220,
+                  child: BlurHash(hash: hash),
+                )
+              : const SizedBox(
+                  height: 220,
+                  child: Center(child: CircularProgressIndicator()),
+                ),
           errorWidget: (_, _, _) => SizedBox(
             height: 220,
             child: Center(
