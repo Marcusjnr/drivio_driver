@@ -141,9 +141,7 @@ Future<void> setupServiceLocator(Flavor flavor) async {
     () => SupabaseTripRepository(locator<SupabaseModule>()),
   );
 
-  locator.registerLazySingleton<UpdateRepository>(
-    () => UpdateRepository(locator<SupabaseModule>(), locator<Config>()),
-  );
+  locator.registerLazySingleton<UpdateRepository>(UpdateRepository.new);
 
   locator.registerLazySingleton<TripLocationRepository>(
     () => SupabaseTripLocationRepository(locator<SupabaseModule>()),

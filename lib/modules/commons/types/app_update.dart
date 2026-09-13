@@ -1,9 +1,10 @@
 import 'package:flutter/foundation.dart';
+import 'package:version/version.dart';
 
-/// One update channel row from `app_versions`, scoped to this app,
-/// platform, and flavor. Same semantics as Kalabash's Remote Config
-/// envelope: `minVersion` gates the blocking screen, `latestVersion`
-/// the dismissable nudge, `forceUpdate` is the ops kill switch.
+/// One update channel row for this app's platform, read out of Firebase
+/// Remote Config (see `UpdateRepository`): `minVersion` gates the
+/// blocking screen, `latestVersion` the dismissable nudge, `forceUpdate`
+/// is the ops kill switch.
 @immutable
 class UpdateChannel {
   const UpdateChannel({
@@ -13,12 +14,15 @@ class UpdateChannel {
     required this.updateUrl,
   });
 
+  /// Expects the per-platform object out of the Remote Config envelope:
+  /// `{"min": "1.4.0", "max": "1.6.2", "forceUpdate": false,
+  /// "updateUrl": "https://..."}`.
   factory UpdateChannel.fromJson(Map<String, dynamic> json) {
     return UpdateChannel(
-      minVersion: (json['min_version'] as String?) ?? '0.0.0',
-      latestVersion: (json['latest_version'] as String?) ?? '0.0.0',
-      forceUpdate: (json['force_update'] as bool?) ?? false,
-      updateUrl: (json['update_url'] as String?) ?? '',
+      minVersion: (json['min'] as String?) ?? '0.0.0',
+      latestVersion: (json['max'] as String?) ?? '0.0.0',
+      forceUpdate: (json['forceUpdate'] as bool?) ?? false,
+      updateUrl: (json['updateUrl'] as String?) ?? '',
     );
   }
 
@@ -59,12 +63,15 @@ class UpdateCheck {
   final String updateUrl;
 
   /// Applies the channel rules to [currentVersion]. Unparseable version
-  /// strings compare as 0.0.0, which fails open (never blocks).
+  /// strings compare as equal to everything (see [compareVersions]),
+  /// which fails open — never blocks.
   static UpdateCheck evaluate({
     required String currentVersion,
     required UpdateChannel channel,
   }) {
-    if (channel.updateUrl.trim().isEmpty) return UpdateCheck.none;
+    if (channel.updateUrl.trim().isEmpty) {
+      return UpdateCheck.none;
+    }
 
     if (channel.forceUpdate ||
         compareVersions(currentVersion, channel.minVersion) < 0) {
@@ -85,26 +92,24 @@ class UpdateCheck {
   }
 }
 
-/// Compares dotted numeric versions ("1.2.10" vs "1.3"). Build metadata
-/// after `+` is ignored, missing segments count as 0, and non-numeric
-/// segments count as 0 so a malformed remote value can never lock a
-/// driver out. Returns <0, 0, or >0 like [Comparable.compareTo].
+/// Compares two version strings via `package:version` (semver). Returns
+/// <0, 0, or >0 like [Comparable.compareTo]. Either string failing to
+/// parse compares as 0 (equal) — a malformed remote value, or a locally
+/// installed build with a non-standard version string, must never lock
+/// someone out.
 int compareVersions(String a, String b) {
-  List<int> parse(String v) => v
-      .split('+')
-      .first
-      .trim()
-      .split('.')
-      .map((String s) => int.tryParse(s) ?? 0)
-      .toList(growable: false);
-
-  final List<int> pa = parse(a);
-  final List<int> pb = parse(b);
-  final int len = pa.length > pb.length ? pa.length : pb.length;
-  for (int i = 0; i < len; i++) {
-    final int va = i < pa.length ? pa[i] : 0;
-    final int vb = i < pb.length ? pb[i] : 0;
-    if (va != vb) return va - vb;
+  final Version? va = _tryParse(a);
+  final Version? vb = _tryParse(b);
+  if (va == null || vb == null) {
+    return 0;
   }
-  return 0;
+  return va.compareTo(vb);
+}
+
+Version? _tryParse(String raw) {
+  try {
+    return Version.parse(raw.trim());
+  } catch (_) {
+    return null;
+  }
 }

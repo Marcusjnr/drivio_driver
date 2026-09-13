@@ -23,5 +23,8 @@ build-prod-android:
 build-prod-android-release:
 	fvm flutter build appbundle -t lib/main_prod.dart --flavor prod --release
 
+build-prod-ios-release:
+	fvm flutter build ios -t lib/main_prod.dart --flavor prod --release
+
 test:
 	fvm flutter test
