@@ -65,7 +65,7 @@ class AddBankPromptSheet extends ConsumerWidget {
                   child: Text(
                     'When Drivio runs a promo or bonus, we pay it straight '
                     'into your bank account. Add yours so you never miss a '
-                    'payout — takes under a minute.',
+                    'payout. It takes under a minute.',
                     textAlign: TextAlign.center,
                     style: AppTextStyles.caption.copyWith(
                       color: context.textDim,

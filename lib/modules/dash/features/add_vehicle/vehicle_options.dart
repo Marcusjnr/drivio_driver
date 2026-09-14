@@ -1,7 +1,11 @@
-/// Static catalogs backing the vehicle-onboarding pickers. Curated for the
-/// Nigerian market — comprehensive enough to cover the common fleet without a
-/// backend round-trip. `Model` lists are keyed by make; an unknown make (or
-/// "Other") falls back to a free-text model entry in the UI.
+/// Static catalogs backing the vehicle-onboarding pickers.
+///
+/// Makes/models are now served from the backend (`get_vehicle_catalog`,
+/// curated in the admin dashboard's Vehicle catalog page) so new cars
+/// land without an app release. [kVehicleMakes] survives ONLY as the
+/// offline fallback when that fetch fails — keep it roughly in sync with
+/// the seeded catalog, but never rely on it being current. Colours,
+/// years, transmission and fuel options remain client-static.
 library;
 
 /// Transmission options — (wire value, label).

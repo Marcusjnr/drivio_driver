@@ -80,9 +80,18 @@ Future<void> startRideRequestAlert(Map<String, dynamic> data) async {
     return;
   }
   await _ensureInitialised();
-  // This isolate owns the ring — expose the kill switch so the main
-  // isolate can silence it the moment the driver opens the app.
-  _registerStopPort();
+
+  // Already ringing in THIS isolate: a second request arriving must not
+  // restart the sound — the cut-and-restart reads as a distinct new
+  // alert. Keep the loop running seamlessly, refresh the notification
+  // to the newest request (below), and re-arm the auto-stop so the ring
+  // now lives on the newer request's window.
+  final bool alreadyRinging = _player != null;
+  if (!alreadyRinging) {
+    // This isolate takes ownership of the ring — expose the kill switch
+    // so the main isolate can silence it when the driver engages.
+    _registerStopPort();
+  }
 
   final String pickup = (data['pickup'] as String?) ?? 'Nearby pickup';
   final String dropoff = (data['dropoff'] as String?) ?? 'Destination';
@@ -131,9 +140,13 @@ Future<void> startRideRequestAlert(Map<String, dynamic> data) async {
     payload: data['ride_request_id'] as String?,
   );
 
-  await _startLoopingSound();
+  if (!alreadyRinging) {
+    await _startLoopingSound();
+  }
 
   // Safety net: never ring forever. The request window closes ~30–60s.
+  // Re-armed even on a seamless continuation, so the ring tracks the
+  // NEWEST request's window.
   _autoStop?.cancel();
   _autoStop = Timer(_kMaxAlertWindow, () => unawaited(stopRideRequestAlert()));
 }
@@ -159,6 +172,16 @@ Future<void> startForegroundRideAlert(String? requestId) async {
   // the app comes to the front) — don't stack a second player.
   if (_stopPort == null &&
       IsolateNameServer.lookupPortByName(_kStopPortName) != null) {
+    return;
+  }
+  // Already ringing in this isolate (a second request arrived while the
+  // driver is on the first one's sheet): keep the loop running
+  // seamlessly — a stop-and-restart reads as a distinct new alert — and
+  // just re-arm the auto-stop so the ring tracks the newest request.
+  if (_player != null) {
+    _autoStop?.cancel();
+    _autoStop =
+        Timer(_kMaxAlertWindow, () => unawaited(stopRideRequestAlert()));
     return;
   }
   // Own the ring: lets stopRideRequestAlert() (feed tap, lifecycle) kill
@@ -199,6 +222,13 @@ Future<void> _playAlertSound({required bool loop}) async {
     AppLogger.w('ride alert sound failed', error: e, stackTrace: st);
   }
 }
+
+/// Cheap "might a ring be sounding?" probe — true when this isolate owns
+/// the ring or any isolate has the kill-switch port registered. Lets
+/// hot-path callers (the bid sheet's slider drag) skip the full teardown
+/// once the first stop has landed, instead of re-running it per tick.
+bool get rideAlertMaybeActive =>
+    _stopPort != null || IsolateNameServer.lookupPortByName(_kStopPortName) != null;
 
 /// Stop the ring + clear the notification. Safe to call when nothing is
 /// active, and safe to call from ANY isolate: it tears down whatever this

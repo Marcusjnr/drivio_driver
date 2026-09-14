@@ -120,16 +120,23 @@ class CallPushBridge {
           unawaited(_adoptRinging(callId));
         }
       } else if (m.data['type'] == 'ride_request') {
-        // App is in the foreground: the marketplace feed shows the card,
-        // so no notification — but the same looping alert sound
-        // rings until the driver taps the request.
+        // App is in the foreground: the alert sound rings until the
+        // driver interacts with the auto-presented bid sheet.
         unawaited(
           startForegroundRideAlert(m.data['ride_request_id'] as String?),
         );
-        // The push consistently beats both the realtime insert and the
-        // feed's 5 s safety poll — so use it as the fetch trigger too.
-        // Without this the driver HEARS the request seconds before the
-        // card appears.
+        // Fast-present: hand the request id straight to the drive shell
+        // so the bid sheet opens WITH the ring, hydrating in parallel —
+        // not seconds later when the nearby-list refresh lands. The
+        // push is geo-targeted server-side, so presenting it directly
+        // is safe; the shell still applies its own guards.
+        final Object? pushedId = m.data['ride_request_id'];
+        if (pushedId is String && _container != null) {
+          _container.read(pushedRequestIdProvider.notifier).state = pushedId;
+        }
+        // The feed refresh stays as queue bookkeeping (dismissals,
+        // ordering, the poll safety net) and as the fallback present
+        // path when the shell's guards defer the fast-present.
         final MarketplaceController? feed = _container?.read(
           marketplaceControllerProvider.notifier,
         );

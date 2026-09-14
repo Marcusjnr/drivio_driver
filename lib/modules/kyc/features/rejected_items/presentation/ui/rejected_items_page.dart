@@ -277,7 +277,7 @@ class _RejectedItemRow extends StatelessWidget {
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      done ? 'Uploaded — pending review' : item.reason,
+                      done ? 'Uploaded · pending review' : item.reason,
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: AppTextStyles.captionSm.copyWith(

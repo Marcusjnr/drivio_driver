@@ -394,7 +394,7 @@ class _VehicleGroup extends StatelessWidget {
         ? ''
         : '${v.plate}${(colour == null || colour.isEmpty) ? '' : ' · ${colour.toLowerCase()}'}';
     final String vehicleSub = rejected
-        ? 'Needs another look — tap to fix'
+        ? 'Needs another look. Tap to fix.'
         : v == null
             ? 'Add or activate one to receive requests'
             : inReview
@@ -745,7 +745,7 @@ class _AccountGroup extends ConsumerWidget {
           value: bank?.displayLabel ??
               (payout.isLoading
                   ? null
-                  : 'Add yours — promo payouts go here'),
+                  : 'Add yours. Promo payouts go here.'),
           right: bank == null
               ? (payout.isLoading
                     ? null

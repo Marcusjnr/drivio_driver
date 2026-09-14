@@ -196,6 +196,9 @@ class _Body extends StatelessWidget {
             ),
           ],
 
+          const SizedBox(height: 14),
+          const _HowRateWorksCard(),
+
           if (state.error != null) ...<Widget>[
             const SizedBox(height: 12),
             Container(
@@ -212,6 +215,72 @@ class _Body extends StatelessWidget {
             ),
           ],
 
+        ],
+      ),
+    );
+  }
+}
+
+/// Plain-English explainer: the per-km rate is the number that decides
+/// the price a rider sees. Kept deliberately simple — this is the one
+/// idea on this page every driver must understand.
+class _HowRateWorksCard extends StatelessWidget {
+  const _HowRateWorksCard();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+      decoration: BoxDecoration(
+        color: context.teal.withValues(alpha: 0.08),
+        borderRadius: AppRadius.md,
+        border: Border.all(color: context.teal.withValues(alpha: 0.35)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Container(
+            width: 32,
+            height: 32,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: context.teal.withValues(alpha: 0.14),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(
+              Icons.lightbulb_outline_rounded,
+              size: 16,
+              color: context.teal,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                Text(
+                  'How your rate sets the price',
+                  style: AppTextStyles.caption.copyWith(
+                    color: context.text,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'This per-km rate is what we use to work out the price '
+                  'the rider sees. When a trip comes in, we multiply your '
+                  'rate by the distance of the trip. That total becomes '
+                  'your price, and it is the price the rider sees from '
+                  'you. A higher rate means you earn more on each trip. '
+                  'A lower rate means more riders are likely to pick you.',
+                  style: AppTextStyles.captionSm.copyWith(
+                    color: context.textDim,
+                    height: 1.5,
+                  ),
+                ),
+              ],
+            ),
+          ),
         ],
       ),
     );

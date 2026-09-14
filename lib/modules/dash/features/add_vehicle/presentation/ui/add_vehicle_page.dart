@@ -125,7 +125,9 @@ class _AddVehiclePageState extends ConsumerState<AddVehiclePage> {
   // ── Step 1: vehicle details ────────────────────────────────────────
 
   Widget _detailsStep(AddVehicleState state, AddVehicleController c) {
-    final List<String> models = modelsForMake(state.make);
+    // Server-driven catalog (state.makeNames / state.modelsFor) with the
+    // bundled static list as its offline fallback — see AddVehicleState.
+    final List<String> models = state.modelsFor(state.make);
     final bool freeTextModel =
         state.make.isEmpty || state.make == 'Other' || models.isEmpty;
 
@@ -160,7 +162,7 @@ class _AddVehiclePageState extends ConsumerState<AddVehiclePage> {
                   final String? picked = await _pickOne(
                     context,
                     title: 'Select make',
-                    options: kVehicleMakeNames,
+                    options: state.makeNames,
                   );
                   if (picked != null) c.onMakeChanged(picked);
                 },
@@ -183,7 +185,7 @@ class _AddVehiclePageState extends ConsumerState<AddVehiclePage> {
                         final String? picked = await _pickOne(
                           context,
                           title: 'Select model',
-                          options: modelsForMake(state.make),
+                          options: state.modelsFor(state.make),
                         );
                         if (picked != null) c.onModelChanged(picked);
                       },

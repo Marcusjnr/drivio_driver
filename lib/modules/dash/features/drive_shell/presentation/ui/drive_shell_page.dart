@@ -4,12 +4,14 @@ import 'dart:io' show Platform;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:maplibre_gl/maplibre_gl.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:geolocator/geolocator.dart';
 
 import 'package:drivio_driver/modules/commons/all.dart';
 import 'package:drivio_driver/modules/commons/data/trip_repository.dart';
 import 'package:drivio_driver/modules/commons/location/location_permission_service.dart';
+import 'package:drivio_driver/modules/commons/push/ride_alert_push.dart';
 import 'package:drivio_driver/modules/commons/types/demand_cell.dart';
 import 'package:drivio_driver/modules/commons/types/ride_request.dart';
 import 'package:drivio_driver/modules/commons/types/subscription.dart';
@@ -43,6 +45,11 @@ import 'package:drivio_driver/modules/subscription/features/paywall/presentation
 import 'package:drivio_driver/modules/trip/features/active_trip/presentation/logic/controller/active_trip_controller.dart';
 import 'package:drivio_driver/modules/trip/features/active_trip/presentation/logic/controller/trip_location_recorder.dart';
 import 'package:drivio_driver/modules/trip/features/ride_request/presentation/logic/controller/ride_request_controller.dart';
+
+/// One-time coach mark: "Click to set your price" pointing at the
+/// per-km price bubble. Once this key is set the pointer never shows
+/// again on this device.
+const String _kPricePointerSeenKey = 'price_pointer_seen_v1';
 
 /// Whether the missing-bank-account check has already run this process
 /// launch. File-level (not widget state) so re-mounting the shell —
@@ -95,6 +102,20 @@ class _DriveShellPageState extends ConsumerState<DriveShellPage>
   // Once-per-launch "add your bank account" nudge (see
   // [_maybePromptForBankAccount]).
   bool _bankPromptOpen = false;
+  // Coalesces auto-present triggers: many signals (feed updates, mode
+  // flips) can fire in one frame; only one post-frame check runs.
+  bool _autoPresentQueued = false;
+  // One-time "Click to set your price" pointer at the price bubble.
+  bool _showPricePointer = false;
+  // The seen flag persists only once the pointer has actually rendered
+  // (bubble on screen) — arming it on a launch where the bubble never
+  // appears must not burn the one showing.
+  bool _pricePointerPersisted = false;
+
+  /// Requests with less time left than this aren't worth presenting —
+  /// by the time the driver reads the sheet and sets a price, the
+  /// window is gone. They stay in the feed state and simply expire.
+  static const int _kMinPresentableSeconds = 10;
 
   @override
   void initState() {
@@ -108,7 +129,37 @@ class _DriveShellPageState extends ConsumerState<DriveShellPage>
       unawaited(_reconcileActiveTrip());
       unawaited(_reconcileOnlineState());
       unawaited(_maybePromptForBankAccount());
+      unawaited(_maybeShowPricePointer());
+      // Requests may already be queued from before this mount (tab
+      // switch back to Drive, cold start while online) — present
+      // immediately instead of waiting out the next ≤5s poll tick.
+      _scheduleAutoPresent();
     });
+  }
+
+  /// First time this device ever renders the shell, arm the one-time
+  /// "Click to set your price" pointer at the price bubble. The seen
+  /// flag persists the first time the pointer actually RENDERS (see
+  /// [_persistPricePointerSeen]); from then on it never shows again.
+  Future<void> _maybeShowPricePointer() async {
+    try {
+      final SharedPreferences prefs = await SharedPreferences.getInstance();
+      if (prefs.getBool(_kPricePointerSeenKey) ?? false) return;
+      if (!mounted) return;
+      setState(() => _showPricePointer = true);
+    } catch (_) {
+      // Best-effort: a prefs failure just means no pointer this launch.
+    }
+  }
+
+  /// Called from build the first frame the pointer is on screen: the
+  /// driver has now seen it, so it is spent for good.
+  void _persistPricePointerSeen() {
+    if (_pricePointerPersisted) return;
+    _pricePointerPersisted = true;
+    unawaited(SharedPreferences.getInstance()
+        .then((SharedPreferences p) => p.setBool(_kPricePointerSeenKey, true))
+        .catchError((Object _) => true));
   }
 
   /// Once per app open: if the driver has no saved bank account (used for
@@ -152,9 +203,11 @@ class _DriveShellPageState extends ConsumerState<DriveShellPage>
       // stale state to a driver who's had the app open for a while.
       unawaited(ref.read(kycControllerProvider.notifier).refresh());
       // Driver likely opened the app from a new-trip alert: don't make
-      // them wait out the 5s poll window — pull the feed right now.
+      // them wait out the 5s poll window — pull the feed right now, and
+      // present whatever is already queued without waiting for it.
       if (ref.read(homeControllerProvider).isOnline) {
         unawaited(ref.read(marketplaceControllerProvider.notifier).refresh());
+        _scheduleAutoPresent();
       }
     }
   }
@@ -298,6 +351,36 @@ class _DriveShellPageState extends ConsumerState<DriveShellPage>
       }
     });
 
+    // One-at-a-time auto-present. Two triggers feed the same guarded
+    // check: the feed list changing (every poll/realtime/push refresh —
+    // ≤5s cadence, which also covers returning from a pushed route), and
+    // the shell landing back in idle (decline, bid lost, trip ended) so
+    // the next queued request presents immediately, not a poll later.
+    ref.listen<List<RideRequest>>(visibleRequestsProvider, (
+      List<RideRequest>? _,
+      List<RideRequest> next,
+    ) {
+      if (next.isNotEmpty) _scheduleAutoPresent();
+    });
+    ref.listen<DriveShellState>(driveShellControllerProvider, (
+      DriveShellState? prev,
+      DriveShellState next,
+    ) {
+      if (prev?.isIdle != true && next.isIdle) _scheduleAutoPresent();
+    });
+    // Fast-present from a foreground push: open the sheet for the pushed
+    // request id immediately (hydrates in parallel with the ring) instead
+    // of waiting out the nearby-list round-trip. Same guards as the
+    // queue path; if they defer it, the normal pipeline picks it up.
+    ref.listen<String?>(pushedRequestIdProvider, (String? _, String? next) {
+      if (next == null) return;
+      ref.read(pushedRequestIdProvider.notifier).state = null;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        _maybePresentPushedRequest(next);
+      });
+    });
+
     // Force-offline if the subscription flipped to a non-unlocking state
     // while the driver was online (commonly: paused, also covers
     // expired/cancelled). Mirrors the manual offline toggle: stops GPS
@@ -345,6 +428,15 @@ class _DriveShellPageState extends ConsumerState<DriveShellPage>
             AppNotifier.warning(
               message: next.error ?? 'Another driver was picked for this trip.',
             );
+            // A lost request must never auto-present again (the server
+            // can keep returning a still-open one whose window hasn't
+            // lapsed), and any leftover alert for it goes quiet before
+            // the next request takes the sheet.
+            final String? lostId = shell.activeRequestId;
+            if (lostId != null) {
+              ref.read(marketplaceControllerProvider.notifier).dismiss(lostId);
+            }
+            unawaited(stopRideRequestAlert());
             Future<void>.delayed(const Duration(milliseconds: 700), () {
               if (mounted) {
                 ref.read(driveShellControllerProvider.notifier).exitBidding();
@@ -457,7 +549,15 @@ class _DriveShellPageState extends ConsumerState<DriveShellPage>
     final int perKmNaira =
         ref.watch(pricingControllerProvider).profile?.perKmNaira ?? 0;
     final Widget? priceBubble = shell.isIdle && perKmNaira > 0
-        ? _PriceBubble(perKmNaira: perKmNaira)
+        ? _PriceBubble(
+            perKmNaira: perKmNaira,
+            onTap: () {
+              if (_showPricePointer) {
+                setState(() => _showPricePointer = false);
+              }
+              AppNavigation.push(AppRoutes.pricing);
+            },
+          )
         : null;
 
     // ── Bottom sheet body ───────────────────────────────────────────────
@@ -528,6 +628,25 @@ class _DriveShellPageState extends ConsumerState<DriveShellPage>
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: <Widget>[
+                  // One-time coach mark: sits directly above the price
+                  // bubble, hand pointing down at it. Tapping either the
+                  // callout or the bubble opens Pricing and retires it.
+                  if (priceBubble != null && _showPricePointer)
+                    Builder(builder: (BuildContext _) {
+                      _persistPricePointerSeen();
+                      return Padding(
+                        padding: const EdgeInsets.only(right: 16, bottom: 6),
+                        child: Align(
+                          alignment: Alignment.centerRight,
+                          child: _PricePointerCallout(
+                            onTap: () {
+                              setState(() => _showPricePointer = false);
+                              AppNavigation.push(AppRoutes.pricing);
+                            },
+                          ),
+                        ),
+                      );
+                    }),
                   if (priceBubble != null)
                     Padding(
                       padding: const EdgeInsets.only(right: 16, bottom: 12),
@@ -869,6 +988,99 @@ class _DriveShellPageState extends ConsumerState<DriveShellPage>
     }
   }
 
+  /// One request at a time: instead of a tappable feed, the nearest
+  /// presentable request auto-opens the bid sheet the moment the driver
+  /// is idle. Requests that arrive while a sheet is up accumulate
+  /// silently in [MarketplaceController] (its polling never stops) and
+  /// the next one presents as soon as the driver bids or declines.
+  ///
+  /// Guards, in order: the driver must be online; the shell must be in
+  /// idle mode (never interrupt a live sheet or trip); the shell route
+  /// must be on top (a request presented under the Profile page would
+  /// burn its countdown unseen); no gate/prompt overlay may be open; and
+  /// the request needs at least [_kMinPresentableSeconds] on the clock.
+  /// The feed list is already proximity-sorted by the server, so "first
+  /// presentable" is "nearest".
+  void _scheduleAutoPresent() {
+    if (_autoPresentQueued) return;
+    _autoPresentQueued = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _autoPresentQueued = false;
+      if (!mounted) return;
+      _maybeAutoPresentRequest();
+    });
+  }
+
+  /// Fast-present for a request that just arrived by foreground push.
+  /// The server already decided this driver should see it (the push is
+  /// geo-targeted), so we can open the sheet before the feed knows the
+  /// request exists — the bid controller hydrates it by id in parallel.
+  /// Shares the queue path's guards; when they defer (mid-bid, on a
+  /// trip, buried route, gate open), the request simply stays in the
+  /// normal queue pipeline.
+  void _maybePresentPushedRequest(String requestId) {
+    if (!ref.read(homeControllerProvider).isOnline) return;
+    if (!ref.read(driveShellControllerProvider).isIdle) return;
+    if (_togglingOnline) return;
+    if (_gateOpen ||
+        _kycGateOpen ||
+        _rejectedGateOpen ||
+        _pendingGateOpen ||
+        _subGateOpen ||
+        _locationGateOpen ||
+        _bankPromptOpen) {
+      return;
+    }
+    if (ModalRoute.of(context)?.isCurrent != true) return;
+    // A duplicate FCM delivery of something the driver already declined
+    // must not resurrect it.
+    if (ref.read(marketplaceControllerProvider.notifier).isDismissed(
+          requestId,
+        )) {
+      return;
+    }
+    ref
+        .read(driveShellControllerProvider.notifier)
+        .enterBidding(requestId, silenceAlert: false);
+  }
+
+  void _maybeAutoPresentRequest() {
+    if (!ref.read(homeControllerProvider).isOnline) return;
+    if (!ref.read(driveShellControllerProvider).isIdle) return;
+    if (_togglingOnline) return;
+    if (_gateOpen ||
+        _kycGateOpen ||
+        _rejectedGateOpen ||
+        _pendingGateOpen ||
+        _subGateOpen ||
+        _locationGateOpen ||
+        _bankPromptOpen) {
+      return;
+    }
+    if (ModalRoute.of(context)?.isCurrent != true) return;
+
+    final List<RideRequest> queue = ref.read(visibleRequestsProvider);
+    for (final RideRequest r in queue) {
+      if (r.secondsRemaining() >= _kMinPresentableSeconds) {
+        // Keep the alert ringing until the driver interacts with the
+        // sheet — the sheet appearing isn't proof they've seen it.
+        ref
+            .read(driveShellControllerProvider.notifier)
+            .enterBidding(r.id, silenceAlert: false);
+        return;
+      }
+    }
+    // Fell through: the driver is right here on the idle shell and
+    // there is nothing we're willing to present (queue empty, or every
+    // request is about to expire). Any alert still sounding belongs to
+    // a request we just chose not to show — a ring with nothing behind
+    // it. Kill it. Rings for a driver who is elsewhere are untouched
+    // (the guards above return before reaching this line).
+    if (rideAlertMaybeActive) {
+      unawaited(stopRideRequestAlert());
+    }
+  }
+
   /// Push the [LocationAlwaysPage] explainer for a permanently-denied
   /// permission. Returns true when the driver returns with a usable
   /// grant (either via the page popping true, or granted directly in
@@ -897,11 +1109,12 @@ class _DriveShellPageState extends ConsumerState<DriveShellPage>
 
     switch (shell.mode) {
       case ShellMode.idle:
-        // Match the feed's filter — pin only what the driver would
-        // actually see in the request list.
-        final List<RideRequest> openRequests = ref.watch(
-          visibleRequestsProvider,
-        );
+        // No request pins on the idle map. They predate one-at-a-time:
+        // with requests auto-presenting as the bid sheet, an idle map
+        // showing amber pickup dots for still-queued (or sub-10s dying)
+        // requests just reads as mystery litter next to the car marker —
+        // the sheet is the request UI now. The queue itself is untouched
+        // (`visibleRequestsProvider` still drives auto-present).
         // DRV-075: render the demand heatmap polygons when the driver
         // has the overlay toggled on. Each cell becomes a square
         // polygon coloured by intensity relative to the hottest cell.
@@ -913,14 +1126,6 @@ class _DriveShellPageState extends ConsumerState<DriveShellPage>
           initialZoom: 14,
           showUserLocation: home.isOnline,
           followUser: home.isOnline,
-          markers: <LiveMapMarker>[
-            for (final RideRequest r in openRequests)
-              LiveMapMarker(
-                id: 'req_${r.id}',
-                position: LatLng(r.pickupLat, r.pickupLng),
-                kind: LiveMapMarkerKind.request,
-              ),
-          ],
           polygons: heatmap.visible
               ? _heatmapPolygons(heatmap)
               : const <LiveMapPolygon>[],
@@ -1986,13 +2191,93 @@ class _TripRouteCard extends StatelessWidget {
   }
 }
 
+/// One-time coach mark above the price bubble: a coral callout with
+/// "Click to set your price" and a hand pointing its index finger down
+/// at the bubble. The hand bobs gently to draw the eye. Shown once per
+/// device, ever (see [_kPricePointerSeenKey]); tapping it, or the
+/// bubble, opens Pricing and retires it for good.
+class _PricePointerCallout extends ConsumerStatefulWidget {
+  const _PricePointerCallout({required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  ConsumerState<_PricePointerCallout> createState() =>
+      _PricePointerCalloutState();
+}
+
+class _PricePointerCalloutState extends ConsumerState<_PricePointerCallout>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _bob = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 550),
+  )..repeat(reverse: true);
+
+  late final Animation<double> _offset = Tween<double>(begin: 0, end: 6)
+      .animate(CurvedAnimation(parent: _bob, curve: Curves.easeInOut));
+
+  @override
+  void dispose() {
+    _bob.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: widget.onTap,
+      behavior: HitTestBehavior.opaque,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: <Widget>[
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            decoration: BoxDecoration(
+              color: context.coral,
+              borderRadius: AppRadius.md,
+              boxShadow: AppShadows.card,
+            ),
+            child: Text(
+              'Click to set your price per km',
+              style: AppTextStyles.bodySm.copyWith(
+                color: context.coralInk,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+          // The hand sits under the callout, offset in from the right so
+          // its fingertip lands on the bubble's centre, bobbing toward it.
+          Padding(
+            padding: const EdgeInsets.only(right: 34, top: 2),
+            child: AnimatedBuilder(
+              animation: _offset,
+              builder: (BuildContext _, Widget? child) {
+                return Transform.translate(
+                  offset: Offset(0, _offset.value),
+                  child: child,
+                );
+              },
+              child: const Text('👇', style: TextStyle(fontSize: 30)),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _PriceBubble extends StatelessWidget {
-  const _PriceBubble({required this.perKmNaira});
+  const _PriceBubble({required this.perKmNaira, this.onTap});
 
   /// The driver's own per-km rate. Shown per-km rather than as a whole
   /// trip price because per-km is what the driver actually sets — a trip
   /// total depends on a distance nobody knows until a request arrives.
   final int perKmNaira;
+
+  /// Overrides the default push-to-pricing tap (the shell passes one
+  /// that also retires the one-time price pointer).
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -2003,7 +2288,7 @@ class _PriceBubble extends StatelessWidget {
       shadowColor: Colors.black.withValues(alpha: 0.4),
       child: InkWell(
         borderRadius: AppRadius.md,
-        onTap: () => AppNavigation.push(AppRoutes.pricing),
+        onTap: onTap ?? () => AppNavigation.push(AppRoutes.pricing),
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
           decoration: BoxDecoration(

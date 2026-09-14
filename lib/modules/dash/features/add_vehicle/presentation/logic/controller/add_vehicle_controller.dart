@@ -13,9 +13,11 @@ import 'package:drivio_driver/modules/commons/analytics/mixpanel_service.dart';
 import 'package:drivio_driver/modules/commons/data/document_repository.dart';
 import 'package:drivio_driver/modules/commons/data/document_repository_impl.dart';
 import 'package:drivio_driver/modules/commons/data/driver_amenities_repository.dart';
+import 'package:drivio_driver/modules/commons/data/vehicle_catalog_repository.dart';
 import 'package:drivio_driver/modules/commons/di/di.dart';
 import 'package:drivio_driver/modules/commons/types/document.dart';
 import 'package:drivio_driver/modules/commons/types/vehicle.dart';
+import 'package:drivio_driver/modules/dash/features/add_vehicle/vehicle_options.dart';
 import 'package:drivio_driver/modules/dash/features/add_vehicle/presentation/logic/data/vehicle_draft_repository.dart';
 import 'package:drivio_driver/modules/dash/features/add_vehicle/presentation/logic/data/vehicle_repository.dart';
 import 'package:drivio_driver/modules/dash/features/add_vehicle/presentation/logic/data/vehicle_repository_impl.dart';
@@ -80,6 +82,7 @@ class AddVehicleState {
     this.amenityCatalog = const <AmenityOption>[],
     this.selectedAmenities = const <String>{},
     this.amenitiesLoading = true,
+    this.vehicleCatalog = const <VehicleCatalogEntry>[],
     this.documents = const <DocumentKind, DocumentSlotState>{},
     this.isLoading = false,
     this.error,
@@ -110,6 +113,32 @@ class AddVehicleState {
   final List<AmenityOption> amenityCatalog;
   final Set<String> selectedAmenities;
   final bool amenitiesLoading;
+
+  /// Server-driven make/model catalog (`get_vehicle_catalog`), curated
+  /// from the admin dashboard so new cars land without an app release.
+  /// Empty while loading or when the fetch failed — the getters below
+  /// fall back to the bundled static list so onboarding never blocks.
+  final List<VehicleCatalogEntry> vehicleCatalog;
+
+  /// Make names for the picker, with "Other" always appended (it's a UI
+  /// affordance for free-text entry, never a catalog row).
+  List<String> get makeNames {
+    if (vehicleCatalog.isEmpty) return kVehicleMakeNames;
+    return <String>[
+      ...vehicleCatalog.map((VehicleCatalogEntry e) => e.make),
+      'Other',
+    ];
+  }
+
+  /// Models for [forMake]; empty for "Other" / unknown makes, which the
+  /// page renders as a free-text model field.
+  List<String> modelsFor(String forMake) {
+    if (vehicleCatalog.isEmpty) return modelsForMake(forMake);
+    for (final VehicleCatalogEntry e in vehicleCatalog) {
+      if (e.make == forMake) return e.models;
+    }
+    return const <String>[];
+  }
 
   final Map<DocumentKind, DocumentSlotState> documents;
   final bool isLoading;
@@ -183,6 +212,7 @@ class AddVehicleState {
     List<AmenityOption>? amenityCatalog,
     Set<String>? selectedAmenities,
     bool? amenitiesLoading,
+    List<VehicleCatalogEntry>? vehicleCatalog,
     Map<DocumentKind, DocumentSlotState>? documents,
     bool? isLoading,
     String? error,
@@ -203,6 +233,7 @@ class AddVehicleState {
       amenityCatalog: amenityCatalog ?? this.amenityCatalog,
       selectedAmenities: selectedAmenities ?? this.selectedAmenities,
       amenitiesLoading: amenitiesLoading ?? this.amenitiesLoading,
+      vehicleCatalog: vehicleCatalog ?? this.vehicleCatalog,
       documents: documents ?? this.documents,
       isLoading: isLoading ?? this.isLoading,
       error: clearError ? null : (error ?? this.error),
@@ -216,8 +247,10 @@ class AddVehicleController extends StateNotifier<AddVehicleState> {
     this._documents,
     this._amenities,
     this._drafts,
+    this._catalog,
   ) : super(const AddVehicleState()) {
     _loadAmenities();
+    _loadCatalog();
     _hydrate();
   }
 
@@ -225,7 +258,23 @@ class AddVehicleController extends StateNotifier<AddVehicleState> {
   final DocumentRepository _documents;
   final DriverAmenitiesRepository _amenities;
   final VehicleDraftRepository _drafts;
+  final VehicleCatalogRepository _catalog;
   final ImagePicker _imagePicker = ImagePicker();
+
+  /// Server catalog, fail-open: any error leaves `vehicleCatalog` empty
+  /// and the state getters serve the bundled static list instead, so a
+  /// driver with a flaky connection can always finish onboarding. A
+  /// successful fetch with zero rows (catalog wiped by mistake) is
+  /// treated the same way.
+  Future<void> _loadCatalog() async {
+    try {
+      final List<VehicleCatalogEntry> rows = await _catalog.getCatalog();
+      if (!mounted || rows.isEmpty) return;
+      state = state.copyWith(vehicleCatalog: rows);
+    } catch (_) {
+      // Bundled fallback covers it.
+    }
+  }
 
   /// Restores saved progress so a driver who left mid-flow resumes at
   /// the step AFTER the last one they completed, with everything they
@@ -622,5 +671,6 @@ final StateNotifierProvider<AddVehicleController, AddVehicleState>
     locator<DocumentRepository>(),
     locator<DriverAmenitiesRepository>(),
     locator<VehicleDraftRepository>(),
+    locator<VehicleCatalogRepository>(),
   ),
 );

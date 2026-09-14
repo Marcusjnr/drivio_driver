@@ -55,10 +55,14 @@ class DriveShellState {
 class DriveShellController extends StateNotifier<DriveShellState> {
   DriveShellController() : super(const DriveShellState());
 
-  void enterBidding(String requestId) {
-    // The driver just tapped the request — silence the new-trip alert
-    // (foreground loop or background ring) the moment they engage.
-    unawaited(stopRideRequestAlert());
+  /// [silenceAlert] is true for an explicit driver action (they engaged,
+  /// the sound's job is done). The auto-present path passes false so the
+  /// alert keeps ringing until the driver actually touches the sheet —
+  /// a mounted phone must stay audible while they glance at the road.
+  void enterBidding(String requestId, {bool silenceAlert = true}) {
+    if (silenceAlert) {
+      unawaited(stopRideRequestAlert());
+    }
     state = state.copyWith(mode: ShellMode.bidding, activeRequestId: requestId);
   }
 

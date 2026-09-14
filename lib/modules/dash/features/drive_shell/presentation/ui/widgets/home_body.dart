@@ -4,23 +4,21 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:drivio_driver/modules/commons/all.dart';
 import 'package:drivio_driver/modules/commons/types/coach_tip.dart';
 import 'package:drivio_driver/modules/commons/types/dashboard_summary.dart';
-import 'package:drivio_driver/modules/commons/types/ride_request.dart';
 import 'package:drivio_driver/modules/dash/features/home/presentation/logic/controller/coach_tip_controller.dart';
 import 'package:drivio_driver/modules/dash/features/home/presentation/logic/controller/dashboard_controller.dart';
 import 'package:drivio_driver/modules/dash/features/home/presentation/logic/controller/home_controller.dart';
-import 'package:drivio_driver/modules/marketplace/features/feed/presentation/logic/controller/marketplace_controller.dart';
-import 'package:drivio_driver/modules/marketplace/features/feed/presentation/ui/widgets/request_feed.dart';
 
-/// Bottom-sheet body shown in [ShellMode.idle] — SCR-016 / SCR-017 /
-/// SCR-018.
+/// Bottom-sheet body shown in [ShellMode.idle] — SCR-016 / SCR-017.
 ///
-/// Three states, one sheet:
+/// Two states, one sheet:
 ///   • Offline → "OFFLINE" eyebrow, "You're offline." headline, the
 ///     stat strip, and the coral "Go online" button.
-///   • Online, no requests → "LIVE" eyebrow with a live dot, "Looking
-///     for requests…" headline, stat strip, coach tip, "Go offline".
-///   • Online, requests waiting → the request feed (its own
-///     "REQUESTS NEARBY · N" header), then "Go offline".
+///   • Online → "LIVE" eyebrow with a live dot, "Looking for requests…"
+///     headline, stat strip, coach tip, "Go offline".
+///
+/// There is no in-sheet request list anymore: an arriving request
+/// auto-presents the bid sheet one at a time (drive shell's
+/// `_maybeAutoPresentRequest`), so the idle sheet is purely status.
 ///
 /// The go-online / go-offline control now lives *in the sheet* per the
 /// mockups; [onToggleOnline] is the shell's gated handler (KYC / vehicle
@@ -42,28 +40,27 @@ class HomeBody extends ConsumerWidget {
     final DashboardSummary summary = dash.summary;
     final bool tileNotReady = !dash.hasEverLoaded;
     final bool online = state.isOnline;
-    final List<RideRequest> requests = ref.watch(visibleRequestsProvider);
-    final bool hasRequests = online && requests.isNotEmpty;
 
     return BottomSheetCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
-          // ── Header: eyebrow + headline (or the requests header) ───────
-          if (hasRequests)
-            const RequestFeed()
-          else ...<Widget>[
-            _StatusHeader(online: online),
-            const SizedBox(height: 16),
-            _StatStrip(
-              summary: summary,
-              notReady: tileNotReady,
-              error: dash.error,
-              onRetry: () =>
-                  ref.read(dashboardControllerProvider.notifier).refresh(),
-            ),
-            if (online) const _CoachTipSlot(),
-          ],
+          // The tappable request feed is retired: requests now
+          // auto-present the bid sheet one at a time (the drive shell's
+          // `_maybeAutoPresentRequest`), so a visible request never
+          // lingers here — this sheet always shows the status header.
+          // `RequestFeed` (marketplace/feed/.../request_feed.dart) is
+          // kept in the tree for an easy revert.
+          _StatusHeader(online: online),
+          const SizedBox(height: 16),
+          _StatStrip(
+            summary: summary,
+            notReady: tileNotReady,
+            error: dash.error,
+            onRetry: () =>
+                ref.read(dashboardControllerProvider.notifier).refresh(),
+          ),
+          if (online) const _CoachTipSlot(),
 
           const SizedBox(height: 18),
 

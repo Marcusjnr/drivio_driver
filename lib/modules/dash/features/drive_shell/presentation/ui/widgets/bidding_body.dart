@@ -1,7 +1,10 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:drivio_driver/modules/commons/all.dart';
+import 'package:drivio_driver/modules/commons/push/ride_alert_push.dart';
 import 'package:drivio_driver/modules/dash/features/drive_shell/presentation/logic/controller/drive_shell_controller.dart';
 import 'package:drivio_driver/modules/dash/features/drive_shell/presentation/ui/widgets/sheet_skeleton.dart';
 import 'package:drivio_driver/modules/marketplace/features/feed/presentation/logic/controller/marketplace_controller.dart';
@@ -18,6 +21,17 @@ class BiddingBody extends ConsumerWidget {
   const BiddingBody({super.key, required this.requestId});
 
   final String requestId;
+
+  /// The sheet auto-presents with the new-trip alert still ringing (the
+  /// sheet appearing isn't proof the driver saw it). The FIRST touch on
+  /// the sheet — price drag, chip, variant switch, submit, decline — is
+  /// that proof, so it silences the ring. The probe keeps a slider drag
+  /// from re-running the full cross-isolate teardown on every tick.
+  static void _silenceAlert() {
+    if (rideAlertMaybeActive) {
+      unawaited(stopRideRequestAlert());
+    }
+  }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -70,8 +84,14 @@ class BiddingBody extends ConsumerWidget {
           const SizedBox(height: 16),
           _FareCard(
             state: state,
-            onPriceChanged: c.setPriceNaira,
-            onVariantChanged: c.setVariant,
+            onPriceChanged: (int v) {
+              _silenceAlert();
+              c.setPriceNaira(v);
+            },
+            onVariantChanged: (PricingVariant v) {
+              _silenceAlert();
+              c.setVariant(v);
+            },
           ),
           if (state.showMarketWarning) ...<Widget>[
             const SizedBox(height: 10),
@@ -94,9 +114,10 @@ class BiddingBody extends ConsumerWidget {
             state: state,
             controller: c,
             onDecline: () {
-              // Drop the declined request from the nearby feed so the
-              // driver lands back on a clean home shell, not the same
-              // card they just declined.
+              _silenceAlert();
+              // Drop the declined request so it can never auto-present
+              // again this session; exiting to idle immediately presents
+              // the next queued request, if one is waiting.
               final String? id = state.requestId;
               if (id != null) {
                 ref.read(marketplaceControllerProvider.notifier).dismiss(id);
@@ -394,7 +415,10 @@ class _ActionRow extends StatelessWidget {
               child: DrivioButton(
                 label: 'Submit bid',
                 disabled: !state.canSubmit,
-                onPressed: controller.submitBid,
+                onPressed: () {
+                  BiddingBody._silenceAlert();
+                  controller.submitBid();
+                },
               ),
             ),
           ],

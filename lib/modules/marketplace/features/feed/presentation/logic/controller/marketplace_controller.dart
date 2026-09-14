@@ -112,6 +112,11 @@ class MarketplaceController extends StateNotifier<MarketplaceState> {
   /// declined card pops right back into the feed on the next poll.
   final Set<String> _dismissedIds = <String>{};
 
+  /// Whether the driver declined this request earlier in the session.
+  /// The fast-present push path checks this so a duplicate FCM delivery
+  /// can never resurrect a request the driver already said no to.
+  bool isDismissed(String requestId) => _dismissedIds.contains(requestId);
+
   /// Drop a declined request from the feed — immediately and across all
   /// future refetches this session.
   void dismiss(String requestId) {
@@ -282,6 +287,16 @@ marketplaceControllerProvider =
     StateNotifierProvider<MarketplaceController, MarketplaceState>(
       (Ref _) => MarketplaceController(locator<RideRequestRepository>()),
     );
+
+/// Fast-present handoff from the foreground FCM push. The push arrives
+/// with the request id and is already geo-targeted server-side, so the
+/// drive shell can open the bid sheet for it IMMEDIATELY — hydrating in
+/// parallel — instead of waiting for the nearby-list refresh (which can
+/// sit seconds behind the ring on a slow network, and behind an
+/// in-flight poll fetch on top of that). The shell listens, applies its
+/// usual guards, and resets the value to null after handling.
+final StateProvider<String?> pushedRequestIdProvider =
+    StateProvider<String?>((Ref _) => null);
 
 /// What the marketplace UI should actually render — the open-request
 /// list filtered by the driver's saved trip-length preference. The
