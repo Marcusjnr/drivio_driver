@@ -193,14 +193,8 @@ class KycController extends StateNotifier<KycState> {
   final KycRepository _repo;
 
   /// Document kinds an admin actually reviews and can reject with a
-  /// reason. Insurance/road-worthiness/LASRRA/inspection are enum values
-  /// that exist but are not collected anywhere in the current UI — never
-  /// surfaced here.
-  static const List<DocumentKind> _inScopeKinds = <DocumentKind>[
-    DocumentKind.driversLicence,
-    DocumentKind.profileSelfie,
-    ...vehicleDocumentKinds,
-  ];
+  /// reason — see [rejectableDocumentKinds].
+  static const List<DocumentKind> _inScopeKinds = rejectableDocumentKinds;
 
   Future<void> refresh() async {
     state = state.copyWith(isLoading: true, clearError: true);

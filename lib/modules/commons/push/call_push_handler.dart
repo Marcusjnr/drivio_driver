@@ -260,22 +260,53 @@ class CallPushBridge {
 /// first. The push carries the SAME rejection reason shown in its own
 /// notification body, plus the vehicle id for vehicle-related kinds
 /// (see `_push_document_rejected` in the backend).
+///
+/// Only [rejectableDocumentKinds] are ever opened here — a malformed or
+/// out-of-scope `document_kind` (the backend still labels pushes for
+/// insurance/road-worthiness/LASRRA/inspection, none of which the app
+/// collects any UI for) is dropped rather than resolved via
+/// `DocumentKind.fromWire`'s built-in fallback, which would otherwise
+/// silently open the vehicle-registration screen for an unrelated kind.
 void _openRejectedDocument(Map<String, dynamic> data) {
   final Object? kindWire = data['document_kind'];
   if (kindWire is! String) {
     return;
   }
-  final DocumentKind kind = DocumentKind.fromWire(kindWire);
+  DocumentKind? kind;
+  for (final DocumentKind k in DocumentKind.values) {
+    if (k.wire == kindWire) {
+      kind = k;
+      break;
+    }
+  }
+  if (kind == null || !rejectableDocumentKinds.contains(kind)) {
+    return;
+  }
+  final DocumentKind resolvedKind = kind;
   final Object? vehicleId = data['vehicle_id'];
   final Object? reason = data['rejection_reason'];
+  final String? rejectionReason =
+      reason is String && reason.trim().isNotEmpty ? reason : null;
+
+  // Selfie has its own dedicated recapture flow (face liveness +
+  // profile photo + the server-side liveness stamp) — routing it
+  // through the generic document-capture screen would leave
+  // `drivers.liveness_passed_at` unset even after a successful
+  // re-upload, silently leaving the driver blocked from going online.
+  if (resolvedKind == DocumentKind.profileSelfie) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      AppNavigation.push<void>(AppRoutes.kycSelfie);
+    });
+    return;
+  }
+
   WidgetsBinding.instance.addPostFrameCallback((_) {
     AppNavigation.push<bool>(
       AppRoutes.kycDocumentCapture,
       arguments: DocumentCaptureArgs(
-        kind: kind,
+        kind: resolvedKind,
         vehicleId: vehicleId is String ? vehicleId : null,
-        rejectionReason:
-            reason is String && reason.trim().isNotEmpty ? reason : null,
+        rejectionReason: rejectionReason,
       ),
     );
   });

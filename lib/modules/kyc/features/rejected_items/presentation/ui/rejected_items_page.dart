@@ -43,6 +43,26 @@ class _RejectedItemsPageState extends ConsumerState<RejectedItemsPage> {
   }
 
   Future<void> _fix(RejectedDocumentItem item) async {
+    // Selfie has its own dedicated recapture flow (face liveness +
+    // profile photo + the server-side liveness stamp) — it doesn't
+    // return a bool like DocumentCapturePage does, so completion is
+    // detected by re-checking rejectedItems after a fresh refresh
+    // instead of trusting a pushed result.
+    if (item.kind == DocumentKind.profileSelfie) {
+      await AppNavigation.push<void>(AppRoutes.kycSelfie);
+      if (!mounted) return;
+      await ref.read(kycControllerProvider.notifier).refresh();
+      if (!mounted) return;
+      final bool stillRejected = ref
+          .read(kycControllerProvider)
+          .rejectedItems
+          .any((RejectedDocumentItem i) => i.kind == DocumentKind.profileSelfie);
+      if (!stillRejected) {
+        setState(() => _completed.add(item.kind));
+      }
+      return;
+    }
+
     final bool? done = await AppNavigation.push<bool>(
       AppRoutes.kycDocumentCapture,
       arguments: DocumentCaptureArgs(

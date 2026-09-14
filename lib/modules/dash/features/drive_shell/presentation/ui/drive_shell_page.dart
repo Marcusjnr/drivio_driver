@@ -106,6 +106,10 @@ class _DriveShellPageState extends ConsumerState<DriveShellPage>
     if (state == AppLifecycleState.resumed) {
       unawaited(_reconcileActiveTrip());
       unawaited(_reconcileOnlineState());
+      // A document rejection (or its reversal) can land while the app
+      // is backgrounded — refresh on resume so the banner never shows
+      // stale state to a driver who's had the app open for a while.
+      unawaited(ref.read(kycControllerProvider.notifier).refresh());
       // Driver likely opened the app from a new-trip alert: don't make
       // them wait out the 5s poll window — pull the feed right now.
       if (ref.read(homeControllerProvider).isOnline) {

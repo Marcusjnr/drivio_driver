@@ -96,3 +96,14 @@ bool hasRejectedVehicleDocument(Map<DocumentKind, Document> byKind) {
     (DocumentKind k) => byKind[k]?.status == DocumentStatus.rejected,
   );
 }
+
+/// Document kinds an admin actually reviews and can reject with a
+/// reason — the guided rejection-fix flow (checklist, overview screen,
+/// push deep link) only ever surfaces these. Insurance/road-worthiness/
+/// LASRRA/inspection are enum values that exist but are not collected
+/// anywhere in the current UI.
+const List<DocumentKind> rejectableDocumentKinds = <DocumentKind>[
+  DocumentKind.driversLicence,
+  DocumentKind.profileSelfie,
+  ...vehicleDocumentKinds,
+];
