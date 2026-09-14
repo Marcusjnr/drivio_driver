@@ -18,6 +18,7 @@ class AppRoutes {
   static const String kycSelfie = '/kyc/selfie';
   static const String kycDocumentCapture = '/kyc/document';
   static const String kycDocumentView = '/kyc/document-view';
+  static const String kycRejectedItems = '/kyc/rejected';
 
   static const String forcedUpdate = '/forced-update';
 

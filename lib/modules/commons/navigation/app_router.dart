@@ -26,6 +26,7 @@ import 'package:drivio_driver/modules/kyc/features/bvn_nin/presentation/ui/bvn_n
 import 'package:drivio_driver/modules/kyc/features/document_capture/presentation/ui/document_capture_page.dart';
 import 'package:drivio_driver/modules/kyc/features/document_view/presentation/ui/document_view_page.dart';
 import 'package:drivio_driver/modules/kyc/features/kyc_home/presentation/ui/kyc_home_page.dart';
+import 'package:drivio_driver/modules/kyc/features/rejected_items/presentation/ui/rejected_items_page.dart';
 import 'package:drivio_driver/modules/kyc/features/selfie/presentation/ui/selfie_page.dart';
 import 'package:drivio_driver/modules/profile/features/appearance/presentation/ui/appearance_page.dart';
 import 'package:drivio_driver/modules/profile/features/notifications_inbox/presentation/ui/notifications_inbox_page.dart';
@@ -95,6 +96,8 @@ class AppRouter {
         return (BuildContext _) => const DocumentViewPage();
       case AppRoutes.kycDocumentCapture:
         return (BuildContext _) => const DocumentCapturePage();
+      case AppRoutes.kycRejectedItems:
+        return (BuildContext _) => const RejectedItemsPage();
       case AppRoutes.home:
       case AppRoutes.activeTrip:
       case AppRoutes.rideRequest:
