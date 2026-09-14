@@ -29,6 +29,7 @@ import 'package:drivio_driver/modules/dash/features/home/presentation/logic/cont
 import 'package:drivio_driver/modules/dash/features/home/presentation/ui/widgets/driver_tab_bar.dart';
 import 'package:drivio_driver/modules/dash/features/home/presentation/ui/widgets/kyc_gate_sheet.dart';
 import 'package:drivio_driver/modules/dash/features/home/presentation/ui/widgets/location_gate_sheet.dart';
+import 'package:drivio_driver/modules/dash/features/home/presentation/ui/widgets/rejected_items_gate_sheet.dart';
 import 'package:drivio_driver/modules/dash/features/home/presentation/ui/widgets/subscription_gate_sheet.dart';
 import 'package:drivio_driver/modules/dash/features/home/presentation/ui/widgets/vehicle_gate_sheet.dart';
 import 'package:drivio_driver/modules/dash/features/home/presentation/ui/widgets/vehicle_pending_sheet.dart';
@@ -69,6 +70,7 @@ class _DriveShellPageState extends ConsumerState<DriveShellPage>
   bool _onlineReconcileInFlight = false;
   bool _gateOpen = false;
   bool _kycGateOpen = false;
+  bool _rejectedGateOpen = false;
   bool _pendingGateOpen = false;
   bool _subGateOpen = false;
   bool _autoOfflineInFlight = false;
@@ -496,6 +498,14 @@ class _DriveShellPageState extends ConsumerState<DriveShellPage>
                 AppNavigation.push<void>(AppRoutes.kycHome);
               },
             ),
+          if (_rejectedGateOpen)
+            RejectedItemsGateSheet(
+              onDismiss: () => setState(() => _rejectedGateOpen = false),
+              onContinue: () {
+                setState(() => _rejectedGateOpen = false);
+                AppNavigation.push<void>(AppRoutes.kycRejectedItems);
+              },
+            ),
           if (_gateOpen)
             VehicleGateSheet(
               onDismiss: () => setState(() => _gateOpen = false),
@@ -693,6 +703,15 @@ class _DriveShellPageState extends ConsumerState<DriveShellPage>
         .read(subscriptionControllerProvider)
         .unlocksMarketplace;
 
+    // Checked before the general KYC gate: a live rejection is the more
+    // specific, more actionable reason a driver can't go online — even one
+    // whose overall status is otherwise `approved` — so it gets its own
+    // sheet naming exactly what's flagged, rather than the generic
+    // "complete verification" copy.
+    if (kyc.hasRejectedItems) {
+      setState(() => _rejectedGateOpen = true);
+      return;
+    }
     if (!kycComplete) {
       setState(() => _kycGateOpen = true);
       return;
