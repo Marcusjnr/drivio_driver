@@ -14,6 +14,8 @@ import 'package:drivio_driver/modules/marketplace/features/feed/presentation/log
 import 'package:drivio_driver/modules/commons/supabase/supabase_module.dart';
 import 'package:drivio_driver/modules/commons/navigation/app_routes.dart';
 import 'package:drivio_driver/modules/commons/types/call.dart';
+import 'package:drivio_driver/modules/commons/types/document.dart';
+import 'package:drivio_driver/modules/kyc/features/document_capture/presentation/ui/document_capture_page.dart';
 import 'package:drivio_driver/modules/trip/features/call/logic/call_controller.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -196,9 +198,15 @@ class CallPushBridge {
     }
   }
 
-  /// Notification tap (background or killed launch) → deep-link. Chat pushes
-  /// carry `type=chat_message` + `trip_id` and open that trip's chat.
+  /// Notification tap (background or killed launch) → deep-link. Chat
+  /// pushes carry `type=chat_message` + `trip_id` and open that trip's
+  /// chat; document-rejection pushes carry `type=document_rejected` and
+  /// open the fix screen for that exact document.
   void _onNotificationOpened(RemoteMessage m) {
+    if (m.data['type'] == 'document_rejected') {
+      _openRejectedDocument(m.data.cast<String, dynamic>());
+      return;
+    }
     if (m.data['type'] != 'chat_message') {
       return;
     }
@@ -244,4 +252,31 @@ class CallPushBridge {
     _authSub?.cancel();
     _phaseSub?.close();
   }
+}
+
+/// Deep-links a tapped "document rejected" push straight to the fix
+/// screen for that exact document — the push already told the driver
+/// which one, so there's no reason to route through the overview list
+/// first. The push carries the SAME rejection reason shown in its own
+/// notification body, plus the vehicle id for vehicle-related kinds
+/// (see `_push_document_rejected` in the backend).
+void _openRejectedDocument(Map<String, dynamic> data) {
+  final Object? kindWire = data['document_kind'];
+  if (kindWire is! String) {
+    return;
+  }
+  final DocumentKind kind = DocumentKind.fromWire(kindWire);
+  final Object? vehicleId = data['vehicle_id'];
+  final Object? reason = data['rejection_reason'];
+  WidgetsBinding.instance.addPostFrameCallback((_) {
+    AppNavigation.push<bool>(
+      AppRoutes.kycDocumentCapture,
+      arguments: DocumentCaptureArgs(
+        kind: kind,
+        vehicleId: vehicleId is String ? vehicleId : null,
+        rejectionReason:
+            reason is String && reason.trim().isNotEmpty ? reason : null,
+      ),
+    );
+  });
 }
