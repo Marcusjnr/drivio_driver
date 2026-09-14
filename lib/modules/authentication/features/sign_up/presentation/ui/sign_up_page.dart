@@ -1,10 +1,9 @@
+import 'package:drivio_driver/modules/authentication/features/sign_up/presentation/logic/controller/sign_up_controller.dart';
+import 'package:drivio_driver/modules/commons/all.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-
-import 'package:drivio_driver/modules/authentication/features/sign_up/presentation/logic/controller/sign_up_controller.dart';
-import 'package:drivio_driver/modules/commons/all.dart';
 
 /// SCR-003 — Sign Up.
 ///
@@ -60,8 +59,9 @@ class _SignUpPageState extends ConsumerState<SignUpPage> {
       // Auth metadata's `email` may just echo the synthetic phone email —
       // only prefill a real address.
       final String rawEmail = (meta['email'] as String?)?.trim() ?? '';
-      final String email =
-          rawEmail.endsWith('@drivio.internal') ? '' : rawEmail;
+      final String email = rawEmail.endsWith('@drivio.internal')
+          ? ''
+          : rawEmail;
       final String phone = (meta['phone'] as String?)?.trim() ?? '';
       // "+2347019703700" → "7019703700" for the +234-prefixed field.
       final String national = phone
@@ -76,8 +76,7 @@ class _SignUpPageState extends ConsumerState<SignUpPage> {
       // controller-state prefill to after the frame.
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
-        final SignUpController c =
-            ref.read(signUpControllerProvider.notifier);
+        final SignUpController c = ref.read(signUpControllerProvider.notifier);
         if (fullName.isNotEmpty) c.onFullNameChanged(fullName);
         if (email.isNotEmpty) c.onEmailChanged(email);
         if (national.isNotEmpty) c.onPhoneChanged(national);
@@ -99,8 +98,10 @@ class _SignUpPageState extends ConsumerState<SignUpPage> {
 
     final String name = (args['prefillName'] as String?)?.trim() ?? '';
     final String email = (args['prefillEmail'] as String?)?.trim() ?? '';
-    final String digits =
-        ((args['prefillPhone'] as String?) ?? '').replaceAll(RegExp(r'\D'), '');
+    final String digits = ((args['prefillPhone'] as String?) ?? '').replaceAll(
+      RegExp(r'\D'),
+      '',
+    );
     final String national = digits
         .replaceFirst(RegExp(r'^234'), '')
         .replaceFirst(RegExp(r'^0'), '');
@@ -165,10 +166,10 @@ class _SignUpPageState extends ConsumerState<SignUpPage> {
       final String phone = ref.read(signUpControllerProvider).normalizedPhone;
       // Navigate FIRST; the button only leaves its loading state once the
       // OTP page is gone again (back), never mid-transition.
-      await AppNavigation.push<void>(AppRoutes.otp, arguments: <String, String>{
-        'phone': phone,
-        'mode': 'signUp',
-      });
+      await AppNavigation.push<void>(
+        AppRoutes.otp,
+        arguments: <String, String>{'phone': phone, 'mode': 'signUp'},
+      );
       if (mounted) c.endLoading();
     }
   }
@@ -180,14 +181,13 @@ class _SignUpPageState extends ConsumerState<SignUpPage> {
     // From the waitlist lookup page (prefill map) — or the legacy
     // `arguments: true` form, kept for compatibility.
     final Object? routeArgs = ModalRoute.of(context)?.settings.arguments;
-    final bool fromWaitlist = routeArgs == true ||
+    final bool fromWaitlist =
+        routeArgs == true ||
         (routeArgs is Map && routeArgs['fromWaitlist'] == 'true');
 
     // Repair mode needs no password — the account already has one.
     final bool canSubmit = _completingProfile
-        ? state.fullName.trim().length >= 2 &&
-            state.phone.replaceAll(RegExp(r'\s'), '').length >= 10 &&
-            state.hasValidEmail
+        ? state.hasValidFullName && state.hasValidPhone && state.hasValidEmail
         : state.canSubmit;
 
     return ScreenScaffold(
@@ -197,6 +197,24 @@ class _SignUpPageState extends ConsumerState<SignUpPage> {
         completingProfile: _completingProfile,
         onPressed: _onContinue,
         onStartOver: _onStartOver,
+        onDisabledTap: () {
+          c.touchFullName();
+          c.touchEmail();
+          c.touchPhone();
+          if (!_completingProfile) {
+            c.touchPassword();
+          }
+          final List<String> reasons = <String>[
+            if (!state.hasValidFullName) 'your full name',
+            if (!state.hasValidEmail) 'a valid email',
+            if (!state.hasValidPhone) 'a valid phone number',
+            if (!_completingProfile && !state.hasValidPassword)
+              'a password of at least 8 characters',
+          ];
+          if (reasons.isNotEmpty) {
+            AppNotifier.warning(message: 'Still need: ${reasons.join(', ')}.');
+          }
+        },
       ),
       child: SingleChildScrollView(
         padding: const EdgeInsets.fromLTRB(24, 4, 24, 16),
@@ -220,9 +238,7 @@ class _SignUpPageState extends ConsumerState<SignUpPage> {
 
             // Marcellus screen title.
             Text(
-              _completingProfile
-                  ? 'Finish setting up'
-                  : 'Create your account',
+              _completingProfile ? 'Finish setting up' : 'Create your account',
               style: AppTextStyles.screenTitle.copyWith(color: context.text),
             ),
             const SizedBox(height: 8),
@@ -231,7 +247,7 @@ class _SignUpPageState extends ConsumerState<SignUpPage> {
             Text(
               _completingProfile
                   ? "Your account exists but your profile didn't finish "
-                      "saving. Confirm your details and you're in."
+                        "saving. Confirm your details and you're in."
                   : 'Phone, then a few quick details.',
               style: AppTextStyles.bodySm.copyWith(
                 color: context.textDim,
@@ -272,6 +288,10 @@ class _SignUpPageState extends ConsumerState<SignUpPage> {
               controller: _fullName,
               onChanged: c.onFullNameChanged,
               autofocus: true,
+              errorText: state.fullNameError,
+              onFocusChanged: (bool hasFocus) {
+                if (!hasFocus) c.touchFullName();
+              },
             ),
             const SizedBox(height: 14),
             DrivioInput(
@@ -279,11 +299,19 @@ class _SignUpPageState extends ConsumerState<SignUpPage> {
               keyboardType: TextInputType.emailAddress,
               controller: _email,
               onChanged: c.onEmailChanged,
+              errorText: state.emailError,
+              onFocusChanged: (bool hasFocus) {
+                if (!hasFocus) c.touchEmail();
+              },
             ),
             const SizedBox(height: 14),
             PhoneNumberInput(
               controller: _phone,
               onChanged: c.onPhoneChanged,
+              errorText: state.phoneError,
+              onFocusChanged: (bool hasFocus) {
+                if (!hasFocus) c.touchPhone();
+              },
             ),
             if (!_completingProfile) ...<Widget>[
               const SizedBox(height: 14),
@@ -292,20 +320,23 @@ class _SignUpPageState extends ConsumerState<SignUpPage> {
                 obscure: !_showPassword,
                 controller: _password,
                 onChanged: c.onPasswordChanged,
+                errorText: state.passwordError,
+                onFocusChanged: (bool hasFocus) {
+                  if (!hasFocus) c.touchPassword();
+                },
                 suffix: _PasswordEyeToggle(
                   visible: _showPassword,
-                  onTap: () =>
-                      setState(() => _showPassword = !_showPassword),
+                  onTap: () => setState(() => _showPassword = !_showPassword),
                 ),
               ),
             ],
-            const SizedBox(height: 14),
-            DrivioInput(
-              label: 'Referral code (optional)',
-              controller: _referral,
-              onChanged: c.onReferralChanged,
-            ),
 
+            // const SizedBox(height: 14),
+            // DrivioInput(
+            //   label: 'Referral code (optional)',
+            //   controller: _referral,
+            //   onChanged: c.onReferralChanged,
+            // ),
             if (state.error != null) ...<Widget>[
               const SizedBox(height: 16),
               _ErrorRow(message: state.error!),
@@ -327,6 +358,7 @@ class _BottomBar extends StatefulWidget {
     required this.completingProfile,
     required this.onPressed,
     required this.onStartOver,
+    required this.onDisabledTap,
   });
 
   final bool canSubmit;
@@ -334,6 +366,11 @@ class _BottomBar extends StatefulWidget {
   final bool completingProfile;
   final VoidCallback onPressed;
   final VoidCallback onStartOver;
+
+  /// Fires when the driver taps the CTA while it's disabled — reveals
+  /// every field's error at once instead of leaving them to guess which
+  /// field is wrong.
+  final VoidCallback onDisabledTap;
 
   @override
   State<_BottomBar> createState() => _BottomBarState();
@@ -366,12 +403,19 @@ class _BottomBarState extends State<_BottomBar> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: <Widget>[
-            DrivioButton(
-              label: widget.completingProfile
-                  ? (widget.isLoading ? 'Saving…' : 'Finish setup')
-                  : (widget.isLoading ? 'Sending code…' : 'Continue'),
-              disabled: !widget.canSubmit,
-              onPressed: widget.canSubmit ? widget.onPressed : null,
+            // A disabled DrivioButton's InkWell has no tap handler, so
+            // this outer detector is what catches a tap while invalid
+            // and reveals every field's error at once — useful when
+            // autofill left a field looking filled but not valid.
+            GestureDetector(
+              onTap: widget.canSubmit ? null : widget.onDisabledTap,
+              child: DrivioButton(
+                label: widget.completingProfile
+                    ? (widget.isLoading ? 'Saving…' : 'Finish setup')
+                    : (widget.isLoading ? 'Sending code…' : 'Continue'),
+                disabled: !widget.canSubmit,
+                onPressed: widget.canSubmit ? widget.onPressed : null,
+              ),
             ),
             const SizedBox(height: 12),
             Center(
@@ -476,9 +520,7 @@ class _PasswordEyeToggle extends StatelessWidget {
         width: 44,
         height: 44,
         child: Icon(
-          visible
-              ? Icons.visibility_outlined
-              : Icons.visibility_off_outlined,
+          visible ? Icons.visibility_outlined : Icons.visibility_off_outlined,
           size: 20,
           color: context.textDim,
         ),

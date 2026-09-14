@@ -1,5 +1,3 @@
-import 'dart:math';
-
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -21,6 +19,10 @@ class SignUpState {
     this.referralCode = '',
     this.isLoading = false,
     this.error,
+    this.fullNameTouched = false,
+    this.emailTouched = false,
+    this.phoneTouched = false,
+    this.passwordTouched = false,
   });
 
   final String fullName;
@@ -31,14 +33,69 @@ class SignUpState {
   final bool isLoading;
   final String? error;
 
+  /// A field is "touched" once the driver has focused then left it (or
+  /// tried to submit). Error text only shows for touched fields, so a
+  /// freshly-opened blank form doesn't greet them with four red boxes.
+  final bool fullNameTouched;
+  final bool emailTouched;
+  final bool phoneTouched;
+  final bool passwordTouched;
+
   bool get hasValidEmail => _emailRegex.hasMatch(email.trim());
   bool get hasValidPassword => password.length >= _minPasswordLength;
+  bool get hasValidFullName => fullName.trim().length >= 2;
+  bool get hasValidPhone => phone.replaceAll(RegExp(r'\s'), '').length >= 10;
 
   bool get canSubmit =>
-      fullName.trim().length >= 2 &&
-      phone.replaceAll(RegExp(r'\s'), '').length >= 10 &&
-      hasValidEmail &&
-      hasValidPassword;
+      hasValidFullName && hasValidPhone && hasValidEmail && hasValidPassword;
+
+  /// Why the button won't enable for this field, or null when it's fine
+  /// or not yet touched.
+  String? get fullNameError {
+    if (!fullNameTouched || hasValidFullName) {
+      return null;
+    }
+    return fullName.trim().isEmpty
+        ? 'Enter your full name.'
+        : 'Name must be at least 2 characters.';
+  }
+
+  String? get emailError {
+    if (!emailTouched || hasValidEmail) {
+      return null;
+    }
+    return email.trim().isEmpty
+        ? 'Enter your email address.'
+        : "That email doesn't look right.";
+  }
+
+  String? get phoneError {
+    if (!phoneTouched || hasValidPhone) {
+      return null;
+    }
+    return phone.trim().isEmpty
+        ? 'Enter your phone number.'
+        : 'Enter a valid phone number.';
+  }
+
+  String? get passwordError {
+    if (!passwordTouched || hasValidPassword) {
+      return null;
+    }
+    return password.isEmpty
+        ? 'Enter a password.'
+        : 'Password must be at least 8 characters.';
+  }
+
+  /// Every reason the button is currently disabled, for a driver who's
+  /// touched nothing yet and wants the whole picture at a glance (e.g.
+  /// after pasting in a password manager and tapping Continue early).
+  List<String> get blockingReasons => <String>[
+    if (!hasValidFullName) 'your full name',
+    if (!hasValidEmail) 'a valid email',
+    if (!hasValidPhone) 'a valid phone number',
+    if (!hasValidPassword) 'a password of at least 8 characters',
+  ];
 
   /// E.164-style phone string. Surface identifier shown to the driver
   /// + stored in `profiles.phone_e164`. Supabase auth itself uses a
@@ -67,6 +124,10 @@ class SignUpState {
     bool? isLoading,
     String? error,
     bool clearError = false,
+    bool? fullNameTouched,
+    bool? emailTouched,
+    bool? phoneTouched,
+    bool? passwordTouched,
   }) {
     return SignUpState(
       fullName: fullName ?? this.fullName,
@@ -76,6 +137,10 @@ class SignUpState {
       referralCode: referralCode ?? this.referralCode,
       isLoading: isLoading ?? this.isLoading,
       error: clearError ? null : (error ?? this.error),
+      fullNameTouched: fullNameTouched ?? this.fullNameTouched,
+      emailTouched: emailTouched ?? this.emailTouched,
+      phoneTouched: phoneTouched ?? this.phoneTouched,
+      passwordTouched: passwordTouched ?? this.passwordTouched,
     );
   }
 }
@@ -99,6 +164,25 @@ class SignUpController extends StateNotifier<SignUpState> {
 
   void onReferralChanged(String v) =>
       state = state.copyWith(referralCode: v, clearError: true);
+
+  /// Called on blur (focus lost). Errors for a field only render once
+  /// it's been touched, so opening the form doesn't show four errors
+  /// at once.
+  void touchFullName() => state = state.copyWith(fullNameTouched: true);
+  void touchEmail() => state = state.copyWith(emailTouched: true);
+  void touchPhone() => state = state.copyWith(phoneTouched: true);
+  void touchPassword() => state = state.copyWith(passwordTouched: true);
+
+  /// Reveal every field's error at once — used when the driver taps the
+  /// disabled Continue button instead of methodically tabbing through
+  /// fields (e.g. after autofill leaves one field looking filled but
+  /// invalid).
+  void touchAll() => state = state.copyWith(
+    fullNameTouched: true,
+    emailTouched: true,
+    phoneTouched: true,
+    passwordTouched: true,
+  );
 
   /// Sends the phone OTP via Termii, then lets the page navigate to the
   /// OTP screen. In dev mode no SMS goes out — the screen accepts the
@@ -126,6 +210,16 @@ class SignUpController extends StateNotifier<SignUpState> {
   /// flashes back to idle while the route transition is running.
   void endLoading() => state = state.copyWith(isLoading: false);
 
+  /// Completes sign-up via `complete_driver_signup` — one atomic,
+  /// idempotent RPC (mirrors the rider app's `complete_passenger_signup`)
+  /// instead of two separate raw inserts. The old two-insert version
+  /// could leave a driver with a live auth account and no `profiles` /
+  /// `drivers` row if the second insert never ran (network blip, app
+  /// kill, anything) — a "half-created account" that then made every
+  /// retry fail on Supabase Auth's own "already registered" for the
+  /// synthetic email. Being idempotent, this is now always safe to
+  /// re-run: a driver stuck mid-signup just lands here again and it
+  /// finishes cleanly.
   Future<bool> submitProfile() async {
     state = state.copyWith(isLoading: true, clearError: true);
 
@@ -142,19 +236,15 @@ class SignUpController extends StateNotifier<SignUpState> {
       final String trimmedEmail = state.email.trim();
       final String trimmedReferral = state.referralCode.trim();
 
-      await _supabase.db('profiles').insert(<String, dynamic>{
-        'user_id': user.id,
-        'full_name': state.fullName.trim(),
-        'phone_e164': state.normalizedPhone,
-        'email': trimmedEmail,
-        'referral_code': _generateReferralCode(),
-        'referred_by': trimmedReferral.isEmpty ? null : trimmedReferral,
-      });
-
-      await _supabase.db('drivers').insert(<String, dynamic>{
-        'user_id': user.id,
-        'kyc_status': 'not_started',
-      });
+      await _supabase.client.rpc<dynamic>(
+        'complete_driver_signup',
+        params: <String, dynamic>{
+          'p_full_name': state.fullName.trim(),
+          'p_email': trimmedEmail,
+          'p_phone_e164': state.normalizedPhone,
+          'p_referred_by': trimmedReferral.isEmpty ? null : trimmedReferral,
+        },
+      );
 
       final MixpanelService mp = locator<MixpanelService>();
       mp.identifyUser(user.id);
@@ -168,28 +258,19 @@ class SignUpController extends StateNotifier<SignUpState> {
       // Success: stay loading — the page navigates to home next.
       return true;
     } on PostgrestException catch (e) {
-      final bool isDuplicate =
-          e.code == '23505' || e.message.contains('duplicate');
-      // Name the colliding field — a bare "account already exists" is a
-      // dead end when it's actually the email that's taken.
-      final String duplicateMessage;
-      if (e.message.contains('profiles_email_unique')) {
-        duplicateMessage =
-            'That email is already on another Drivio account. Use a '
-            'different email, or sign in with the number it belongs to.';
-      } else if (e.message.contains('profiles_phone_e164_unique')) {
-        duplicateMessage =
-            'That phone number is already on another account. '
-            'Sign in with it instead.';
+      final String message = e.message.toLowerCase();
+      final String friendly;
+      if (message.contains('signup_conflict')) {
+        // A genuine residual race (see the RPC) — safe to just retry.
+        friendly = 'Something changed while signing you up. Please try again.';
+      } else if (message.contains('name_too_short')) {
+        friendly = 'Enter your full name.';
+      } else if (message.contains('phone_invalid')) {
+        friendly = 'Enter a valid phone number.';
       } else {
-        duplicateMessage = 'Account already exists. Try signing in instead.';
+        friendly = 'Something went wrong. Please try again.';
       }
-      state = state.copyWith(
-        isLoading: false,
-        error: isDuplicate
-            ? duplicateMessage
-            : 'Something went wrong. Please try again.',
-      );
+      state = state.copyWith(isLoading: false, error: friendly);
       return false;
     } catch (_) {
       state = state.copyWith(
@@ -201,17 +282,6 @@ class SignUpController extends StateNotifier<SignUpState> {
   }
 
   void reset() => state = const SignUpState();
-
-  static String _generateReferralCode() {
-    const String chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-    final Random rng = Random.secure();
-    return String.fromCharCodes(
-      Iterable<int>.generate(
-        6,
-        (_) => chars.codeUnitAt(rng.nextInt(chars.length)),
-      ),
-    );
-  }
 }
 
 final StateNotifierProvider<SignUpController, SignUpState>
