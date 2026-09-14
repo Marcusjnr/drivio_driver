@@ -275,6 +275,7 @@ class _VehicleGroup extends StatelessWidget {
     final bool approved = active != null;
     final bool changeRequested = active != null && pending != null;
     final bool inReview = !approved && pending != null;
+    final bool rejected = hasRejectedVehicleDocument(state.documentsByKind);
     final String vehicleTitle = v == null
         ? 'No active vehicle'
         : '${v.make} ${v.model}${v.year > 0 ? ' · ${v.year}' : ''}';
@@ -282,26 +283,37 @@ class _VehicleGroup extends StatelessWidget {
     final String plateBit = v == null
         ? ''
         : '${v.plate}${(colour == null || colour.isEmpty) ? '' : ' · ${colour.toLowerCase()}'}';
-    final String vehicleSub = v == null
-        ? 'Add or activate one to receive requests'
-        : inReview
-            ? '$plateBit · In review'
-            : plateBit;
+    final String vehicleSub = rejected
+        ? 'Needs another look — tap to fix'
+        : v == null
+            ? 'Add or activate one to receive requests'
+            : inReview
+                ? '$plateBit · In review'
+                : plateBit;
     return _Group(
       title: 'VEHICLE',
       children: <Widget>[
         FieldRow(
           label: vehicleTitle,
           value: vehicleSub,
-          right: approved
-              ? Icon(DrivioIcons.checkCircle, size: 18, color: context.accent)
-              : inReview
-                  ? Icon(DrivioIcons.refresh, size: 18, color: context.amber)
-                  : null,
+          right: rejected
+              ? Icon(DrivioIcons.close, size: 18, color: context.red)
+              : approved
+                  ? Icon(DrivioIcons.checkCircle,
+                      size: 18, color: context.accent)
+                  : inReview
+                      ? Icon(DrivioIcons.refresh,
+                          size: 18, color: context.amber)
+                      : null,
           divider: changeRequested,
-          onTap: v == null
-              ? () => AppNavigation.push(AppRoutes.addVehicle)
-              : () => AppNavigation.push(AppRoutes.vehicleDetails),
+          // A live rejection always wins the tap target — never send a
+          // driver with a rejected vehicle document back into "Add a
+          // vehicle" (that's what created duplicate vehicles before).
+          onTap: rejected
+              ? () => AppNavigation.push(AppRoutes.kycRejectedItems)
+              : v == null
+                  ? () => AppNavigation.push(AppRoutes.addVehicle)
+                  : () => AppNavigation.push(AppRoutes.vehicleDetails),
         ),
         // A requested swap reads as a second line under the current
         // vehicle: what they drive today above, what is coming below.

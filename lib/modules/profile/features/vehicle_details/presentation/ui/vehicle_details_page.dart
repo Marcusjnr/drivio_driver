@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shimmer/shimmer.dart';
 
 import 'package:drivio_driver/modules/commons/all.dart';
+import 'package:drivio_driver/modules/commons/types/document.dart';
 import 'package:drivio_driver/modules/commons/types/vehicle.dart';
 import 'package:drivio_driver/modules/commons/widgets/detail_scaffold.dart';
 import 'package:drivio_driver/modules/dash/features/profile_hub/presentation/logic/controller/profile_hub_controller.dart';
@@ -14,6 +15,7 @@ class VehicleDetailsPage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final ProfileHubState state = ref.watch(profileHubControllerProvider);
     final Vehicle? v = state.activeVehicle;
+    final bool rejected = hasRejectedVehicleDocument(state.documentsByKind);
 
     if (state.isLoading && v == null) {
       return DetailScaffold(
@@ -31,15 +33,19 @@ class VehicleDetailsPage extends ConsumerWidget {
       return DetailScaffold(
         title: 'Vehicle details',
         footer: DrivioButton(
-          label: 'Add a vehicle',
-          onPressed: () => AppNavigation.push(AppRoutes.addVehicle),
+          label: rejected ? 'Review what needs fixing' : 'Add a vehicle',
+          onPressed: () => AppNavigation.push(
+            rejected ? AppRoutes.kycRejectedItems : AppRoutes.addVehicle,
+          ),
         ),
         children: <Widget>[
           Padding(
             padding: const EdgeInsets.symmetric(vertical: 30),
             child: Center(
               child: Text(
-                'No active vehicle on your account.',
+                rejected
+                    ? 'One or more of your vehicle documents need another look.'
+                    : 'No active vehicle on your account.',
                 style: AppTextStyles.bodySm.copyWith(color: context.textDim),
               ),
             ),
@@ -66,6 +72,12 @@ class VehicleDetailsPage extends ConsumerWidget {
               onPressed: () => AppNavigation.push(AppRoutes.vehicleChange),
             ),
       children: <Widget>[
+        if (rejected) ...<Widget>[
+          _VehicleRejectedBanner(
+            onTap: () => AppNavigation.push(AppRoutes.kycRejectedItems),
+          ),
+          const SizedBox(height: 16),
+        ],
         if (pendingChange != null) ...<Widget>[
           _ChangeRequestSection(pending: pendingChange, current: v),
           const SizedBox(height: 16),
@@ -133,6 +145,51 @@ class VehicleDetailsPage extends ConsumerWidget {
   static String? _titleCase(String? s) {
     if (s == null || s.isEmpty) return null;
     return s[0].toUpperCase() + s.substring(1).toLowerCase();
+  }
+}
+
+class _VehicleRejectedBanner extends StatelessWidget {
+  const _VehicleRejectedBanner({required this.onTap});
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: AppRadius.base,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        decoration: BoxDecoration(
+          color: context.red.withValues(alpha: 0.10),
+          borderRadius: AppRadius.base,
+          border: Border.all(color: context.red.withValues(alpha: 0.35)),
+        ),
+        child: Row(
+          children: <Widget>[
+            Icon(DrivioIcons.close, size: 18, color: context.red),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                'One or more vehicle documents need another look.',
+                style: AppTextStyles.bodySm.copyWith(
+                  color: context.text,
+                  height: 1.4,
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Text(
+              'Fix',
+              style: AppTextStyles.captionSm.copyWith(
+                fontSize: 11,
+                color: context.red,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
 
