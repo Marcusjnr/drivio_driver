@@ -28,6 +28,7 @@ class DrivioInput extends ConsumerStatefulWidget {
     this.compact = false,
     this.autofocus = false,
     this.errorText,
+    this.onFocusChanged,
   });
 
   final String? label;
@@ -42,6 +43,11 @@ class DrivioInput extends ConsumerStatefulWidget {
   final bool compact;
   final bool autofocus;
   final String? errorText;
+
+  /// Fires with the new focus state whenever this field gains or loses
+  /// focus. Callers use the `false` (blur) edge to mark a field
+  /// "touched" before showing its [errorText].
+  final ValueChanged<bool>? onFocusChanged;
 
   @override
   ConsumerState<DrivioInput> createState() => _DrivioInputState();
@@ -68,6 +74,7 @@ class _DrivioInputState extends ConsumerState<DrivioInput> {
     // Repaint when focus changes so the border/label colors animate
     // through the InputDecorator's own state.
     setState(() {});
+    widget.onFocusChanged?.call(_focus.hasFocus);
   }
 
   @override

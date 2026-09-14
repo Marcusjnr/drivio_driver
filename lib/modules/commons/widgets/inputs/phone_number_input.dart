@@ -20,6 +20,8 @@ class PhoneNumberInput extends ConsumerStatefulWidget {
     this.label = 'Phone',
     this.hint = '801 234 5678',
     this.autofocus = false,
+    this.errorText,
+    this.onFocusChanged,
   });
 
   final TextEditingController? controller;
@@ -29,6 +31,13 @@ class PhoneNumberInput extends ConsumerStatefulWidget {
   final String label;
   final String hint;
   final bool autofocus;
+
+  /// See [DrivioInput.errorText] — shown below the field and turns the
+  /// border red.
+  final String? errorText;
+
+  /// See [DrivioInput.onFocusChanged].
+  final ValueChanged<bool>? onFocusChanged;
 
   @override
   ConsumerState<PhoneNumberInput> createState() => _PhoneNumberInputState();
@@ -53,6 +62,7 @@ class _PhoneNumberInputState extends ConsumerState<PhoneNumberInput> {
 
   void _onFocusChange() {
     setState(() {});
+    widget.onFocusChanged?.call(_focus.hasFocus);
   }
 
   @override
@@ -68,6 +78,10 @@ class _PhoneNumberInputState extends ConsumerState<PhoneNumberInput> {
     final OutlineInputBorder focused = OutlineInputBorder(
       borderRadius: BorderRadius.circular(14),
       borderSide: BorderSide(color: focusColor, width: 1.5),
+    );
+    final OutlineInputBorder errored = OutlineInputBorder(
+      borderRadius: BorderRadius.circular(14),
+      borderSide: BorderSide(color: context.red, width: 1.5),
     );
 
     return TextField(
@@ -119,6 +133,10 @@ class _PhoneNumberInputState extends ConsumerState<PhoneNumberInput> {
         border: enabled,
         enabledBorder: enabled,
         focusedBorder: focused,
+        errorBorder: errored,
+        focusedErrorBorder: errored,
+        errorText: widget.errorText,
+        errorStyle: AppTextStyles.captionSm.copyWith(color: context.red),
       ),
     );
   }
