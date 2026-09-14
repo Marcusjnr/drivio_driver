@@ -236,6 +236,14 @@ class _SignInPageState extends ConsumerState<SignInPage> {
         canSubmit: state.canSubmit && !state.isLoading,
         isLoading: state.isLoading,
         onSignIn: _onSignIn,
+        onDisabledTap: () {
+          c.touchAll();
+          if (state.blockingReasons.isNotEmpty) {
+            AppNotifier.warning(
+              message: 'Still need: ${state.blockingReasons.join(', ')}.',
+            );
+          }
+        },
       ),
       child: SingleChildScrollView(
         padding: const EdgeInsets.fromLTRB(24, 4, 24, 16),
@@ -272,6 +280,10 @@ class _SignInPageState extends ConsumerState<SignInPage> {
               controller: _phone,
               onChanged: c.onPhoneChanged,
               autofocus: true,
+              errorText: state.phoneError,
+              onFocusChanged: (bool hasFocus) {
+                if (!hasFocus) c.touchPhone();
+              },
             ),
             const SizedBox(height: 14),
 
@@ -280,6 +292,10 @@ class _SignInPageState extends ConsumerState<SignInPage> {
               obscure: !_showPassword,
               controller: _password,
               onChanged: c.onPasswordChanged,
+              errorText: state.passwordError,
+              onFocusChanged: (bool hasFocus) {
+                if (!hasFocus) c.touchPassword();
+              },
               suffix: _PasswordEyeToggle(
                 visible: _showPassword,
                 onTap: () => setState(() => _showPassword = !_showPassword),
@@ -401,11 +417,16 @@ class _BottomBar extends StatelessWidget {
     required this.canSubmit,
     required this.isLoading,
     required this.onSignIn,
+    required this.onDisabledTap,
   });
 
   final bool canSubmit;
   final bool isLoading;
   final VoidCallback onSignIn;
+
+  /// Fires when the driver taps the CTA while it's disabled — reveals
+  /// both fields' errors at once instead of leaving them to guess.
+  final VoidCallback onDisabledTap;
 
   @override
   Widget build(BuildContext context) {
@@ -417,10 +438,15 @@ class _BottomBar extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: <Widget>[
-            DrivioButton(
-              label: isLoading ? 'Signing in…' : 'Sign in',
-              disabled: !canSubmit,
-              onPressed: canSubmit ? onSignIn : null,
+            // A disabled DrivioButton's InkWell has no tap handler, so
+            // this outer detector is what catches a tap while invalid.
+            GestureDetector(
+              onTap: canSubmit ? null : onDisabledTap,
+              child: DrivioButton(
+                label: isLoading ? 'Signing in…' : 'Sign in',
+                disabled: !canSubmit,
+                onPressed: canSubmit ? onSignIn : null,
+              ),
             ),
           ],
         ),

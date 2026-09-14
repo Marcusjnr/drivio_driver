@@ -19,6 +19,8 @@ class SignInState {
     this.password = '',
     this.isLoading = false,
     this.error,
+    this.phoneTouched = false,
+    this.passwordTouched = false,
   });
 
   /// Local digits the driver typed (without the +234 dial prefix).
@@ -27,11 +29,44 @@ class SignInState {
   final bool isLoading;
   final String? error;
 
+  /// Set on blur (or on a tap of the disabled button). Field errors only
+  /// render once touched, so opening the page doesn't show two errors
+  /// on an empty form.
+  final bool phoneTouched;
+  final bool passwordTouched;
+
   bool get hasValidPhone =>
       _phoneDigitsRegex.hasMatch(phone.replaceAll(RegExp(r'\D'), ''));
   bool get hasValidPassword => password.length >= _minPasswordLength;
 
   bool get canSubmit => hasValidPhone && hasValidPassword;
+
+  /// Why the button won't enable for this field, or null when it's fine
+  /// or not yet touched.
+  String? get phoneError {
+    if (!phoneTouched || hasValidPhone) {
+      return null;
+    }
+    return phone.trim().isEmpty
+        ? 'Enter your phone number.'
+        : 'Enter a valid phone number.';
+  }
+
+  String? get passwordError {
+    if (!passwordTouched || hasValidPassword) {
+      return null;
+    }
+    return password.isEmpty
+        ? 'Enter your password.'
+        : 'Password must be at least 8 characters.';
+  }
+
+  /// Every reason the button is currently disabled, for the toast shown
+  /// on a tap while disabled.
+  List<String> get blockingReasons => <String>[
+    if (!hasValidPhone) 'a valid phone number',
+    if (!hasValidPassword) 'your password',
+  ];
 
   /// E.164-style phone string, and the basis of the synthetic email the
   /// Supabase auth record is keyed on.
@@ -52,12 +87,16 @@ class SignInState {
     bool? isLoading,
     String? error,
     bool clearError = false,
+    bool? phoneTouched,
+    bool? passwordTouched,
   }) {
     return SignInState(
       phone: phone ?? this.phone,
       password: password ?? this.password,
       isLoading: isLoading ?? this.isLoading,
       error: clearError ? null : (error ?? this.error),
+      phoneTouched: phoneTouched ?? this.phoneTouched,
+      passwordTouched: passwordTouched ?? this.passwordTouched,
     );
   }
 }
@@ -75,6 +114,15 @@ class SignInController extends StateNotifier<SignInState> {
 
   void onPasswordChanged(String value) =>
       state = state.copyWith(password: value, clearError: true);
+
+  /// Called on blur (focus lost).
+  void touchPhone() => state = state.copyWith(phoneTouched: true);
+  void touchPassword() => state = state.copyWith(passwordTouched: true);
+
+  /// Reveal both fields' errors at once — used when the driver taps the
+  /// disabled Sign in button instead of tabbing through fields.
+  void touchAll() =>
+      state = state.copyWith(phoneTouched: true, passwordTouched: true);
 
   /// Signs in with what the driver typed. Returns true on success; the
   /// page then resolves the bootstrap route.
