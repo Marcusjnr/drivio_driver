@@ -93,6 +93,23 @@ class _RejectedItemsPageState extends ConsumerState<RejectedItemsPage> {
     final bool allDone = items.isNotEmpty &&
         items.every((RejectedDocumentItem i) => _completed.contains(i.kind));
 
+    if (allDone) {
+      return ScreenScaffold(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 4, 20, 0),
+              child: BackButtonBox(onTap: () => AppNavigation.pop()),
+            ),
+            Expanded(
+              child: _AllDoneView(onDone: () => AppNavigation.pop()),
+            ),
+          ],
+        ),
+      );
+    }
+
     return ScreenScaffold(
       child: SingleChildScrollView(
         padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
@@ -107,11 +124,9 @@ class _RejectedItemsPageState extends ConsumerState<RejectedItemsPage> {
             ),
             const SizedBox(height: 6),
             Text(
-              allDone
-                  ? "You're all set — we'll review this shortly."
-                  : items.isEmpty
-                      ? 'Nothing needs fixing right now.'
-                      : 'A few things need another look. Fix each one below.',
+              items.isEmpty
+                  ? 'Nothing needs fixing right now.'
+                  : 'A few things need another look. Fix each one below.',
               style: AppTextStyles.bodySm.copyWith(color: context.textDim),
             ),
             const SizedBox(height: 22),
@@ -125,6 +140,82 @@ class _RejectedItemsPageState extends ConsumerState<RejectedItemsPage> {
             ],
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// Shown once every rejected item has been re-uploaded. Replaces the
+/// checklist entirely rather than just tweaking its subtitle — the driver
+/// just finished a multi-step fix flow and this is the payoff moment, so
+/// it gets its own animated confirmation rather than a quiet text change.
+class _AllDoneView extends StatelessWidget {
+  const _AllDoneView({required this.onDone});
+  final VoidCallback onDone;
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: <Widget>[
+            _AnimatedCheckmark(color: context.accent),
+            const SizedBox(height: 24),
+            Text(
+              'Submitted for review.',
+              textAlign: TextAlign.center,
+              style: AppTextStyles.h1.copyWith(color: context.text),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              "Your documents are back in review. We'll notify you once "
+              "they're approved.",
+              textAlign: TextAlign.center,
+              style: AppTextStyles.bodySm.copyWith(
+                color: context.textDim,
+                height: 1.5,
+              ),
+            ),
+            const SizedBox(height: 28),
+            DrivioButton(label: 'Back to home', onPressed: onDone),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// A single-play scale-and-fade checkmark reveal. `TweenAnimationBuilder`
+/// only replays when its `tween`/`duration` change (never when a parent
+/// rebuilds with the same values), so this animates in once and then
+/// holds still — no replay on unrelated state changes.
+class _AnimatedCheckmark extends StatelessWidget {
+  const _AnimatedCheckmark({required this.color});
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return TweenAnimationBuilder<double>(
+      tween: Tween<double>(begin: 0, end: 1),
+      duration: const Duration(milliseconds: 500),
+      curve: Curves.easeOutBack,
+      builder: (BuildContext _, double t, Widget? child) {
+        return Opacity(
+          opacity: t.clamp(0.0, 1.0).toDouble(),
+          child: Transform.scale(scale: t, child: child),
+        );
+      },
+      child: Container(
+        width: 88,
+        height: 88,
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.14),
+          shape: BoxShape.circle,
+          border: Border.all(color: color.withValues(alpha: 0.4), width: 2),
+        ),
+        child: Icon(DrivioIcons.check, size: 44, color: color),
       ),
     );
   }

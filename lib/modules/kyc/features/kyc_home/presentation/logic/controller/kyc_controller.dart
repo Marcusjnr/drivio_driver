@@ -118,6 +118,7 @@ class KycState {
     this.overall = KycOverallStatus.notStarted,
     this.steps = const <KycStep>[],
     this.rejectedItems = const <RejectedDocumentItem>[],
+    this.hasPendingReviewItems = false,
     this.isLoading = false,
     this.isSubmitting = false,
     this.error,
@@ -130,6 +131,15 @@ class KycState {
   /// selfie, vehicle registration, and the 4 vehicle photos. Drives the
   /// home banner's "needs attention" state and `RejectedItemsPage`.
   final List<RejectedDocumentItem> rejectedItems;
+
+  /// True when a previously-rejected in-scope document was just
+  /// re-uploaded and is now `pending` re-review — i.e. its immediately
+  /// prior row for that same kind was `rejected`. Drives the home
+  /// banner's "back in review" state, distinct from `hasRejectedItems`:
+  /// this fires for the interval between "driver fixed it" and "admin
+  /// reviewed it again," which `kyc_status` never reflects for an
+  /// already-approved driver (it's deliberately never demoted).
+  final bool hasPendingReviewItems;
   final bool isLoading;
   final bool isSubmitting;
   final String? error;
@@ -171,6 +181,7 @@ class KycState {
     KycOverallStatus? overall,
     List<KycStep>? steps,
     List<RejectedDocumentItem>? rejectedItems,
+    bool? hasPendingReviewItems,
     bool? isLoading,
     bool? isSubmitting,
     String? error,
@@ -180,6 +191,8 @@ class KycState {
       overall: overall ?? this.overall,
       steps: steps ?? this.steps,
       rejectedItems: rejectedItems ?? this.rejectedItems,
+      hasPendingReviewItems:
+          hasPendingReviewItems ?? this.hasPendingReviewItems,
       isLoading: isLoading ?? this.isLoading,
       isSubmitting: isSubmitting ?? this.isSubmitting,
       error: clearError ? null : (error ?? this.error),
@@ -204,6 +217,7 @@ class KycController extends StateNotifier<KycState> {
         overall: KycOverallStatus.fromWire(snap.kycStatus),
         steps: _buildSteps(snap),
         rejectedItems: _buildRejectedItems(snap),
+        hasPendingReviewItems: _buildHasPendingReviewItems(snap),
         isLoading: false,
       );
     } catch (_) {
@@ -268,6 +282,25 @@ class KycController extends StateNotifier<KycState> {
       );
     }
     return items;
+  }
+
+  /// True if any in-scope kind's latest document is `pending` immediately
+  /// after a `rejected` one for that SAME kind — i.e. the driver just
+  /// fixed something and it's awaiting re-review. `snap.documents` holds
+  /// every document ever created for this owner (not just the latest per
+  /// kind), already newest-first, so this needs no extra fetch.
+  bool _buildHasPendingReviewItems(KycSnapshot snap) {
+    for (final DocumentKind kind in _inScopeKinds) {
+      final List<Document> docsOfKind = snap.documents
+          .where((Document d) => d.kind == kind)
+          .toList(growable: false);
+      if (docsOfKind.length < 2) continue;
+      if (docsOfKind[0].status == DocumentStatus.pending &&
+          docsOfKind[1].status == DocumentStatus.rejected) {
+        return true;
+      }
+    }
+    return false;
   }
 
   List<KycStep> _buildSteps(KycSnapshot snap) {

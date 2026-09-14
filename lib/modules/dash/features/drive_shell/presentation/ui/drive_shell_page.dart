@@ -216,9 +216,14 @@ class _DriveShellPageState extends ConsumerState<DriveShellPage>
     final DriveShellState shell = ref.watch(driveShellControllerProvider);
     final HomeState home = ref.watch(homeControllerProvider);
     final HomeController homeC = ref.read(homeControllerProvider.notifier);
-    final (KycOverallStatus, bool, bool) kycGate = ref.watch(
+    final (KycOverallStatus, bool, bool, bool) kycGate = ref.watch(
       kycControllerProvider.select(
-        (KycState s) => (s.overall, s.livenessPassed, s.hasRejectedItems),
+        (KycState s) => (
+          s.overall,
+          s.livenessPassed,
+          s.hasRejectedItems,
+          s.hasPendingReviewItems,
+        ),
       ),
     );
     final KycOverallStatus kycStatus = kycGate.$1;
@@ -227,6 +232,7 @@ class _DriveShellPageState extends ConsumerState<DriveShellPage>
     final bool kycComplete =
         kycStatus == KycOverallStatus.approved && kycGate.$2;
     final bool kycHasRejectedItems = kycGate.$3;
+    final bool kycHasPendingReviewItems = kycGate.$4;
     final SubscriptionState subState = ref.watch(
       subscriptionControllerProvider,
     );
@@ -395,7 +401,14 @@ class _DriveShellPageState extends ConsumerState<DriveShellPage>
 
     final Widget topOverlay = _buildTopOverlay(shell, home);
     final Widget? banner =
-        _buildBanner(shell, home, kycComplete, kycStatus, kycHasRejectedItems);
+        _buildBanner(
+          shell,
+          home,
+          kycComplete,
+          kycStatus,
+          kycHasRejectedItems,
+          kycHasPendingReviewItems,
+        );
     final Widget? subTop = _buildSubTopArea(shell);
     // The driver's own per-km rate, straight from their pricing profile —
     // the same number the Pricing tab edits and the bid composer builds
@@ -1206,12 +1219,18 @@ class _DriveShellPageState extends ConsumerState<DriveShellPage>
     bool kycComplete,
     KycOverallStatus kycStatus,
     bool kycHasRejectedItems,
+    bool kycHasPendingReviewItems,
   ) {
     if (!shell.isIdle) return null;
     // Checked BEFORE kycComplete: an already-approved, driving driver
     // whose license renewal (or anything else) gets rejected later must
     // still see this — kycComplete alone would hide it from them.
     if (kycHasRejectedItems) return const _KycRejectedBanner();
+    // A driver who just fixed a rejected item sees this instead of the
+    // banner just disappearing — the fixed document is `pending` again,
+    // not yet re-approved, and `kyc_status` never reflects that gap for
+    // an already-approved driver (it's deliberately never demoted).
+    if (kycHasPendingReviewItems) return const _DocumentsInReviewBanner();
     // High-demand highlight hidden for now — the banner used hardcoded
     // placeholder copy. Re-enable once the real demand signal ships.
     // if (home.isOnline) return _DemandBanner();
@@ -1561,6 +1580,56 @@ class _KycRejectedBanner extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// Shown while a document the driver just re-uploaded (after a rejection)
+/// is awaiting admin re-review. Distinct from [_KycRejectedBanner]: that
+/// one means "you need to act," this one means "we've got it, hang
+/// tight" — informational only, no CTA, in the app's existing "positive
+/// progress" tone (matching `RejectedItemsPage`'s own "Uploaded" state).
+class _DocumentsInReviewBanner extends StatelessWidget {
+  const _DocumentsInReviewBanner();
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: () => AppNavigation.push<void>(AppRoutes.kycHome),
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        decoration: BoxDecoration(
+          color: context.surface.withValues(alpha: 0.92),
+          border: Border.all(color: context.accent.withValues(alpha: 0.35)),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Row(
+          children: <Widget>[
+            Icon(DrivioIcons.refresh, size: 16, color: context.accent),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  Text(
+                    'Documents in review',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: context.accent,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  Text(
+                    "We're reviewing what you just fixed.",
+                    style: TextStyle(fontSize: 11, color: context.text),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

@@ -174,4 +174,108 @@ void main() {
       );
     });
   });
+
+  group('KycController.refresh — hasPendingReviewItems', () {
+    test(
+        'true when a rejected document was just superseded by a pending '
+        'one of the same kind', () async {
+      final KycSnapshot snap = KycSnapshot(
+        kycStatus: 'approved',
+        bvnVerifiedAt: null,
+        ninVerifiedAt: DateTime(2026, 1, 1),
+        livenessPassedAt: DateTime(2026, 1, 1),
+        driversLicenceVerifiedAt: null,
+        vehicleId: 'vehicle-1',
+        documents: <Document>[
+          _doc(
+            kind: DocumentKind.vehicleReg,
+            status: DocumentStatus.pending,
+            createdAt: DateTime(2026, 2, 1),
+          ),
+          _doc(
+            kind: DocumentKind.vehicleReg,
+            status: DocumentStatus.rejected,
+            createdAt: DateTime(2026, 1, 1),
+          ),
+        ],
+      );
+      final KycController c = KycController(_FakeKycRepository(snap));
+      await c.refresh();
+
+      expect(c.state.hasPendingReviewItems, isTrue);
+      expect(c.state.rejectedItems, isEmpty);
+    });
+
+    test('false when the latest document was never preceded by a rejection',
+        () async {
+      final KycSnapshot snap = KycSnapshot(
+        kycStatus: 'approved',
+        bvnVerifiedAt: null,
+        ninVerifiedAt: DateTime(2026, 1, 1),
+        livenessPassedAt: DateTime(2026, 1, 1),
+        driversLicenceVerifiedAt: null,
+        vehicleId: 'vehicle-1',
+        documents: <Document>[
+          _doc(kind: DocumentKind.vehicleReg, status: DocumentStatus.pending),
+        ],
+      );
+      final KycController c = KycController(_FakeKycRepository(snap));
+      await c.refresh();
+
+      expect(c.state.hasPendingReviewItems, isFalse);
+    });
+
+    test('false while the item is still rejected (not yet re-uploaded)',
+        () async {
+      final KycSnapshot snap = KycSnapshot(
+        kycStatus: 'approved',
+        bvnVerifiedAt: null,
+        ninVerifiedAt: DateTime(2026, 1, 1),
+        livenessPassedAt: DateTime(2026, 1, 1),
+        driversLicenceVerifiedAt: null,
+        vehicleId: 'vehicle-1',
+        documents: <Document>[
+          _doc(
+            kind: DocumentKind.vehicleReg,
+            status: DocumentStatus.rejected,
+            rejectionReason: 'Blurry',
+          ),
+        ],
+      );
+      final KycController c = KycController(_FakeKycRepository(snap));
+      await c.refresh();
+
+      expect(c.state.hasPendingReviewItems, isFalse);
+      expect(c.state.hasRejectedItems, isTrue);
+    });
+
+    test(
+        'a rejected licence does not leak into an unrelated kind\'s '
+        'pending-review check', () async {
+      final KycSnapshot snap = KycSnapshot(
+        kycStatus: 'approved',
+        bvnVerifiedAt: null,
+        ninVerifiedAt: DateTime(2026, 1, 1),
+        livenessPassedAt: DateTime(2026, 1, 1),
+        driversLicenceVerifiedAt: null,
+        vehicleId: 'vehicle-1',
+        documents: <Document>[
+          _doc(
+            kind: DocumentKind.driversLicence,
+            status: DocumentStatus.rejected,
+            createdAt: DateTime(2026, 1, 1),
+          ),
+          _doc(
+            kind: DocumentKind.vehicleReg,
+            status: DocumentStatus.pending,
+            createdAt: DateTime(2026, 2, 1),
+          ),
+        ],
+      );
+      final KycController c = KycController(_FakeKycRepository(snap));
+      await c.refresh();
+
+      expect(c.state.hasPendingReviewItems, isFalse);
+    });
+  });
 }
