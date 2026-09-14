@@ -22,13 +22,22 @@ class DriverTabBar extends ConsumerWidget {
       // bottom-nav tab. Enum value kept so pages can still mark it active.
       // _Tab(id: DriverTab.profile, label: 'Profile', icon: DrivioIcons.user, route: AppRoutes.profileHub),
     ];
+    // ScreenScaffold wraps pages in SafeArea(bottom: false), so this bar
+    // sits flush against the physical screen edge and must clear the
+    // system navigation itself. The old fixed 14px was fine on notchless
+    // phones but left the tabs half-covered by gesture bars (~24–34px)
+    // and 3-button navigation (~48px). Grow the bar by the real inset;
+    // keep 14px as the floor so inset-less devices still get breathing
+    // room and the bar never gets shorter than it was.
+    final double systemInset = MediaQuery.paddingOf(context).bottom;
+    final double bottomPad = systemInset > 14 ? systemInset : 14;
     return Container(
-      height: AppDimensions.tabBarHeight,
+      height: (AppDimensions.tabBarHeight - 14) + bottomPad,
       decoration: BoxDecoration(
         color: context.bg.withValues(alpha: 0.92),
         border: Border(top: BorderSide(color: context.border)),
       ),
-      padding: const EdgeInsets.only(bottom: 14),
+      padding: EdgeInsets.only(bottom: bottomPad),
       child: Row(
         children: tabs.map((_Tab t) {
           final bool isActive = t.id == active;
