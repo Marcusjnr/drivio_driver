@@ -40,6 +40,14 @@ class SelfiePage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final SelfieState state = ref.watch(selfieControllerProvider);
 
+    // Set only when this page is reached via the guided rejection-fix flow
+    // (RejectedItemsPage or the document-rejected push deep link) — a normal
+    // first-time onboarding visit passes no arguments.
+    final Object? arg = ModalRoute.of(context)?.settings.arguments;
+    final String? rejectionReason = arg is String && arg.trim().isNotEmpty
+        ? arg
+        : null;
+
     return ScreenScaffold(
       child: SingleChildScrollView(
         padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
@@ -62,6 +70,10 @@ class SelfiePage extends ConsumerWidget {
                 height: 1.5,
               ),
             ),
+            if (rejectionReason != null) ...<Widget>[
+              const SizedBox(height: 16),
+              _RejectionReasonBanner(reason: rejectionReason),
+            ],
             const SizedBox(height: 22),
             AspectRatio(
               aspectRatio: 1,
@@ -109,6 +121,55 @@ class SelfiePage extends ConsumerWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// Why the previous selfie didn't pass review — shown up front, before the
+/// capture control, mirroring `DocumentCapturePage`'s reason banner.
+class _RejectionReasonBanner extends StatelessWidget {
+  const _RejectionReasonBanner({required this.reason});
+  final String reason;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: context.red.withValues(alpha: 0.10),
+        borderRadius: AppRadius.md,
+        border: Border.all(color: context.red.withValues(alpha: 0.35)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Icon(DrivioIcons.close, size: 16, color: context.red),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                Text(
+                  'Why this was rejected',
+                  style: AppTextStyles.captionSm.copyWith(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    color: context.red,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  reason,
+                  style: AppTextStyles.bodySm.copyWith(
+                    color: context.text,
+                    height: 1.4,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }

@@ -49,7 +49,10 @@ class _RejectedItemsPageState extends ConsumerState<RejectedItemsPage> {
     // detected by re-checking rejectedItems after a fresh refresh
     // instead of trusting a pushed result.
     if (item.kind == DocumentKind.profileSelfie) {
-      await AppNavigation.push<void>(AppRoutes.kycSelfie);
+      await AppNavigation.push<void>(
+        AppRoutes.kycSelfie,
+        arguments: item.reason,
+      );
       if (!mounted) return;
       await ref.read(kycControllerProvider.notifier).refresh();
       if (!mounted) return;

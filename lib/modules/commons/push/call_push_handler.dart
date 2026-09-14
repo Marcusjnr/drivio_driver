@@ -295,7 +295,7 @@ void _openRejectedDocument(Map<String, dynamic> data) {
   // re-upload, silently leaving the driver blocked from going online.
   if (resolvedKind == DocumentKind.profileSelfie) {
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      AppNavigation.push<void>(AppRoutes.kycSelfie);
+      AppNavigation.push<void>(AppRoutes.kycSelfie, arguments: rejectionReason);
     });
     return;
   }
