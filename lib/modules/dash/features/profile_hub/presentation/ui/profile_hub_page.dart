@@ -72,7 +72,7 @@ class _ProfileHubPageState extends ConsumerState<ProfileHubPage> {
               else ...<Widget>[
                 _Header(state: state),
                 const SizedBox(height: 16),
-                _StatsRow(state: state),
+                _StatsCard(state: state),
                 const SizedBox(height: 18),
                 _PersonalGroup(state: state),
                 const SizedBox(height: 14),
@@ -168,10 +168,18 @@ class _Header extends StatelessWidget {
   }
 }
 
-// ── Stats row ──────────────────────────────────────────────────────────
+// ── Stats card ─────────────────────────────────────────────────────────
 
-class _StatsRow extends StatelessWidget {
-  const _StatsRow({required this.state});
+/// One unified card replacing the old three-cards-in-a-row strip. The
+/// thirds layout broke on narrow phones: "May 2026" and a free-text
+/// vehicle model in large metric type don't fit a ~90dp column, so the
+/// vehicle name wrapped and the cards came out uneven heights. Numbers
+/// get columns; text gets a row: the two guaranteed-short metrics share
+/// a divided band (values in a FittedBox so they scale down instead of
+/// ever wrapping), and the vehicle — prose, not a metric — takes the
+/// full card width below with a single-line ellipsis as the backstop.
+class _StatsCard extends StatelessWidget {
+  const _StatsCard({required this.state});
   final ProfileHubState state;
 
   @override
@@ -182,21 +190,84 @@ class _StatsRow extends StatelessWidget {
     final String lifetimeLabel = lifetimeNaira == 0
         ? '₦0'
         : NairaFormatter.formatCompact(lifetimeNaira);
-    final String vehicleLabel = state.summary.activeVehicleModel ?? 'None';
-    return Row(
-      children: <Widget>[
-        Expanded(
-          child: _Stat(label: 'Joined', value: joinedLabel),
-        ),
-        const SizedBox(width: 8),
-        Expanded(
-          child: _Stat(label: 'Lifetime', value: lifetimeLabel),
-        ),
-        const SizedBox(width: 8),
-        Expanded(
-          child: _Stat(label: 'Vehicle', value: vehicleLabel),
-        ),
-      ],
+    final String? vehicle = state.summary.activeVehicleModel;
+
+    return Container(
+      decoration: BoxDecoration(
+        color: context.surface,
+        borderRadius: AppRadius.md,
+        border: Border.all(color: context.border),
+      ),
+      child: Column(
+        children: <Widget>[
+          Padding(
+            padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+            child: Row(
+              children: <Widget>[
+                Expanded(
+                  child: _Metric(label: 'JOINED', value: joinedLabel),
+                ),
+                Container(
+                  width: 1,
+                  height: 34,
+                  margin: const EdgeInsets.symmetric(horizontal: 12),
+                  color: context.border,
+                ),
+                Expanded(
+                  child: _Metric(
+                    label: 'LIFETIME EARNED',
+                    value: lifetimeLabel,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Divider(height: 1, color: context.border),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(14, 10, 14, 10),
+            child: Row(
+              children: <Widget>[
+                Container(
+                  width: 32,
+                  height: 32,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: context.teal.withValues(alpha: 0.14),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Icon(DrivioIcons.car, size: 16, color: context.teal),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: <Widget>[
+                      Text(
+                        'VEHICLE',
+                        style: AppTextStyles.eyebrow.copyWith(
+                          color: context.textDim,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        vehicle ?? 'No vehicle yet',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: AppTextStyles.bodySm.copyWith(
+                          color: vehicle == null
+                              ? context.textMuted
+                              : context.text,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -220,6 +291,43 @@ class _StatsRow extends StatelessWidget {
     ];
     final String month = m[(t.month - 1).clamp(0, 11)];
     return '$month ${t.year}';
+  }
+}
+
+/// Eyebrow label + metric value. The value scales down (never wraps)
+/// when its column gets too narrow, so the band keeps one clean height
+/// on every screen width.
+class _Metric extends StatelessWidget {
+  const _Metric({required this.label, required this.value});
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        FittedBox(
+          fit: BoxFit.scaleDown,
+          alignment: Alignment.centerLeft,
+          child: Text(
+            label,
+            maxLines: 1,
+            style: AppTextStyles.eyebrow.copyWith(color: context.textDim),
+          ),
+        ),
+        const SizedBox(height: 4),
+        FittedBox(
+          fit: BoxFit.scaleDown,
+          alignment: Alignment.centerLeft,
+          child: Text(
+            value,
+            maxLines: 1,
+            style: AppTextStyles.metricVal.copyWith(color: context.text),
+          ),
+        ),
+      ],
+    );
   }
 }
 
@@ -735,38 +843,6 @@ class _SettingsGroup extends StatelessWidget {
 }
 
 // ── Shared bits ────────────────────────────────────────────────────────
-
-class _Stat extends StatelessWidget {
-  const _Stat({required this.label, required this.value});
-  final String label;
-  final String value;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: context.surface,
-        borderRadius: AppRadius.md,
-        border: Border.all(color: context.border),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[
-          Text(
-            label.toUpperCase(),
-            style: AppTextStyles.eyebrow.copyWith(color: context.textDim),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            value,
-            style: AppTextStyles.metricVal.copyWith(color: context.text),
-          ),
-        ],
-      ),
-    );
-  }
-}
 
 class _Group extends StatelessWidget {
   const _Group({required this.title, required this.children});

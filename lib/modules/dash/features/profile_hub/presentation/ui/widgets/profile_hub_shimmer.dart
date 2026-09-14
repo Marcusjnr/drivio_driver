@@ -43,16 +43,8 @@ class ProfileHubShimmer extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 16),
-          // Stats row — three equal cards.
-          Row(
-            children: const <Widget>[
-              Expanded(child: _StatCard()),
-              SizedBox(width: 8),
-              Expanded(child: _StatCard()),
-              SizedBox(width: 8),
-              Expanded(child: _StatCard()),
-            ],
-          ),
+          // Stats card — two-column metric band + full-width vehicle line.
+          const _StatsCardSkeleton(),
           const SizedBox(height: 18),
           // Five group cards mirroring the real page sections.
           _GroupSkeleton(rows: 3),  // VEHICLE
@@ -95,23 +87,65 @@ class _Box extends StatelessWidget {
   }
 }
 
-class _StatCard extends StatelessWidget {
-  const _StatCard();
+/// Mirrors `_StatsCard` on the real page: a divided two-metric band on
+/// top, then the icon-disc vehicle line — one card, same heights.
+class _StatsCardSkeleton extends StatelessWidget {
+  const _StatsCardSkeleton();
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: AppRadius.md,
       ),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: const <Widget>[
-          _Box(width: 50, height: 9),
-          SizedBox(height: 8),
-          _Box(width: 70, height: 18),
+        children: <Widget>[
+          Padding(
+            padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+            child: Row(
+              children: const <Widget>[
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: <Widget>[
+                      _Box(width: 50, height: 9),
+                      SizedBox(height: 8),
+                      _Box(width: 70, height: 18),
+                    ],
+                  ),
+                ),
+                SizedBox(width: 25),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: <Widget>[
+                      _Box(width: 90, height: 9),
+                      SizedBox(height: 8),
+                      _Box(width: 60, height: 18),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(14, 0, 14, 10),
+            child: Row(
+              children: const <Widget>[
+                _Box(width: 32, height: 32, radius: 10),
+                SizedBox(width: 10),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    _Box(width: 50, height: 9),
+                    SizedBox(height: 5),
+                    _Box(width: 130, height: 12),
+                  ],
+                ),
+              ],
+            ),
+          ),
         ],
       ),
     );
