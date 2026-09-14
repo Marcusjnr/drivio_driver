@@ -75,3 +75,24 @@ class Document {
     );
   }
 }
+
+/// Vehicle-related document kinds actually collected today — the ones
+/// that can be individually rejected and need a targeted re-upload.
+/// Insurance, road worthiness, LASRRA and inspection report are enum
+/// values that exist but are not collected by any current UI.
+const List<DocumentKind> vehicleDocumentKinds = <DocumentKind>[
+  DocumentKind.vehicleReg,
+  DocumentKind.vehiclePhotoFront,
+  DocumentKind.vehiclePhotoBack,
+  DocumentKind.vehiclePhotoSide,
+  DocumentKind.vehiclePhotoInterior,
+];
+
+/// True if any vehicle-related document's latest status is rejected,
+/// given a "latest document per kind" map (as `ProfileHubState.
+/// documentsByKind` already builds).
+bool hasRejectedVehicleDocument(Map<DocumentKind, Document> byKind) {
+  return vehicleDocumentKinds.any(
+    (DocumentKind k) => byKind[k]?.status == DocumentStatus.rejected,
+  );
+}
