@@ -210,9 +210,9 @@ class _DriveShellPageState extends ConsumerState<DriveShellPage>
     final DriveShellState shell = ref.watch(driveShellControllerProvider);
     final HomeState home = ref.watch(homeControllerProvider);
     final HomeController homeC = ref.read(homeControllerProvider.notifier);
-    final (KycOverallStatus, bool) kycGate = ref.watch(
+    final (KycOverallStatus, bool, bool) kycGate = ref.watch(
       kycControllerProvider.select(
-        (KycState s) => (s.overall, s.livenessPassed),
+        (KycState s) => (s.overall, s.livenessPassed, s.hasRejectedItems),
       ),
     );
     final KycOverallStatus kycStatus = kycGate.$1;
@@ -220,6 +220,7 @@ class _DriveShellPageState extends ConsumerState<DriveShellPage>
     // nudging an approved driver who still hasn't done the face check.
     final bool kycComplete =
         kycStatus == KycOverallStatus.approved && kycGate.$2;
+    final bool kycHasRejectedItems = kycGate.$3;
     final SubscriptionState subState = ref.watch(
       subscriptionControllerProvider,
     );
@@ -387,7 +388,8 @@ class _DriveShellPageState extends ConsumerState<DriveShellPage>
     // ── Top overlays + banners ──────────────────────────────────────────
 
     final Widget topOverlay = _buildTopOverlay(shell, home);
-    final Widget? banner = _buildBanner(shell, home, kycComplete, kycStatus);
+    final Widget? banner =
+        _buildBanner(shell, home, kycComplete, kycStatus, kycHasRejectedItems);
     final Widget? subTop = _buildSubTopArea(shell);
     // The driver's own per-km rate, straight from their pricing profile —
     // the same number the Pricing tab edits and the bid composer builds
@@ -1180,8 +1182,13 @@ class _DriveShellPageState extends ConsumerState<DriveShellPage>
     HomeState home,
     bool kycComplete,
     KycOverallStatus kycStatus,
+    bool kycHasRejectedItems,
   ) {
     if (!shell.isIdle) return null;
+    // Checked BEFORE kycComplete: an already-approved, driving driver
+    // whose license renewal (or anything else) gets rejected later must
+    // still see this — kycComplete alone would hide it from them.
+    if (kycHasRejectedItems) return const _KycRejectedBanner();
     // High-demand highlight hidden for now — the banner used hardcoded
     // placeholder copy. Re-enable once the real demand signal ships.
     // if (home.isOnline) return _DemandBanner();
@@ -1470,6 +1477,71 @@ class _TimerCard extends StatelessWidget {
 //     );
 //   }
 // }
+
+/// Shown whenever ANY in-scope document has a live rejection — checked
+/// before [_KycBanner]'s own logic, so even an otherwise-approved,
+/// already-driving driver sees this. Deliberately lighter than a full
+/// "application rejected" treatment (amber, matching the app's existing
+/// "needs attention" tone, not red) — being approved with one item
+/// flagged later isn't the same as never having been approved.
+class _KycRejectedBanner extends StatelessWidget {
+  const _KycRejectedBanner();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: context.surface.withValues(alpha: 0.92),
+        border: Border.all(color: context.amber.withValues(alpha: 0.35)),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        children: <Widget>[
+          Icon(DrivioIcons.document, size: 16, color: context.amber),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                Text(
+                  'Some documents need fixing',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: context.amber,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                Text(
+                  'Tap to see what needs another look.',
+                  style: TextStyle(fontSize: 11, color: context.text),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          ElevatedButton(
+            onPressed: () =>
+                AppNavigation.push<void>(AppRoutes.kycRejectedItems),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: context.amber,
+              foregroundColor: context.amberInk,
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              minimumSize: const Size(0, 30),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+            child: const Text(
+              'Review',
+              style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
 
 class _KycBanner extends StatelessWidget {
   const _KycBanner({required this.status});
