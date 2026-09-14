@@ -12,11 +12,18 @@ import 'package:drivio_driver/modules/commons/supabase/supabase_module.dart';
 
 enum AuthMode { signIn, signUp }
 
+/// Termii itself enforces a 60s minimum between OTP sends to the same
+/// phone — this stays a few seconds above that so the "Resend" button
+/// never becomes tappable before Termii would actually accept another
+/// send (see termii-send-otp's own RESEND_COOLDOWN_S, which mirrors
+/// this value server-side).
+const int _kResendSeconds = 65;
+
 class OtpState {
   const OtpState({
     this.value = '',
     this.length = 6,
-    this.resendSeconds = 30,
+    this.resendSeconds = _kResendSeconds,
     this.phone = '',
     this.isVerifying = false,
     this.error,
@@ -72,24 +79,31 @@ class OtpController extends StateNotifier<OtpState> {
     });
   }
 
-  /// Re-sends the OTP via Termii, then restarts the 30s countdown. In
-  /// dev mode no SMS goes out — the countdown just resets so the UI
-  /// behaves. On a real send failure the countdown is NOT restarted, so
-  /// the driver can retry immediately, and the error is surfaced.
+  /// Re-sends the OTP via Termii, then restarts the countdown. In dev
+  /// mode no SMS goes out — the countdown just resets so the UI behaves.
+  /// On a real send failure the countdown is only restarted for a
+  /// rate-limit response (Termii/our own cooldown rejected it — an
+  /// immediate retry is guaranteed to fail again the same way); any
+  /// other failure (network blip, etc.) leaves it immediately
+  /// retryable, since that one might actually succeed next time.
   Future<void> resend() async {
     if (!state.canResend || state.isVerifying) return;
     if (otpDevModeEnabled()) {
-      state = state.copyWith(resendSeconds: 30, clearError: true);
+      state = state.copyWith(resendSeconds: _kResendSeconds, clearError: true);
       _startTimer();
       return;
     }
     state = state.copyWith(clearError: true);
     try {
       await _otp.send(state.phone);
-      state = state.copyWith(resendSeconds: 30, clearError: true);
+      state = state.copyWith(resendSeconds: _kResendSeconds, clearError: true);
       _startTimer();
     } on OtpSendException catch (e) {
       state = state.copyWith(error: e.message);
+      if (e.isRateLimited) {
+        state = state.copyWith(resendSeconds: _kResendSeconds);
+        _startTimer();
+      }
     }
   }
 
@@ -163,28 +177,46 @@ class OtpController extends StateNotifier<OtpState> {
 
     try {
       if (mode == AuthMode.signUp) {
-        final AuthResponse res = await _supabase.auth.signUp(
-          email: syntheticEmail,
-          password: password,
-          data: <String, dynamic>{
-            'phone': phone,
-            'role': 'driver',
-            ...?signUpData,
-          },
-        );
-        if (res.session == null) {
-          AppLogger.w('otp.verify signUp returned null session');
-          locator<MixpanelService>().track(
-            AnalyticsEvents.otpFailed,
-            properties: <String, dynamic>{'failure_reason': 'no_session'},
+        // A prior attempt in this same flow may have already created the
+        // auth account (signUp() succeeded) but then failed before/during
+        // submitProfile() — network blip, app kill, anything. Calling
+        // signUp() again for the same phone would only throw "already
+        // registered" even though the driver never actually finished.
+        // Reuse the live session instead and let submitProfile() (backed
+        // by the idempotent complete_driver_signup RPC) pick up where it
+        // left off.
+        final User? existing = _supabase.auth.currentUser;
+        final bool alreadySignedInAsThisPhone =
+            existing != null &&
+            existing.email?.toLowerCase() == syntheticEmail;
+        if (alreadySignedInAsThisPhone) {
+          AppLogger.i(
+            'otp.verify: already signed in as this phone — skipping signUp',
           );
-          state = state.copyWith(
-            isVerifying: false,
-            error:
-                'Email confirmation is enabled on this Supabase project. Disable "Confirm email" under Authentication → Sign In / Providers → Email, then try again.',
-            value: '',
+        } else {
+          final AuthResponse res = await _supabase.auth.signUp(
+            email: syntheticEmail,
+            password: password,
+            data: <String, dynamic>{
+              'phone': phone,
+              'role': 'driver',
+              ...?signUpData,
+            },
           );
-          return false;
+          if (res.session == null) {
+            AppLogger.w('otp.verify signUp returned null session');
+            locator<MixpanelService>().track(
+              AnalyticsEvents.otpFailed,
+              properties: <String, dynamic>{'failure_reason': 'no_session'},
+            );
+            state = state.copyWith(
+              isVerifying: false,
+              error:
+                  'Email confirmation is enabled on this Supabase project. Disable "Confirm email" under Authentication → Sign In / Providers → Email, then try again.',
+              value: '',
+            );
+            return false;
+          }
         }
       } else {
         await _supabase.auth.signInWithPassword(

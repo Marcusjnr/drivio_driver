@@ -18,8 +18,20 @@ bool otpDevModeEnabled() => !kReleaseMode || locator<Config>().isStaging;
 
 /// Thrown when an OTP send fails for a reason worth showing the driver.
 class OtpSendException implements Exception {
-  const OtpSendException(this.message);
+  const OtpSendException(this.message, {this.code});
   final String message;
+
+  /// The backend's raw error key (`too_soon`, `too_many`, ...), when
+  /// known. Lets callers react to specific failure classes — e.g. a
+  /// rate-limit response should keep the resend button cooling down
+  /// instead of leaving it immediately re-tappable — without parsing
+  /// the human-readable [message].
+  final String? code;
+
+  /// True for a class of error where retrying immediately is guaranteed
+  /// to fail again (the code was rejected for being too frequent, not
+  /// because of a transient network/server issue).
+  bool get isRateLimited => code == 'too_soon' || code == 'too_many';
 }
 
 /// Sends and verifies phone OTPs through the Termii-backed edge functions
@@ -42,13 +54,15 @@ class OtpService {
       if (data is Map && data['ok'] == true) {
         return;
       }
-      throw OtpSendException(_sendMessageFor(data));
+      final String key = _errorKeyFor(data);
+      throw OtpSendException(_sendMessageFor(key), code: key);
     } on OtpSendException {
       rethrow;
     } on FunctionException catch (e) {
       AppLogger.w('otp.send FunctionException',
           data: <String, dynamic>{'detail': e.details?.toString() ?? ''});
-      throw OtpSendException(_sendMessageFor(e.details));
+      final String key = _errorKeyFor(e.details);
+      throw OtpSendException(_sendMessageFor(key), code: key);
     } catch (e, st) {
       AppLogger.w('otp.send failed', error: e, stackTrace: st);
       throw const OtpSendException(
@@ -76,8 +90,10 @@ class OtpService {
     }
   }
 
-  String _sendMessageFor(Object? data) {
-    final String key = (data is Map ? data['error']?.toString() : null) ?? '';
+  String _errorKeyFor(Object? data) =>
+      (data is Map ? data['error']?.toString() : null) ?? '';
+
+  String _sendMessageFor(String key) {
     switch (key) {
       case 'too_soon':
         return 'Hold on a moment before requesting another code.';
