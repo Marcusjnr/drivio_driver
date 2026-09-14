@@ -8,7 +8,7 @@ class KycSnapshot {
     required this.livenessPassedAt,
     required this.driversLicenceVerifiedAt,
     required this.documents,
-    required this.hasVehicle,
+    required this.vehicleId,
   });
 
   final String kycStatus; // raw enum value from drivers.kyc_status
@@ -17,7 +17,13 @@ class KycSnapshot {
   final DateTime? livenessPassedAt;
   final DateTime? driversLicenceVerifiedAt;
   final List<Document> documents;
-  final bool hasVehicle;
+
+  /// The driver's current (non-deleted) vehicle id, or null if they
+  /// don't have one. Used to attach a rejection-fix re-upload to the
+  /// SAME vehicle instead of creating a new one.
+  final String? vehicleId;
+
+  bool get hasVehicle => vehicleId != null;
 }
 
 /// Outcome of a server-side NIN verification (YouVerify).

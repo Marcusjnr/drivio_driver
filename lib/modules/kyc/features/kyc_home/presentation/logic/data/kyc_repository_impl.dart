@@ -91,7 +91,7 @@ class SupabaseKycRepository implements KycRepository {
       livenessPassedAt: parse(driver['liveness_passed_at']),
       driversLicenceVerifiedAt: parse(driver['drivers_licence_verified_at']),
       documents: docs.map(Document.fromJson).toList(growable: false),
-      hasVehicle: vehicles.isNotEmpty,
+      vehicleId: vehicles.isEmpty ? null : vehicles.first['id'] as String,
     );
     _cachedSnapshot = snapshot;
     _cachedAt = DateTime.now();
