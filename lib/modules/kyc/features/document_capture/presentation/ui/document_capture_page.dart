@@ -6,6 +6,24 @@ import 'package:drivio_driver/modules/commons/types/document.dart';
 import 'package:drivio_driver/modules/kyc/features/document_capture/presentation/logic/controller/document_capture_controller.dart';
 import 'package:drivio_driver/modules/kyc/features/kyc_home/presentation/logic/controller/kyc_controller.dart';
 
+/// Route arguments for a targeted re-upload: which document, which
+/// vehicle to attach it to (vehicle-related kinds only), and why the
+/// previous one was rejected. `AppRoutes.kycDocumentCapture` also still
+/// accepts a bare [DocumentKind] for a normal, non-fix capture — see
+/// `didChangeDependencies` below — so every existing call site keeps
+/// working unchanged.
+class DocumentCaptureArgs {
+  const DocumentCaptureArgs({
+    required this.kind,
+    this.vehicleId,
+    this.rejectionReason,
+  });
+
+  final DocumentKind kind;
+  final String? vehicleId;
+  final String? rejectionReason;
+}
+
 class DocumentCapturePage extends ConsumerStatefulWidget {
   const DocumentCapturePage({super.key});
 
@@ -17,6 +35,8 @@ class DocumentCapturePage extends ConsumerStatefulWidget {
 class _DocumentCapturePageState extends ConsumerState<DocumentCapturePage> {
   bool _initialized = false;
   DocumentKind _kind = DocumentKind.driversLicence;
+  String? _vehicleId;
+  String? _rejectionReason;
 
   @override
   void didChangeDependencies() {
@@ -25,10 +45,21 @@ class _DocumentCapturePageState extends ConsumerState<DocumentCapturePage> {
     _initialized = true;
 
     final Object? arg = ModalRoute.of(context)?.settings.arguments;
-    if (arg is DocumentKind) _kind = arg;
+    if (arg is DocumentCaptureArgs) {
+      _kind = arg.kind;
+      _vehicleId = arg.vehicleId;
+      _rejectionReason = arg.rejectionReason;
+    } else if (arg is DocumentKind) {
+      _kind = arg;
+    }
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) {
-        ref.read(documentCaptureControllerProvider.notifier).setKind(_kind);
+      if (!mounted) return;
+      final DocumentCaptureController c =
+          ref.read(documentCaptureControllerProvider.notifier);
+      c.setKind(_kind);
+      final String? vehicleId = _vehicleId;
+      if (vehicleId != null) {
+        c.setVehicleId(vehicleId);
       }
     });
   }
@@ -81,6 +112,10 @@ class _DocumentCapturePageState extends ConsumerState<DocumentCapturePage> {
               'Make sure all four corners are visible and the text is sharp.',
               style: AppTextStyles.bodySm.copyWith(color: context.textDim),
             ),
+            if (_rejectionReason != null) ...<Widget>[
+              const SizedBox(height: 16),
+              _RejectionReasonBanner(reason: _rejectionReason!),
+            ],
             const SizedBox(height: 26),
             _UploadTile(state: state, controller: c),
             if (state.error != null) ...<Widget>[
@@ -101,11 +136,61 @@ class _DocumentCapturePageState extends ConsumerState<DocumentCapturePage> {
                 if (!mounted || !ok) return;
                 await ref.read(kycControllerProvider.notifier).refresh();
                 if (!mounted) return;
-                AppNavigation.pop();
+                AppNavigation.pop(true);
               },
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// Why the previous upload didn't pass review — shown up front, before
+/// the upload control, so the driver knows exactly what to fix instead
+/// of guessing and re-submitting the same thing.
+class _RejectionReasonBanner extends StatelessWidget {
+  const _RejectionReasonBanner({required this.reason});
+  final String reason;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: context.red.withValues(alpha: 0.10),
+        borderRadius: AppRadius.md,
+        border: Border.all(color: context.red.withValues(alpha: 0.35)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Icon(DrivioIcons.close, size: 16, color: context.red),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                Text(
+                  'Why this was rejected',
+                  style: AppTextStyles.captionSm.copyWith(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    color: context.red,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  reason,
+                  style: AppTextStyles.bodySm.copyWith(
+                    color: context.text,
+                    height: 1.4,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
