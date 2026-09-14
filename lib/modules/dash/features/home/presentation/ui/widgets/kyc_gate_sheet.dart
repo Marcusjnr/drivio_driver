@@ -155,10 +155,22 @@ class _ChecklistRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bool done = step.status == KycStepStatus.submitted ||
-        step.status == KycStepStatus.approved;
+    // Three distinct states, not two: `approved` (admin signed off —
+    // struck through, no further action) must read differently from
+    // `submitted` (uploaded, awaiting admin review — still pending, not
+    // yet accepted). Collapsing both into one "done" checkmark hid
+    // exactly the distinction a driver needs after fixing a rejection:
+    // whether it's back in review or already cleared.
+    final bool approved = step.status == KycStepStatus.approved;
+    final bool inReview = step.status == KycStepStatus.submitted;
     final bool needsAction = step.status == KycStepStatus.rejected ||
         step.status == KycStepStatus.expired;
+    final Color indicatorColor = approved
+        ? context.accent
+        : inReview
+            ? context.amber
+            : context.textMuted;
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
@@ -173,16 +185,15 @@ class _ChecklistRow extends StatelessWidget {
             height: 20,
             alignment: Alignment.center,
             decoration: BoxDecoration(
-              color: done ? context.accent : Colors.transparent,
-              border: Border.all(
-                color: done ? context.accent : context.textMuted,
-                width: 1.5,
-              ),
+              color: approved ? context.accent : Colors.transparent,
+              border: Border.all(color: indicatorColor, width: 1.5),
               borderRadius: BorderRadius.circular(6),
             ),
-            child: done
+            child: approved
                 ? Icon(DrivioIcons.check, size: 12, color: context.bg)
-                : null,
+                : inReview
+                    ? Icon(DrivioIcons.refresh, size: 12, color: context.amber)
+                    : null,
           ),
           const SizedBox(width: 10),
           Expanded(
@@ -191,8 +202,9 @@ class _ChecklistRow extends StatelessWidget {
               style: TextStyle(
                 fontSize: 13,
                 color: context.text,
-                decoration:
-                    done ? TextDecoration.lineThrough : TextDecoration.none,
+                decoration: approved
+                    ? TextDecoration.lineThrough
+                    : TextDecoration.none,
                 decorationColor: context.textMuted,
               ),
             ),
@@ -201,7 +213,9 @@ class _ChecklistRow extends StatelessWidget {
             Pill(
               text: step.status == KycStepStatus.expired ? 'Renew' : 'Re-do',
               tone: PillTone.red,
-            ),
+            )
+          else if (inReview)
+            const Pill(text: 'In review', tone: PillTone.amber),
         ],
       ),
     );
