@@ -22,6 +22,7 @@ enum DocPickerSource { camera, gallery, file }
 class DocumentCaptureState {
   const DocumentCaptureState({
     this.kind,
+    this.vehicleId,
     this.isUploading = false,
     this.isRegistering = false,
     this.uploadedFilePath,
@@ -30,6 +31,12 @@ class DocumentCaptureState {
   });
 
   final DocumentKind? kind;
+
+  /// Set when this capture is fixing a rejected vehicle-related document
+  /// (registration, a photo) — the new upload gets registered against
+  /// this EXISTING vehicle instead of creating a new one. Null for
+  /// licence/selfie, and null for a normal (non-fix) first-time capture.
+  final String? vehicleId;
   final bool isUploading;
   final bool isRegistering;
   final String? uploadedFilePath;
@@ -40,6 +47,7 @@ class DocumentCaptureState {
 
   DocumentCaptureState copyWith({
     DocumentKind? kind,
+    String? vehicleId,
     bool? isUploading,
     bool? isRegistering,
     String? uploadedFilePath,
@@ -50,6 +58,7 @@ class DocumentCaptureState {
   }) {
     return DocumentCaptureState(
       kind: kind ?? this.kind,
+      vehicleId: vehicleId ?? this.vehicleId,
       isUploading: isUploading ?? this.isUploading,
       isRegistering: isRegistering ?? this.isRegistering,
       uploadedFilePath:
@@ -69,6 +78,12 @@ class DocumentCaptureController extends StateNotifier<DocumentCaptureState> {
 
   void setKind(DocumentKind k) =>
       state = state.copyWith(kind: k, clearError: true);
+
+  /// Set once, right after construction, when this capture is fixing a
+  /// rejected vehicle-related document. The provider is `autoDispose`,
+  /// so every push of the capture screen gets a fresh controller — this
+  /// never needs to be cleared back to null mid-session.
+  void setVehicleId(String id) => state = state.copyWith(vehicleId: id);
 
   Future<void> pickAndUpload(DocPickerSource source) async {
     final DocumentKind? kind = state.kind;
@@ -137,7 +152,11 @@ class DocumentCaptureController extends StateNotifier<DocumentCaptureState> {
 
     state = state.copyWith(isRegistering: true, clearError: true);
     try {
-      await _docs.registerDocument(kind: kind, filePath: filePath);
+      await _docs.registerDocument(
+        kind: kind,
+        filePath: filePath,
+        vehicleId: state.vehicleId,
+      );
       // Success: stay in the registering state — the page refreshes the
       // checklist and pops; flipping to idle first reads as a failure.
       return true;
