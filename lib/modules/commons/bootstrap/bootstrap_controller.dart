@@ -13,6 +13,7 @@ import 'package:drivio_driver/modules/commons/notifications/app_notifier.dart';
 import 'package:drivio_driver/modules/commons/supabase/supabase_module.dart';
 import 'package:drivio_driver/modules/commons/types/app_update.dart';
 import 'package:drivio_driver/modules/commons/utils/store_launcher.dart';
+import 'package:drivio_driver/modules/kyc/features/kyc_home/presentation/logic/controller/kyc_controller.dart';
 
 class BootstrapState {
   const BootstrapState({
@@ -48,10 +49,11 @@ class BootstrapState {
 }
 
 class BootstrapController extends StateNotifier<BootstrapState> {
-  BootstrapController() : super(const BootstrapState()) {
+  BootstrapController(this._ref) : super(const BootstrapState()) {
     resolve();
   }
 
+  final Ref _ref;
   final SupabaseModule _supabase = locator<SupabaseModule>();
   final TripRepository _trips = locator<TripRepository>();
 
@@ -146,14 +148,47 @@ class BootstrapController extends StateNotifier<BootstrapState> {
       // schema drift on the shared Supabase project), we still send a
       // signed-in driver with a profile to /home rather than bouncing
       // them back to /welcome.
-      String? activeTripId;
-      try {
-        activeTripId = await _trips.getMyActiveTripId();
-      } catch (e, st) {
-        AppLogger.w('bootstrap.resolve: getMyActiveTripId threw — ignoring',
-            error: e, stackTrace: st);
-        activeTripId = null;
-      }
+      // Kick off the active-trip lookup and the KYC/document-status
+      // prefetch here — before awaiting either — so both run
+      // concurrently and neither adds pure sequential latency to cold
+      // start. Both are best-effort: a failure or timeout in either must
+      // still let a signed-in driver with a profile reach /home. A
+      // failed KYC prefetch just means the home page's status banner
+      // falls back to its own post-mount refresh (today's behavior)
+      // instead of arriving pre-resolved — this is what stops that
+      // banner from flashing a wrong/default status for a beat on
+      // cold start (DriveShellPage would otherwise mount and paint its
+      // first frame before its own refresh() resolves).
+      final Future<String?> activeTripFuture = _trips
+          .getMyActiveTripId()
+          .catchError((Object e, StackTrace st) {
+            AppLogger.w(
+              'bootstrap.resolve: getMyActiveTripId threw — ignoring',
+              error: e,
+              stackTrace: st,
+            );
+            return null;
+          });
+      final Future<void> kycPrefetchFuture = _ref
+          .read(kycControllerProvider.notifier)
+          .refresh()
+          .timeout(
+            const Duration(seconds: 4),
+            onTimeout: () => AppLogger.w(
+              'bootstrap.resolve: KYC prefetch timed out — proceeding',
+            ),
+          )
+          .catchError((Object e, StackTrace st) {
+            AppLogger.w(
+              'bootstrap.resolve: KYC prefetch threw — ignoring',
+              error: e,
+              stackTrace: st,
+            );
+          });
+
+      final String? activeTripId = await activeTripFuture;
+      await kycPrefetchFuture;
+
       AppLogger.i('bootstrap.resolve → home',
           data: <String, dynamic>{'active_trip_id': activeTripId ?? '—'});
       state = state.copyWith(
@@ -200,5 +235,5 @@ class BootstrapController extends StateNotifier<BootstrapState> {
 final StateNotifierProvider<BootstrapController, BootstrapState>
     bootstrapControllerProvider =
     StateNotifierProvider<BootstrapController, BootstrapState>(
-  (Ref _) => BootstrapController(),
+  (Ref ref) => BootstrapController(ref),
 );
