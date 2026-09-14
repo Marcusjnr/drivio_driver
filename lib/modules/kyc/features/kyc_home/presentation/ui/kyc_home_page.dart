@@ -200,9 +200,7 @@ class _StepRow extends StatelessWidget {
       child: InkWell(
         borderRadius: BorderRadius.circular(12),
         onTap: isInteractive
-            ? () => _routeForStep(
-                step.kind,
-              ).whenComplete(() => onReturned?.call())
+            ? () => _routeForStep(step).whenComplete(() => onReturned?.call())
             : null,
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
@@ -279,10 +277,19 @@ class _StepRow extends StatelessWidget {
     }
   }
 
-  Future<void> _routeForStep(KycStepKind kind) {
+  Future<void> _routeForStep(KycStep step) {
+    // A rejected (or expired) step always goes through the guided
+    // overview — even for a step with its own normal starting flow
+    // (licence, vehicle) — so there's exactly one consistent "fix what's
+    // wrong" experience everywhere, no matter which surface the driver
+    // tapped from.
+    if (step.status == KycStepStatus.rejected ||
+        step.status == KycStepStatus.expired) {
+      return AppNavigation.push<void>(AppRoutes.kycRejectedItems);
+    }
     // Vehicle registration and insurance upload INSIDE the add-vehicle
     // flow, so they are not separate checklist steps.
-    switch (kind) {
+    switch (step.kind) {
       case KycStepKind.bvnNin:
         return AppNavigation.push<void>(AppRoutes.kycBvnNin);
       case KycStepKind.selfie:
