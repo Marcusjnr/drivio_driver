@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:drivio_driver/modules/commons/all.dart';
 import 'package:drivio_driver/modules/commons/types/document.dart';
 import 'package:drivio_driver/modules/commons/types/driver_rating.dart';
+import 'package:drivio_driver/modules/commons/types/payout_account.dart';
 import 'package:drivio_driver/modules/commons/types/profile.dart';
 import 'package:drivio_driver/modules/commons/types/subscription.dart';
 import 'package:drivio_driver/modules/commons/types/vehicle.dart';
@@ -11,6 +12,7 @@ import 'package:drivio_driver/modules/dash/features/profile_hub/presentation/log
 import 'package:drivio_driver/modules/kyc/features/document_view/presentation/ui/document_view_page.dart';
 import 'package:drivio_driver/modules/dash/features/profile_hub/presentation/ui/widgets/biometric_setting_row.dart';
 import 'package:drivio_driver/modules/dash/features/profile_hub/presentation/ui/widgets/profile_hub_shimmer.dart';
+import 'package:drivio_driver/modules/profile/features/payment_methods/presentation/logic/controller/payout_account_controller.dart';
 import 'package:drivio_driver/modules/subscription/features/paywall/presentation/logic/controller/subscription_controller.dart';
 
 class ProfileHubPage extends ConsumerStatefulWidget {
@@ -556,14 +558,20 @@ class _NoReviewsYet extends StatelessWidget {
 
 // ── ACCOUNT group ──────────────────────────────────────────────────────
 
-class _AccountGroup extends StatelessWidget {
+class _AccountGroup extends ConsumerWidget {
   const _AccountGroup({required this.state, required this.subState});
   final ProfileHubState state;
   final SubscriptionState subState;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final Subscription? sub = subState.subscription;
+    // Bank account for Drivio promo payouts / bonuses (trips are cash —
+    // this is not an earnings account). The payout controller hydrates on
+    // first watch and is the same instance AddPayoutAccountPage saves
+    // through, so this row updates the moment an account is verified.
+    final PayoutAccountState payout = ref.watch(payoutAccountControllerProvider);
+    final PayoutAccount? bank = payout.account;
     final (String subSubtitle, String pillText, PillTone pillTone) = _subStatus(
       sub,
     );
@@ -623,6 +631,23 @@ class _AccountGroup extends StatelessWidget {
         FieldRow(
           label: 'Subscription & billing',
           onTap: () => AppNavigation.push(AppRoutes.paymentMethods),
+        ),
+        FieldRow(
+          label: 'Bank account',
+          value: bank?.displayLabel ??
+              (payout.isLoading
+                  ? null
+                  : 'Add yours — promo payouts go here'),
+          right: bank == null
+              ? (payout.isLoading
+                    ? null
+                    : const Pill(text: 'ADD', tone: PillTone.amber))
+              : Pill(
+                  text: bank.isVerified ? 'ADDED' : 'VERIFYING',
+                  tone: bank.isVerified ? PillTone.accent : PillTone.amber,
+                ),
+          divider: false,
+          onTap: () => AppNavigation.push(AppRoutes.addBankAccount),
         ),
         // FieldRow(
         //   label: 'Referral code',

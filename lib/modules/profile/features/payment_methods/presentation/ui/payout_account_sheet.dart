@@ -199,8 +199,11 @@ class _PayoutSheetState extends State<_PayoutSheet> {
   }
 }
 
-/// Bank dropdown backed by the `paystack-banks` list. Shows a spinner while
-/// loading and a retry affordance if the list fails to load.
+/// Bank picker backed by the `paystack-banks` list. Shows a spinner while
+/// loading and a retry affordance if the list fails to load. Tapping the
+/// field opens a searchable bottom sheet instead of a plain dropdown —
+/// Paystack's Nigerian list runs to hundreds of entries (every microfinance
+/// bank included), so type-to-filter is the only way to find yours fast.
 class PayoutBankPicker extends StatelessWidget {
   const PayoutBankPicker({
     super.key,
@@ -268,38 +271,230 @@ class PayoutBankPicker extends StatelessWidget {
         ),
       );
     }
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12),
-      decoration: BoxDecoration(
-        color: context.surface,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: context.borderStrong),
-      ),
-      child: DropdownButtonHideUnderline(
-        child: DropdownButton<PaystackBank>(
-          value: selected,
-          isExpanded: true,
-          hint: Text(
-            'Select bank',
-            style: AppTextStyles.body.copyWith(color: context.textMuted),
-          ),
-          dropdownColor: context.surface,
-          icon: Icon(Icons.keyboard_arrow_down_rounded, color: context.textDim),
-          style: AppTextStyles.body.copyWith(color: context.text),
-          items: banks
-              .map(
-                (PaystackBank b) => DropdownMenuItem<PaystackBank>(
-                  value: b,
-                  child: Text(
-                    b.name,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: AppTextStyles.body.copyWith(color: context.text),
-                  ),
+    return InkWell(
+      borderRadius: BorderRadius.circular(14),
+      onTap: () async {
+        final PaystackBank? picked = await _showBankSearchSheet(
+          context,
+          banks: banks,
+          selected: selected,
+        );
+        if (picked != null) {
+          onChanged(picked);
+        }
+      },
+      child: Container(
+        height: 56,
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        decoration: BoxDecoration(
+          color: context.surface,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: context.borderStrong),
+        ),
+        child: Row(
+          children: <Widget>[
+            Expanded(
+              child: Text(
+                selected?.name ?? 'Select bank',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: AppTextStyles.body.copyWith(
+                  color: selected == null ? context.textMuted : context.text,
                 ),
-              )
-              .toList(),
-          onChanged: onChanged,
+              ),
+            ),
+            const SizedBox(width: 8),
+            Icon(Icons.keyboard_arrow_down_rounded, color: context.textDim),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Opens the searchable bank list. Resolves with the tapped bank, or null
+/// when dismissed without choosing.
+Future<PaystackBank?> _showBankSearchSheet(
+  BuildContext context, {
+  required List<PaystackBank> banks,
+  PaystackBank? selected,
+}) {
+  return showModalBottomSheet<PaystackBank>(
+    context: context,
+    isScrollControlled: true,
+    backgroundColor: Colors.transparent,
+    builder: (BuildContext _) =>
+        _BankSearchSheet(banks: banks, selected: selected),
+  );
+}
+
+class _BankSearchSheet extends StatefulWidget {
+  const _BankSearchSheet({required this.banks, this.selected});
+
+  final List<PaystackBank> banks;
+  final PaystackBank? selected;
+
+  @override
+  State<_BankSearchSheet> createState() => _BankSearchSheetState();
+}
+
+class _BankSearchSheetState extends State<_BankSearchSheet> {
+  final TextEditingController _query = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    // setState-only listener: the filter itself derives from the
+    // controller's text at build time.
+    _query.addListener(() => setState(() {}));
+  }
+
+  @override
+  void dispose() {
+    _query.dispose();
+    super.dispose();
+  }
+
+  List<PaystackBank> get _filtered {
+    final String q = _query.text.trim().toLowerCase();
+    if (q.isEmpty) return widget.banks;
+    return widget.banks
+        .where((PaystackBank b) => b.name.toLowerCase().contains(q))
+        .toList(growable: false);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final List<PaystackBank> filtered = _filtered;
+    // Fixed tall sheet (75% of screen) so the list doesn't jump around as
+    // the filter narrows; the keyboard inset rides underneath it.
+    final double height = MediaQuery.sizeOf(context).height * 0.75;
+    final double keyboard = MediaQuery.viewInsetsOf(context).bottom;
+    return Padding(
+      padding: EdgeInsets.only(bottom: keyboard),
+      child: Container(
+        height: height,
+        decoration: BoxDecoration(
+          color: context.surface,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            Center(
+              child: Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: context.textMuted,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'Select bank',
+              style: AppTextStyles.h2.copyWith(color: context.text),
+            ),
+            const SizedBox(height: 12),
+            // Search box. No autofocus: the list paints first, and one tap
+            // brings the keyboard only when the driver actually wants to
+            // type — the big banks are usually a scroll away.
+            TextField(
+              controller: _query,
+              textInputAction: TextInputAction.search,
+              style: AppTextStyles.body.copyWith(color: context.text),
+              decoration: InputDecoration(
+                hintText: 'Search banks…',
+                hintStyle: AppTextStyles.body.copyWith(
+                  color: context.textMuted,
+                ),
+                prefixIcon: Icon(
+                  Icons.search_rounded,
+                  size: 20,
+                  color: context.textDim,
+                ),
+                suffixIcon: _query.text.isEmpty
+                    ? null
+                    : IconButton(
+                        icon: Icon(
+                          Icons.close_rounded,
+                          size: 18,
+                          color: context.textDim,
+                        ),
+                        onPressed: _query.clear,
+                      ),
+                filled: true,
+                fillColor: context.surface2,
+                contentPadding: const EdgeInsets.symmetric(vertical: 12),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide(color: context.border),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide(color: context.accent),
+                ),
+              ),
+            ),
+            const SizedBox(height: 8),
+            Expanded(
+              child: filtered.isEmpty
+                  ? Center(
+                      child: Text(
+                        'No banks match "${_query.text.trim()}".',
+                        style: AppTextStyles.bodySm.copyWith(
+                          color: context.textDim,
+                        ),
+                      ),
+                    )
+                  : ListView.separated(
+                      padding: EdgeInsets.only(
+                        top: 4,
+                        bottom: MediaQuery.paddingOf(context).bottom + 12,
+                      ),
+                      itemCount: filtered.length,
+                      separatorBuilder: (BuildContext _, int _) =>
+                          Divider(height: 1, color: context.border),
+                      itemBuilder: (BuildContext _, int i) {
+                        final PaystackBank bank = filtered[i];
+                        final bool isSelected =
+                            bank.code == widget.selected?.code;
+                        return InkWell(
+                          onTap: () => Navigator.of(context).pop(bank),
+                          child: Padding(
+                            padding:
+                                const EdgeInsets.symmetric(vertical: 14),
+                            child: Row(
+                              children: <Widget>[
+                                Expanded(
+                                  child: Text(
+                                    bank.name,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: AppTextStyles.body.copyWith(
+                                      color: context.text,
+                                      fontWeight: isSelected
+                                          ? FontWeight.w700
+                                          : FontWeight.w400,
+                                    ),
+                                  ),
+                                ),
+                                if (isSelected)
+                                  Icon(
+                                    Icons.check_rounded,
+                                    size: 18,
+                                    color: context.accent,
+                                  ),
+                              ],
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+            ),
+          ],
         ),
       ),
     );

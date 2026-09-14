@@ -8,9 +8,10 @@ import 'package:drivio_driver/modules/commons/widgets/detail_scaffold.dart';
 import 'package:drivio_driver/modules/profile/features/payment_methods/presentation/logic/controller/payout_account_controller.dart';
 import 'package:drivio_driver/modules/profile/features/payment_methods/presentation/ui/payout_account_sheet.dart';
 
-/// Full-screen "add + verify your payout bank account" step. Pops `true` once
-/// the account is verified, so the caller (the withdraw flow) can continue to
-/// the withdraw screen.
+/// Full-screen "add + verify your bank account" step. Trips are cash-in-hand,
+/// so this account is where Drivio sends PROMO payouts and bonuses — not
+/// earnings. Pops `true` once the account is verified so the caller (the
+/// home-shell bank prompt, or the legacy withdraw flow) can react.
 class AddPayoutAccountPage extends ConsumerStatefulWidget {
   const AddPayoutAccountPage({super.key});
 
@@ -91,9 +92,11 @@ class _AddPayoutAccountPageState extends ConsumerState<AddPayoutAccountPage> {
               "Couldn't verify that account. Check the details and try again.");
     } else {
       AppNotifier.success(message: 'Bank account verified: $name.');
-      // Replace this page with the withdraw screen so a later back press goes
-      // to the profile, not back to the add-account step.
-      AppNavigation.replace<Object?, Object?>(AppRoutes.withdraw);
+      // Done — hand the result back to whoever pushed us. (This used to
+      // replace into the withdraw screen, a leftover from the pre-cash-only
+      // withdraw flow; with cash trips there is no balance to withdraw, and
+      // landing there from the promo-account prompt was a dead end.)
+      AppNavigation.pop(true);
     }
   }
 
@@ -101,11 +104,12 @@ class _AddPayoutAccountPageState extends ConsumerState<AddPayoutAccountPage> {
   Widget build(BuildContext context) {
     return DetailScaffold(
       title: 'Add bank account',
-      subtitle: 'Where your withdrawals go',
+      subtitle: 'Where Drivio sends your rewards',
       children: <Widget>[
         Text(
           "Pick your bank and enter your account number. We'll confirm the "
-          'account name with your bank before you can withdraw.',
+          'account name with your bank. Promo payouts and bonuses from '
+          'Drivio go to this account.',
           style: AppTextStyles.body.copyWith(color: context.textDim, height: 1.5),
         ),
         const SizedBox(height: 18),
@@ -134,7 +138,7 @@ class _AddPayoutAccountPageState extends ConsumerState<AddPayoutAccountPage> {
         ],
         const SizedBox(height: 20),
         DrivioButton(
-          label: _saving ? 'Verifying…' : 'Verify & continue',
+          label: _saving ? 'Verifying…' : 'Verify & save',
           loading: _saving,
           disabled: _banksLoading || _banksError,
           onPressed: _verify,

@@ -25,7 +25,10 @@ import 'package:drivio_driver/modules/dash/features/pricing/presentation/logic/c
 import 'package:drivio_driver/modules/dash/features/home/presentation/logic/controller/dashboard_controller.dart';
 import 'package:drivio_driver/modules/dash/features/home/presentation/logic/controller/demand_heatmap_controller.dart';
 import 'package:drivio_driver/modules/dash/features/home/presentation/logic/controller/home_controller.dart';
+import 'package:drivio_driver/modules/commons/data/payout_account_repository.dart';
+import 'package:drivio_driver/modules/commons/types/payout_account.dart';
 import 'package:drivio_driver/modules/dash/features/home/presentation/logic/controller/presence_controller.dart';
+import 'package:drivio_driver/modules/dash/features/home/presentation/ui/widgets/add_bank_prompt_sheet.dart';
 import 'package:drivio_driver/modules/dash/features/home/presentation/ui/widgets/driver_tab_bar.dart';
 import 'package:drivio_driver/modules/dash/features/home/presentation/ui/widgets/kyc_gate_sheet.dart';
 import 'package:drivio_driver/modules/dash/features/home/presentation/ui/widgets/location_gate_sheet.dart';
@@ -40,6 +43,13 @@ import 'package:drivio_driver/modules/subscription/features/paywall/presentation
 import 'package:drivio_driver/modules/trip/features/active_trip/presentation/logic/controller/active_trip_controller.dart';
 import 'package:drivio_driver/modules/trip/features/active_trip/presentation/logic/controller/trip_location_recorder.dart';
 import 'package:drivio_driver/modules/trip/features/ride_request/presentation/logic/controller/ride_request_controller.dart';
+
+/// Whether the missing-bank-account check has already run this process
+/// launch. File-level (not widget state) so re-mounting the shell —
+/// route replacement, hot restart of the page, sign-out/in — can't
+/// re-nag within the same app open. Resets only on a fresh launch,
+/// which is exactly the "once per open" contract.
+bool _bankPromptShownThisLaunch = false;
 
 /// The single home/bidding/trip canvas. One MapLibre instance lives here
 /// for the lifetime of the page; bottom-sheet bodies and top overlays
@@ -82,6 +92,9 @@ class _DriveShellPageState extends ConsumerState<DriveShellPage>
   // sheet can render the right copy + CTA (re-prompt vs Open Settings).
   bool _locationGateOpen = false;
   LocationPermState _locationGateReason = LocationPermState.unknown;
+  // Once-per-launch "add your bank account" nudge (see
+  // [_maybePromptForBankAccount]).
+  bool _bankPromptOpen = false;
 
   @override
   void initState() {
@@ -94,7 +107,33 @@ class _DriveShellPageState extends ConsumerState<DriveShellPage>
       ref.read(subscriptionControllerProvider.notifier).refresh();
       unawaited(_reconcileActiveTrip());
       unawaited(_reconcileOnlineState());
+      unawaited(_maybePromptForBankAccount());
     });
+  }
+
+  /// Once per app open: if the driver has no saved bank account (used for
+  /// Drivio promo payouts and bonuses — trips are cash-in-hand, so this is
+  /// not about earnings), raise the add-bank-account sheet. The flag flips
+  /// before the lookup so the check itself runs at most once per launch —
+  /// a driver who already has an account is never re-queried this session
+  /// either. Best-effort: a lookup failure stays silent (never block or
+  /// nag on a network blip; the next launch retries), and the sheet only
+  /// opens over the idle shell — never over a trip the driver cold-started
+  /// back into, nor an in-flight bid.
+  Future<void> _maybePromptForBankAccount() async {
+    if (_bankPromptShownThisLaunch) return;
+    _bankPromptShownThisLaunch = true;
+    try {
+      final PayoutAccount? account =
+          await locator<PayoutAccountRepository>().getMyPayoutAccount();
+      if (!mounted || account != null) return;
+      // Re-check the mode AFTER the fetch: the active-trip reconciler may
+      // have flipped the shell into trip mode while the lookup ran.
+      if (!ref.read(driveShellControllerProvider).isIdle) return;
+      setState(() => _bankPromptOpen = true);
+    } catch (_) {
+      // Best-effort — no nudge this open; the next launch checks again.
+    }
   }
 
   @override
@@ -623,6 +662,14 @@ class _DriveShellPageState extends ConsumerState<DriveShellPage>
                 if (mounted) {
                   setState(() => _locationGateOpen = false);
                 }
+              },
+            ),
+          if (_bankPromptOpen)
+            AddBankPromptSheet(
+              onDismiss: () => setState(() => _bankPromptOpen = false),
+              onAdd: () {
+                setState(() => _bankPromptOpen = false);
+                AppNavigation.push<void>(AppRoutes.addBankAccount);
               },
             ),
         ],
