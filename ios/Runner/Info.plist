@@ -68,6 +68,8 @@
 		<string>Drivio needs photo library access so you can attach existing pictures of your vehicle documents.</string>
 		<key>NSMicrophoneUsageDescription</key>
 		<string>Drivio uses the microphone for in-app voice calls with riders.</string>
+		<key>NSFaceIDUsageDescription</key>
+		<string>Drivio uses Face ID so you can sign in quickly and securely.</string>
 		<key>UIApplicationSupportsIndirectInputEvents</key>
 		<true/>
 		<key>UILaunchStoryboardName</key>
