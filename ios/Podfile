@@ -25,6 +25,15 @@ end
 
 require File.expand_path(File.join('packages', 'flutter_tools', 'bin', 'podhelper'), flutter_root)
 
+# Vendored from google_mlkit_commons 0.13.0 (our resolved version, 0.11.1,
+# predates it). Google's ML Kit pods ship no arm64-simulator slice and mark
+# EXCLUDED_ARCHS=arm64 for simulators, which Xcode 26's arm64-only iOS 26
+# runtimes can't build for at all. The helper strips that exclusion and adds
+# a build phase that relabels the arm64 slice's LC_BUILD_VERSION.platform to
+# whichever target (device/simulator) is being built. Delete ios/scripts and
+# this require once google_mlkit_face_detection >=0.15 lands transitively.
+require File.expand_path(File.join('scripts', 'apple_silicon_simulator'), __dir__)
+
 flutter_ios_podfile_setup
 
 target 'Runner' do
@@ -49,4 +58,6 @@ post_install do |installer|
       ]
     end
   end
+
+  mlkit_apple_silicon_simulator_patch(installer)
 end
